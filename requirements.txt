@@ -1,0 +1,6 @@
+biopython>=1.81
+numpy>=1.24.0
+nvidia-ml-py>=12.0.0
+pyyaml>=6.0
+pdbfixer>=1.12.0
+openmm>=8.2
