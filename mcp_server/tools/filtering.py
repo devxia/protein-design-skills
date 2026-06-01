@@ -73,26 +73,39 @@ def run_filtering(params: dict[str, Any], progress_callback: callable) -> dict[s
     failed = []
 
     for design in designs:
+        # Support both nested "metrics" dict and top-level fields
         metrics = design.get("metrics", {})
         passed = True
         reasons = []
 
+        # pLDDT: try metrics.mean_plddt first, then top-level plddt
         plddt = metrics.get("mean_plddt")
+        if plddt is None:
+            plddt = design.get("plddt")
         if plddt is not None and plddt < min_plddt:
             passed = False
             reasons.append(f"pLDDT {plddt:.1f} < {min_plddt}")
 
+        # ipTM: try metrics.iptm first, then top-level iptm
         iptm = metrics.get("iptm")
+        if iptm is None:
+            iptm = design.get("iptm")
         if iptm is not None and iptm < min_iptm:
             passed = False
             reasons.append(f"ipTM {iptm:.3f} < {min_iptm}")
 
+        # pTM: try metrics.ptm first, then top-level ptm
         ptm = metrics.get("ptm")
+        if ptm is None:
+            ptm = design.get("ptm")
         if ptm is not None and ptm < min_ptm:
             passed = False
             reasons.append(f"pTM {ptm:.3f} < {min_ptm}")
 
+        # has_clash: try metrics.has_clash first, then top-level has_clash
         has_clash = metrics.get("has_clash", False)
+        if not has_clash:
+            has_clash = design.get("has_clash", False)
         if has_clash and not allow_clashes:
             passed = False
             reasons.append("has_clash=true")

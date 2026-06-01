@@ -5,14 +5,96 @@ step before any design tool (RFdiffusion, ProteinMPNN, AlphaFold3).
 
 Handles: non-standard residue conversion, heterogen removal, missing heavy
 atom reconstruction. Does NOT add hydrogens (design tools don't need them).
+
+Supports both in-process execution and cross-conda-environment execution
+via the ``conda_env`` parameter.
 """
 
+import json
 import logging
 import os
+import tempfile
 from pathlib import Path
 from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
+
+# Self-contained PDBFixer script template for execution in external conda envs.
+# Must NOT import anything from mcp_server — only pdbfixer + stdlib.
+_PDBFIXER_SCRIPT_TEMPLATE = r'''import json
+import os
+import sys
+from pathlib import Path
+
+input_pdb = sys.argv[1]
+output_pdb = sys.argv[2]
+keep_chains_raw = sys.argv[3]  # comma-separated or "__none__"
+seed = int(sys.argv[4])
+
+keep_chains = None
+if keep_chains_raw != "__none__":
+    keep_chains = [c.strip() for c in keep_chains_raw.split(",") if c.strip()]
+
+from pdbfixer import PDBFixer
+from openmm.app import PDBFile
+
+fixer = PDBFixer(filename=input_pdb)
+log = {"input": input_pdb, "fixes": []}
+
+# 1. Keep only specified chains
+if keep_chains:
+    all_chains = list(fixer.topology.chains())
+    to_remove = [i for i, chain in enumerate(all_chains) if chain.id not in keep_chains]
+    if to_remove:
+        fixer.removeChains(chainIndices=to_remove)
+        removed_ids = [all_chains[i].id for i in to_remove]
+        log["fixes"].append(f"removed_chains: {removed_ids}")
+
+# 2. Non-standard residues
+fixer.findNonstandardResidues()
+if fixer.nonstandardResidues:
+    replacements = [f"{residue.name}->{standard}" for residue, standard in fixer.nonstandardResidues]
+    log["fixes"].append(f"nonstandard_residues: {replacements}")
+    fixer.replaceNonstandardResidues()
+else:
+    log["fixes"].append("no_nonstandard_residues")
+
+# 3. Remove heterogens
+removed = fixer.removeHeterogens(keepWater=False)
+if removed:
+    het_names = sorted(set(r.name for r in removed))
+    log["fixes"].append(f"removed_heterogens: {het_names}")
+else:
+    log["fixes"].append("no_heterogens")
+
+# 4. Missing residues (warn but do NOT add)
+fixer.findMissingResidues()
+if fixer.missingResidues:
+    missing_info = [f"chain_{chain_id}_pos_{residue_idx}: {residue_names}"
+                    for (chain_id, residue_idx), residue_names in fixer.missingResidues.items()]
+    log["fixes"].append(f"missing_residues_skipped: {missing_info}")
+    log["warnings"] = ["Missing residues detected but NOT added (automatic loop building is unreliable)."]
+    fixer.missingResidues = {}
+else:
+    log["fixes"].append("no_missing_residues")
+
+# 5. Missing heavy atoms
+fixer.findMissingAtoms()
+if fixer.missingAtoms:
+    missing_count = len(fixer.missingAtoms)
+    log["fixes"].append(f"added_missing_atoms: {missing_count}_residues")
+    fixer.addMissingAtoms(seed=seed)
+else:
+    log["fixes"].append("no_missing_atoms")
+
+# 6. Write output
+Path(output_pdb).parent.mkdir(parents=True, exist_ok=True)
+PDBFile.writeFile(fixer.topology, fixer.positions, open(output_pdb, "w"))
+log["output"] = output_pdb
+
+# Emit JSON result on stdout
+print(json.dumps(log))
+'''
 
 
 def _import_pdbfixer() -> tuple[Any, Any]:
@@ -24,6 +106,90 @@ def _import_pdbfixer() -> tuple[Any, Any]:
     except ImportError:
         from mcp_server.tools.tool_installer import get_missing_tool_prompt
         raise RuntimeError(get_missing_tool_prompt("pdbfixer"))
+
+
+def _run_pdbfixer_in_conda(
+    input_pdb: str,
+    output_pdb: str,
+    keep_chains: Optional[list[str]],
+    seed: int,
+    conda_env: str,
+) -> dict[str, Any]:
+    """Run PDBFixer preprocessing in an external conda environment.
+
+    Generates a self-contained temporary Python script and executes it
+    inside the specified conda environment via ``conda run``.
+
+    Args:
+        input_pdb: Path to input PDB file.
+        output_pdb: Path for the preprocessed output PDB file.
+        keep_chains: Optional list of chain IDs to retain.
+        seed: Random seed for missing atom reconstruction.
+        conda_env: Name of the target conda environment.
+
+    Returns:
+        Processing log dict.
+    """
+    with tempfile.NamedTemporaryFile(
+        mode="w", suffix="_pdbfixer.py", delete=False
+    ) as f:
+        f.write(_PDBFIXER_SCRIPT_TEMPLATE)
+        script_path = f.name
+
+    keep_str = ",".join(keep_chains) if keep_chains else "__none__"
+
+    try:
+        from mcp_server.utils.conda_utils import run_in_conda_with_logs
+
+        stdout_log = os.path.join(
+            os.path.dirname(output_pdb), "pdbfixer_stdout.log"
+        )
+        stderr_log = os.path.join(
+            os.path.dirname(output_pdb), "pdbfixer_stderr.log"
+        )
+
+        run_in_conda_with_logs(
+            ["python", script_path, input_pdb, output_pdb, keep_str, str(seed)],
+            env_name=conda_env,
+            stdout_log=stdout_log,
+            stderr_log=stderr_log,
+        )
+
+        # Parse JSON result from stdout log
+        with open(stdout_log, "r") as f:
+            # The last non-empty line should be the JSON output
+            lines = [ln.strip() for ln in f.readlines() if ln.strip()]
+            if not lines:
+                raise RuntimeError("PDBFixer produced no output")
+
+            # Try the last line first (most likely the JSON result)
+            for line in reversed(lines):
+                try:
+                    result = json.loads(line)
+                    if "fixes" in result:
+                        return result
+                except json.JSONDecodeError:
+                    continue
+
+            # Fallback: try to parse any JSON object in the output
+            for line in lines:
+                try:
+                    result = json.loads(line)
+                    if isinstance(result, dict) and "fixes" in result:
+                        return result
+                except json.JSONDecodeError:
+                    continue
+
+            raise RuntimeError(
+                f"Could not parse PDBFixer output. See {stdout_log} and {stderr_log}"
+            )
+
+    finally:
+        # Clean up temporary script
+        try:
+            os.unlink(script_path)
+        except OSError:
+            pass
 
 
 def preprocess_for_design(
@@ -148,18 +314,24 @@ def preprocess_for_design(
 def run_pdbfixer(params: dict[str, Any], progress_callback: callable) -> dict[str, Any]:
     """Execute PDBFixer preprocessing as an MCP tool.
 
+    Supports both in-process execution (default) and cross-conda-environment
+    execution via the ``conda_env`` parameter.
+
     Args:
-        params: Dict with input_pdb, output_pdb, keep_chains, seed.
+        params: Dict with input_pdb, output_pdb, keep_chains, seed, conda_env.
         progress_callback: Function(progress: int) to update progress.
 
     Returns:
         Result dict with status, output_path, and log.
     """
-    # Early dependency check
-    try:
-        _import_pdbfixer()
-    except RuntimeError as exc:
-        return exc.args[0] if exc.args else {"error": "PDBFixer not installed"}
+    conda_env = params.get("conda_env")
+
+    # Early dependency check (only when running in-process)
+    if not conda_env:
+        try:
+            _import_pdbfixer()
+        except RuntimeError as exc:
+            return exc.args[0] if exc.args else {"error": "PDBFixer not installed"}
 
     progress_callback(10)
 
@@ -179,12 +351,24 @@ def run_pdbfixer(params: dict[str, Any], progress_callback: callable) -> dict[st
     seed = int(params.get("seed", 42))
 
     progress_callback(30)
-    log = preprocess_for_design(input_pdb, output_pdb, keep_chains=keep_chains, seed=seed)
+
+    if conda_env:
+        log = _run_pdbfixer_in_conda(
+            input_pdb, output_pdb, keep_chains, seed, conda_env
+        )
+    else:
+        log = preprocess_for_design(
+            input_pdb, output_pdb, keep_chains=keep_chains, seed=seed
+        )
+
     progress_callback(100)
 
-    return {
+    result = {
         "status": "completed",
         "output_path": output_pdb,
         "output_dir": os.path.dirname(output_pdb),
         "log": log,
     }
+    if conda_env:
+        result["conda_env"] = conda_env
+    return result

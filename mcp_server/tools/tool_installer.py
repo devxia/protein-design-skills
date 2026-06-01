@@ -103,7 +103,10 @@ Or if conda is unavailable:
 def _find_tool_in_conda_env(tool_name: str, env_name: str) -> str | None:
     """Try to locate a tool script inside a specific conda environment.
 
-    Searches common install locations under the conda env's home directory.
+    Searches in this order:
+      1. Editable installs (via Python import in the target env)
+      2. Common filesystem locations under the conda env prefix
+      3. User home and system-wide default paths
 
     Args:
         tool_name: Tool identifier.
@@ -112,9 +115,49 @@ def _find_tool_in_conda_env(tool_name: str, env_name: str) -> str | None:
     Returns:
         Absolute path to the script if found, else None.
     """
-    import shutil
     import subprocess
 
+    # ── Strategy 1: editable-install detection via Python import ──
+    # For packages installed with "pip install -e .", the code lives outside
+    # the conda prefix. We run a tiny Python script in the target env to
+    # locate the package directory and then infer the script path.
+
+    editable_probes: dict[str, tuple[str, str]] = {
+        "rfdiffusion": (
+            "import rfdiffusion, os; print(os.path.dirname(rfdiffusion.__file__))",
+            os.path.join("..", "scripts", "run_inference.py"),
+        ),
+        "proteinmpnn": (
+            "import protein_mpnn_utils, os; print(os.path.dirname(protein_mpnn_utils.__file__))",
+            os.path.join("..", "protein_mpnn_run.py"),
+        ),
+        "alphafold3": (
+            "import importlib.util, os; "
+            "spec = importlib.util.find_spec('alphafold3'); "
+            "print(spec.origin if spec and spec.origin else '')",
+            os.path.join("..", "run_alphafold.py"),
+        ),
+    }
+
+    probe_code, rel_script = editable_probes.get(tool_name, ("", ""))
+    if probe_code:
+        try:
+            proc = subprocess.run(
+                ["conda", "run", "-n", env_name, "python", "-c", probe_code],
+                capture_output=True, text=True, check=False, timeout=15,
+            )
+            if proc.returncode == 0:
+                pkg_dir = proc.stdout.strip()
+                if pkg_dir and os.path.isdir(pkg_dir):
+                    candidate = os.path.normpath(
+                        os.path.join(pkg_dir, rel_script)
+                    )
+                    if os.path.exists(candidate):
+                        return os.path.abspath(candidate)
+        except Exception:
+            pass
+
+    # ── Strategy 2: conda-prefix + fallback filesystem search ──
     try:
         proc = subprocess.run(
             ["conda", "run", "-n", env_name, "python", "-c",

@@ -89,7 +89,7 @@ TOOL_SCHEMAS: list[dict[str, Any]] = [
     },
     {
         "name": "run_pdbfixer",
-        "description": "Preprocess a PDB/CIF file with PDBFixer. Mandatory before RFdiffusion/ProteinMPNN. Fixes non-standard residues, removes heterogens, adds missing heavy atoms. Does NOT add hydrogens or missing loops.",
+        "description": "Preprocess a PDB/CIF file with PDBFixer. Mandatory before RFdiffusion/ProteinMPNN. Fixes non-standard residues, removes heterogens, adds missing heavy atoms. Does NOT add hydrogens or missing loops. Supports cross-conda-environment execution via conda_env.",
         "inputSchema": {
             "type": "object",
             "properties": {
@@ -102,6 +102,7 @@ TOOL_SCHEMAS: list[dict[str, Any]] = [
                     "description": "Chain IDs to retain (e.g., ['A', 'B']). All kept if omitted.",
                 },
                 "seed": {"type": "integer", "default": 42, "description": "Random seed for missing atom reconstruction"},
+                "conda_env": {"type": "string", "description": "Optional conda environment name where PDBFixer is installed. Use this when PDBFixer is not in the current environment."},
             },
             "required": ["input_pdb"],
         },
@@ -170,7 +171,7 @@ TOOL_SCHEMAS: list[dict[str, Any]] = [
     },
     {
         "name": "convert_format",
-        "description": "Convert between protein design file formats: ProteinMPNN FASTA to AlphaFold3 JSON, or validate PDB.",
+        "description": "Convert between protein design file formats: ProteinMPNN FASTA to AlphaFold3 JSON (with optional receptor PDB for multi-chain complexes), or validate PDB.",
         "inputSchema": {
             "type": "object",
             "properties": {
@@ -180,8 +181,22 @@ TOOL_SCHEMAS: list[dict[str, Any]] = [
                 "output_path": {"type": "string", "description": "Output file path"},
                 "job_name": {"type": "string", "description": "Job name for AF3 JSON"},
                 "seed": {"type": "integer", "default": 1, "description": "Seed for AF3 JSON"},
+                "receptor_pdb": {"type": "string", "description": "Optional path to receptor PDB file. When provided, the receptor sequence is prepended to the design sequence for multi-chain AlphaFold3 input."},
+                "receptor_chain": {"type": "string", "description": "Optional chain ID in receptor_pdb to extract. If omitted, uses the first available chain."},
             },
             "required": ["from_format", "to_format", "input_path"],
+        },
+    },
+    {
+        "name": "analyze_alphafold3_results",
+        "description": "Parse and analyze AlphaFold3 prediction results from an output directory. Extracts confidence metrics (pLDDT, pTM, ipTM, per-chain pLDDT, ranking scores, clash status) without re-running the prediction.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "output_dir": {"type": "string", "description": "AlphaFold3 output directory to analyze"},
+                "job_name": {"type": "string", "description": "Optional job name used for output files. Auto-detected if omitted."},
+            },
+            "required": ["output_dir"],
         },
     },
     {
@@ -396,6 +411,10 @@ def execute_tool(name: str, arguments: dict[str, Any]) -> dict[str, Any]:
     if name == "convert_format":
         from mcp_server.tools.format_converter import convert_format
         return convert_format(arguments)
+
+    if name == "analyze_alphafold3_results":
+        from mcp_server.tools.alphafold import analyze_alphafold3_results
+        return analyze_alphafold3_results(arguments, lambda p: None)
 
     # Direct tool execution (non-async)
     _ensure_tool_executors()

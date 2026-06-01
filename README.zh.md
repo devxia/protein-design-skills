@@ -405,12 +405,13 @@ kimi-protein-design/
 | `submit_job` | 提交异步计算任务 |
 | `query_job` | 按 task_id 轮询任务状态 |
 | `cancel_job` | 取消正在运行的任务 |
-| `run_pdbfixer` | 预处理 PDB/CIF（Stage 0 必需） |
+| `run_pdbfixer` | 预处理 PDB/CIF（Stage 0 必需）。支持通过 `conda_env` 跨 conda 环境执行 |
 | `run_rfdiffusion` | 生成蛋白质骨架 |
 | `run_proteinmpnn` | 设计氨基酸序列 |
 | `run_alphafold3` | 预测并验证结构 |
-| `convert_format` | 将 FASTA 转换为 AlphaFold3 JSON（支持 `protein`/`proteinChain` 两种 schema） |
-| `run_filtering` | 按指标过滤和排序 |
+| `convert_format` | 将 FASTA 转换为 AlphaFold3 JSON。支持 `protein`/`proteinChain` 两种 schema，以及可选的 `receptor_pdb` 参数用于多链复合物 |
+| `run_filtering` | 按指标过滤和排序（支持 `metrics` 嵌套字典和顶层字段两种格式） |
+| `analyze_alphafold3_results` | 解析 AF3 输出目录，提取置信度指标（pLDDT、ipTM、pTM、每链 pLDDT、排名分数）无需重新运行 |
 | `check_batch_progress` | 同时检查多个任务 |
 
 
@@ -518,12 +519,47 @@ timeout = 5
 | 问题 | 解决方案 |
 |-------|----------|
 | 插件未加载 | 安装后运行 `/new` |
-| `run_pdbfixer` 未找到 | `conda install -c conda-forge pdbfixer openmm` |
+| `run_pdbfixer` 未找到 | `conda install -c conda-forge pdbfixer openmm`，或使用 `conda_env` 参数在另一环境中执行 |
 | RFdiffusion 未找到 | 设置 `RFDIFFUSION_PATH` 环境变量 |
 | GPU 显存不足 | 减小 `num_designs` 或 `diffuser_T` |
 | AlphaFold3 MSA 超时 | 默认运行完整 MSA。设置 `run_data_pipeline=false` 可跳过（更快，精度稍低） |
-| 工具在其他环境中未找到 | `check_all_tools` 现在会自动扫描常见 conda 环境 |
+| 工具在其他环境中未找到 | `check_all_tools` 现在会自动扫描常见 conda 环境 + editable install |
+| 验证结合物需要受体 | 使用 `convert_format` 的 `receptor_pdb` 参数生成多链 AF3 JSON |
 | Hooks 未生效 | 验证 `~/.kimi-code/config.toml` 语法，然后 `/new` |
+
+
+## 跨 Conda 环境执行
+
+如果你的工具安装在不同 conda 环境中（例如 PDBFixer 在 `BindCraft`，RFdiffusion 在 `protein-design`，AlphaFold3 在 `AF3`），无需全部安装到一个环境中：
+
+- **`run_pdbfixer`**：使用 `conda_env="BindCraft"` 在目标环境中运行 PDBFixer
+- **`run_rfdiffusion` / `run_proteinmpnn` / `run_alphafold3`**：使用 `conda_env` 或 `wrapper_script` 指定目标环境
+
+插件会自动检测跨常见 conda 环境和 editable install 的工具。
+
+
+## 多链复合物验证
+
+对于结合物/多肽设计验证，AlphaFold3 需要将受体和设计的肽段放在同一个 JSON 中。无需手动编写 JSON：
+
+```python
+# 自动生成包含受体 + 设计肽段的 AF3 JSON
+convert_format(
+    from_format="fasta",
+    to_format="alphafold3_json",
+    input_path="/path/to/proteinmpnn_out.fasta",
+    receptor_pdb="/path/to/receptor_fixed.pdb",
+    receptor_chain="A",
+    job_name="binder_validation"
+)
+```
+
+AlphaFold3 完成后，无需重新运行即可分析结果：
+
+```python
+analyze_alphafold3_results(output_dir="/path/to/af3_output", job_name="binder_validation")
+# 返回：每链 pLDDT、ipTM、pTM、排名分数、冲突状态、最佳结构
+```
 
 
 ## Wrapper 脚本

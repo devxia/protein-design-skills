@@ -18,6 +18,7 @@ import json
 import logging
 import os
 import subprocess
+import time
 from pathlib import Path
 from typing import Any
 
@@ -273,21 +274,52 @@ def _parse_confidence_metrics(output_dir: str, job_name: str) -> dict[str, Any]:
             if "atom_plddts" in full_conf:
                 plddts = full_conf["atom_plddts"]
                 metrics["mean_plddt"] = round(sum(plddts) / len(plddts), 2) if plddts else None
+
+                # Compute per-chain pLDDT from atom_plddts + atom_chain_ids
+                chain_ids = full_conf.get("atom_chain_ids", [])
+                if chain_ids and len(chain_ids) == len(plddts):
+                    chain_plddt: dict[str, Any] = {}
+                    for cid, plddt in zip(chain_ids, plddts):
+                        cid_str = str(cid)
+                        if cid_str not in chain_plddt:
+                            chain_plddt[cid_str] = {"sum": 0.0, "count": 0}
+                        chain_plddt[cid_str]["sum"] += plddt
+                        chain_plddt[cid_str]["count"] += 1
+                    metrics["per_chain_plddt"] = {
+                        cid: round(info["sum"] / info["count"], 2)
+                        for cid, info in chain_plddt.items()
+                    }
+
             if "chain_plddt" in full_conf:
                 metrics["chain_plddt"] = full_conf["chain_plddt"]
         except Exception as exc:
             logger.warning("Failed to parse full confidences: %s", exc)
 
-    # Fallback: parse ranking_scores.csv
+    # Parse ranking_scores.csv for all samples
     ranking_path = os.path.join(output_dir, f"{job_name}_ranking_scores.csv")
-    if os.path.exists(ranking_path) and not metrics.get("ranking_score"):
+    if os.path.exists(ranking_path):
         try:
             with open(ranking_path, "r") as f:
                 lines = f.readlines()
-            if len(lines) > 1:
-                parts = lines[1].strip().split(",")
-                if len(parts) >= 2:
-                    metrics["ranking_score"] = float(parts[1])
+            samples = []
+            for line in lines[1:]:
+                line = line.strip()
+                if not line:
+                    continue
+                parts = line.split(",")
+                if len(parts) >= 3:
+                    samples.append({
+                        "seed": parts[0].strip(),
+                        "sample": parts[1].strip(),
+                        "ranking_score": float(parts[2].strip()),
+                    })
+            if samples:
+                metrics["samples"] = samples
+                metrics["best_sample_score"] = max(
+                    s["ranking_score"] for s in samples
+                )
+            if not metrics.get("ranking_score") and samples:
+                metrics["ranking_score"] = samples[0]["ranking_score"]
         except Exception as exc:
             logger.warning("Failed to parse ranking scores: %s", exc)
 
@@ -554,4 +586,63 @@ def run_alphafold3(params: dict[str, Any], progress_callback: callable) -> dict[
             "gpu_flags": gpu_flags,
             "run_data_pipeline": user_wants_msa,
         },
+    }
+
+
+def analyze_alphafold3_results(
+    params: dict[str, Any], progress_callback: callable
+) -> dict[str, Any]:
+    """Analyze AlphaFold3 prediction results from an output directory.
+
+    Extracts confidence metrics (pLDDT, pTM, ipTM, per-chain pLDDT,
+    ranking scores, clash status) from AlphaFold3 output files without
+    re-running the prediction.
+
+    Args:
+        params: Dict with output_dir and optional job_name.
+        progress_callback: Function(progress: int) to update progress.
+
+    Returns:
+        Result dict with parsed metrics, per-sample scores, and file paths.
+    """
+    progress_callback(10)
+
+    output_dir = params["output_dir"]
+    if not os.path.isdir(output_dir):
+        raise FileNotFoundError(f"Output directory not found: {output_dir}")
+
+    # Infer job_name from directory contents if not provided
+    job_name = params.get("job_name")
+    if not job_name:
+        # Look for summary_confidences.json files to infer job name
+        pattern = os.path.join(output_dir, "*_summary_confidences.json")
+        candidates = glob.glob(pattern)
+        if candidates:
+            basename = os.path.basename(candidates[0])
+            job_name = basename.replace("_summary_confidences.json", "")
+        else:
+            job_name = "af3_design"
+
+    progress_callback(40)
+
+    # Parse top-level metrics
+    metrics = _parse_confidence_metrics(output_dir, job_name)
+
+    progress_callback(70)
+
+    # Collect results from subdirectories (seed/sample)
+    collected = _collect_all_results(output_dir)
+
+    progress_callback(100)
+
+    return {
+        "status": "completed",
+        "output_dir": output_dir,
+        "job_name": job_name,
+        "metrics": metrics,
+        "structures": collected["all_structures"],
+        "num_structures": len(collected["all_structures"]),
+        "best_structure": collected["best_structure"],
+        "best_metrics": collected["best_metrics"],
+        "all_metrics": collected["all_metrics"],
     }

@@ -405,12 +405,13 @@ kimi-protein-design/
 | `submit_job` | Submit async computation job |
 | `query_job` | Poll job status by task_id |
 | `cancel_job` | Cancel a running job |
-| `run_pdbfixer` | Preprocess PDB/CIF (mandatory Stage 0) |
+| `run_pdbfixer` | Preprocess PDB/CIF (mandatory Stage 0). Supports cross-conda-environment execution via `conda_env` |
 | `run_rfdiffusion` | Generate protein backbones |
 | `run_proteinmpnn` | Design amino acid sequences |
 | `run_alphafold3` | Predict and validate structures |
-| `convert_format` | Convert FASTA → AlphaFold3 JSON (supports `protein`/`proteinChain` schema) |
-| `run_filtering` | Filter and rank by metrics |
+| `convert_format` | Convert FASTA → AlphaFold3 JSON. Supports `protein`/`proteinChain` schema and optional `receptor_pdb` for multi-chain complexes |
+| `run_filtering` | Filter and rank by metrics (accepts both `metrics` nested dict and top-level fields) |
+| `analyze_alphafold3_results` | Parse AF3 output directory and extract confidence metrics (pLDDT, ipTM, pTM, per-chain pLDDT, ranking scores) without re-running |
 | `check_batch_progress` | Check multiple jobs at once |
 
 
@@ -518,12 +519,47 @@ For large-scale screening (>10 designs), use CronCreate instead of blocking poll
 | Issue | Solution |
 |-------|----------|
 | Plugin not loading | Run `/new` after installation |
-| `run_pdbfixer` not found | `conda install -c conda-forge pdbfixer openmm` |
+| `run_pdbfixer` not found | `conda install -c conda-forge pdbfixer openmm`, or use `conda_env` param to run in another env |
 | RFdiffusion not found | Set `RFDIFFUSION_PATH` env var |
 | GPU out of memory | Reduce `num_designs` or `diffuser_T` |
 | AlphaFold3 MSA timeout | Default runs full MSA. Set `run_data_pipeline=false` to skip (faster, less accurate) |
-| Tool not found in other env | `check_all_tools` now auto-scans common conda envs |
+| Tool not found in other env | `check_all_tools` now auto-scans common conda envs + editable installs |
+| Binder validation needs receptor | Use `convert_format` with `receptor_pdb` to generate multi-chain AF3 JSON |
 | Hooks not working | Verify `~/.kimi-code/config.toml` syntax, then `/new` |
+
+
+## Cross-Conda Environment Execution
+
+If your tools are installed in different conda environments (e.g., PDBFixer in `BindCraft`, RFdiffusion in `protein-design`, AlphaFold3 in `AF3`), you don't need to install them all in one env:
+
+- **`run_pdbfixer`**: Use `conda_env="BindCraft"` to run PDBFixer in the target environment
+- **`run_rfdiffusion` / `run_proteinmpnn` / `run_alphafold3`**: Use `conda_env` or `wrapper_script` to specify the target environment
+
+The plugin auto-detects tools across common conda environments and editable installs.
+
+
+## Multi-Chain Complex Validation
+
+For binder/peptide design validation, AlphaFold3 needs both the receptor and the designed peptide in one JSON. Instead of manually writing the JSON:
+
+```python
+# Auto-generates AF3 JSON with receptor + designed peptide
+convert_format(
+    from_format="fasta",
+    to_format="alphafold3_json",
+    input_path="/path/to/proteinmpnn_out.fasta",
+    receptor_pdb="/path/to/receptor_fixed.pdb",
+    receptor_chain="A",
+    job_name="binder_validation"
+)
+```
+
+After AlphaFold3 finishes, analyze results without re-running:
+
+```python
+analyze_alphafold3_results(output_dir="/path/to/af3_output", job_name="binder_validation")
+# Returns: per-chain pLDDT, ipTM, pTM, ranking scores, clash status, best structure
+```
 
 
 ## Wrapper Scripts
