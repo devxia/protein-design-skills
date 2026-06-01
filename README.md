@@ -145,7 +145,7 @@ docker build -t alphafold3 -f docker/Dockerfile .
 # Follow: https://github.com/google-deepmind/alphafold3/blob/main/docs/installation.md
 ```
 
-> **Note:** The current plugin code uses local Python execution (`python run_alphafold.py`). For Docker mode, you would need to modify `mcp_server/tools/alphafold.py` to wrap commands in `docker run`. See the comments in that file for guidance.
+> **Note:** The plugin uses local Python execution by default. For Docker mode or custom environment setups, use the `wrapper_script` parameter (see [Wrapper Scripts](#wrapper-scripts) below).
 
 #### Option B: Local Installation
 
@@ -203,6 +203,8 @@ EOF
 Replace `/Users/YOURNAME` with your actual home directory path.
 
 **Conda Environments**: If each tool is installed in a separate conda environment, set the env name above. The plugin will automatically wrap commands with `conda run -n <env>`. If a tool is in the current environment, leave it as `null`.
+
+**Wrapper Scripts**: For complex setups (custom `XLA_FLAGS`, multiple conda activations, or Docker wrappers), you can provide a shell script path via the `wrapper_script` parameter when running any tool. The wrapper receives the tool command as arguments. See [Wrapper Scripts](#wrapper-scripts) for details.
 
 **Method C: Symlinks** (simplest if you don't want config files)
 
@@ -407,7 +409,7 @@ kimi-protein-design/
 | `run_rfdiffusion` | Generate protein backbones |
 | `run_proteinmpnn` | Design amino acid sequences |
 | `run_alphafold3` | Predict and validate structures |
-| `convert_format` | Convert FASTA → AlphaFold3 JSON |
+| `convert_format` | Convert FASTA → AlphaFold3 JSON (supports `protein`/`proteinChain` schema) |
 | `run_filtering` | Filter and rank by metrics |
 | `check_batch_progress` | Check multiple jobs at once |
 
@@ -519,8 +521,48 @@ For large-scale screening (>10 designs), use CronCreate instead of blocking poll
 | `run_pdbfixer` not found | `conda install -c conda-forge pdbfixer openmm` |
 | RFdiffusion not found | Set `RFDIFFUSION_PATH` env var |
 | GPU out of memory | Reduce `num_designs` or `diffuser_T` |
-| AlphaFold3 MSA timeout | Set `run_data_pipeline=false` if re-running |
+| AlphaFold3 MSA timeout | Default runs full MSA. Set `run_data_pipeline=false` to skip (faster, less accurate) |
+| Tool not found in other env | `check_all_tools` now auto-scans common conda envs |
 | Hooks not working | Verify `~/.kimi-code/config.toml` syntax, then `/new` |
+
+
+## Wrapper Scripts
+
+For complex execution environments, each tool (`run_rfdiffusion`, `run_proteinmpnn`, `run_alphafold3`) accepts an optional `wrapper_script` path. This is useful when:
+
+- You need custom environment variables (e.g., `XLA_FLAGS` for old GPUs)
+- Your tool requires multiple conda activations or module loads
+- You want to wrap execution in Docker or a job scheduler
+- The tool has a custom launcher script (e.g., `run_af3.sh`)
+
+Example wrapper script (`run_af3.sh`):
+
+```bash
+#!/bin/bash
+# Setup environment
+export XLA_FLAGS="--xla_gpu_cuda_data_dir=/usr/local/cuda"
+export model_dir="~/models"
+export db_dir="~/public_databases"
+
+# The remaining arguments are the actual tool command
+exec "$@"
+```
+
+Usage:
+
+```
+submit_job(tool="alphafold3", params={
+  "json_path": "/path/to/input.json",
+  "output_dir": "/path/to/output",
+  "wrapper_script": "/path/to/run_af3.sh"
+})
+```
+
+When `wrapper_script` is provided, it overrides `conda_env`. The plugin runs:
+
+```bash
+bash /path/to/wrapper_script python run_alphafold.py --json_path=... ...
+```
 
 
 ## License

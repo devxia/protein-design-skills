@@ -145,7 +145,7 @@ docker build -t alphafold3 -f docker/Dockerfile .
 # 参考：https://github.com/google-deepmind/alphafold3/blob/main/docs/installation.md
 ```
 
-> **注意：** 当前插件代码使用本地 Python 执行（`python run_alphafold.py`）。如需 Docker 模式，需要修改 `mcp_server/tools/alphafold.py` 以将命令包装在 `docker run` 中。请参阅该文件中的注释以获取指导。
+> **注意：** 插件默认使用本地 Python 执行。如需 Docker 模式或自定义环境设置，可使用 `wrapper_script` 参数（详见下方的 [Wrapper 脚本](#wrapper-脚本)）。
 
 #### 方案 B：本地安装
 
@@ -203,6 +203,8 @@ EOF
 将 `/Users/YOURNAME` 替换为你的实际主目录路径。
 
 **Conda 环境**：如果每个工具安装在独立的 conda 环境中，在上述配置中设置环境名。插件会自动用 `conda run -n <env>` 包装命令。如果工具在当前环境中，保持为 `null` 即可。
+
+**Wrapper 脚本**：对于复杂环境设置（自定义 `XLA_FLAGS`、多 conda 激活、Docker 包装等），可在运行工具时通过 `wrapper_script` 参数提供 shell 脚本路径。Wrapper 会接收实际工具命令作为参数。详见 [Wrapper 脚本](#wrapper-脚本)。
 
 **方案 C：符号链接**（如果不想使用配置文件，最简单的方式）
 
@@ -407,7 +409,7 @@ kimi-protein-design/
 | `run_rfdiffusion` | 生成蛋白质骨架 |
 | `run_proteinmpnn` | 设计氨基酸序列 |
 | `run_alphafold3` | 预测并验证结构 |
-| `convert_format` | 将 FASTA 转换为 AlphaFold3 JSON |
+| `convert_format` | 将 FASTA 转换为 AlphaFold3 JSON（支持 `protein`/`proteinChain` 两种 schema） |
 | `run_filtering` | 按指标过滤和排序 |
 | `check_batch_progress` | 同时检查多个任务 |
 
@@ -519,8 +521,48 @@ timeout = 5
 | `run_pdbfixer` 未找到 | `conda install -c conda-forge pdbfixer openmm` |
 | RFdiffusion 未找到 | 设置 `RFDIFFUSION_PATH` 环境变量 |
 | GPU 显存不足 | 减小 `num_designs` 或 `diffuser_T` |
-| AlphaFold3 MSA 超时 | 重新运行时设置 `run_data_pipeline=false` |
+| AlphaFold3 MSA 超时 | 默认运行完整 MSA。设置 `run_data_pipeline=false` 可跳过（更快，精度稍低） |
+| 工具在其他环境中未找到 | `check_all_tools` 现在会自动扫描常见 conda 环境 |
 | Hooks 未生效 | 验证 `~/.kimi-code/config.toml` 语法，然后 `/new` |
+
+
+## Wrapper 脚本
+
+对于复杂的执行环境，`run_rfdiffusion`、`run_proteinmpnn`、`run_alphafold3` 均支持可选的 `wrapper_script` 参数。适用于以下场景：
+
+- 需要自定义环境变量（如旧 GPU 的 `XLA_FLAGS`）
+- 工具需要多次 conda 激活或 module load
+- 希望将执行包装在 Docker 或作业调度器中
+- 工具有自定义启动脚本（如 `run_af3.sh`）
+
+示例 wrapper 脚本（`run_af3.sh`）：
+
+```bash
+#!/bin/bash
+# 设置环境
+export XLA_FLAGS="--xla_gpu_cuda_data_dir=/usr/local/cuda"
+export model_dir="~/models"
+export db_dir="~/public_databases"
+
+# 剩余参数为实际工具命令
+exec "$@"
+```
+
+使用方式：
+
+```
+submit_job(tool="alphafold3", params={
+  "json_path": "/path/to/input.json",
+  "output_dir": "/path/to/output",
+  "wrapper_script": "/path/to/run_af3.sh"
+})
+```
+
+当提供 `wrapper_script` 时，它会覆盖 `conda_env`。插件实际执行：
+
+```bash
+bash /path/to/wrapper_script python run_alphafold.py --json_path=... ...
+```
 
 
 ## 许可证
