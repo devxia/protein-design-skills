@@ -122,6 +122,7 @@ TOOL_SCHEMAS: list[dict[str, Any]] = [
                 "ckpt_override_path": {"type": "string", "description": "Override default model checkpoint"},
                 "skip_preprocessing": {"type": "boolean", "default": False, "description": "Skip automatic PDBFixer preprocessing"},
                 "keep_chains": {"type": "array", "items": {"type": "string"}, "description": "Chains to keep during preprocessing"},
+                "conda_env": {"type": "string", "description": "Conda environment name for RFdiffusion (e.g. 'SE3nv'). Falls back to config or current env."},
             },
             "required": ["output_prefix", "contig"],
         },
@@ -141,6 +142,7 @@ TOOL_SCHEMAS: list[dict[str, Any]] = [
                 "fixed_positions_jsonl": {"type": "string", "description": "Path to fixed positions JSONL"},
                 "use_soluble_model": {"type": "boolean", "default": False, "description": "Use soluble protein model"},
                 "seed": {"type": "integer", "default": 37, "description": "Random seed"},
+                "conda_env": {"type": "string", "description": "Conda environment name for ProteinMPNN. Falls back to config or current env."},
             },
             "required": ["pdb_path", "output_folder"],
         },
@@ -158,6 +160,7 @@ TOOL_SCHEMAS: list[dict[str, Any]] = [
                 "num_seeds": {"type": "integer", "default": 1, "description": "Number of seeds"},
                 "num_samples": {"type": "integer", "default": 5, "description": "Samples per seed"},
                 "run_data_pipeline": {"type": "boolean", "default": True, "description": "Run MSA search (CPU-only, slow)"},
+                "conda_env": {"type": "string", "description": "Conda environment name for AlphaFold3. Falls back to config or current env."},
             },
             "required": ["json_path", "output_dir"],
         },
@@ -243,7 +246,7 @@ TOOL_SCHEMAS: list[dict[str, Any]] = [
     },
     {
         "name": "configure_tool_path",
-        "description": "Configure the installation path for a tool and persist it to config. Use this after installing a tool so the plugin can find it. Validates that expected files exist at the given path.",
+        "description": "Configure the installation path for a tool and persist it to config. Use this after installing a tool so the plugin can find it. Validates that expected files exist at the given path. Optionally sets the conda environment name.",
         "inputSchema": {
             "type": "object",
             "properties": {
@@ -255,6 +258,10 @@ TOOL_SCHEMAS: list[dict[str, Any]] = [
                 "path": {
                     "type": "string",
                     "description": "Absolute path to the tool's root directory (e.g., /home/you/RFdiffusion)",
+                },
+                "conda_env": {
+                    "type": "string",
+                    "description": "Optional conda environment name (e.g., 'SE3nv' for RFdiffusion)",
                 },
             },
             "required": ["tool_name", "path"],

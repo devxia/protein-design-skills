@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Any
 
 from mcp_server.utils.config import CONFIG
+from mcp_server.utils.conda_utils import run_in_conda
 
 logger = logging.getLogger(__name__)
 
@@ -304,12 +305,18 @@ def run_alphafold3(params: dict[str, Any], progress_callback: callable) -> dict[
     if params.get("force_output_dir"):
         cmd.append("--force_output_dir=true")
 
+    # Determine conda environment: param > config > none
+    conda_env = params.get("conda_env") or CONFIG.alphafold_conda_env
+    if conda_env:
+        logger.info("Using conda environment '%s' for AlphaFold3", conda_env)
+
     logger.info("Running AlphaFold3: %s", " ".join(cmd))
     progress_callback(10)
 
     try:
-        process = subprocess.run(
+        process = run_in_conda(
             cmd,
+            conda_env=conda_env,
             capture_output=True,
             text=True,
             check=True,

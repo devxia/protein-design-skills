@@ -32,6 +32,12 @@ class ProteinDesignConfig:
     # AlphaFold3 genetic databases directory
     db_dir: Optional[str] = None
 
+    # Conda environment names for each tool (optional)
+    # If set, commands are wrapped with `conda run -n <env>`
+    rfdiffusion_conda_env: Optional[str] = None
+    proteinmpnn_conda_env: Optional[str] = None
+    alphafold_conda_env: Optional[str] = None
+
     def __post_init__(self):
         """Ensure output directory exists."""
         Path(self.output_dir).mkdir(parents=True, exist_ok=True)
@@ -77,6 +83,15 @@ def load_config() -> ProteinDesignConfig:
 
     if env_db := os.environ.get("PROTEIN_DESIGN_DB_DIR"):
         config.db_dir = env_db
+
+    if env_rfd_conda := os.environ.get("RFDIFFUSION_CONDA_ENV"):
+        config.rfdiffusion_conda_env = env_rfd_conda
+
+    if env_mpnn_conda := os.environ.get("PROTEINMPNN_CONDA_ENV"):
+        config.proteinmpnn_conda_env = env_mpnn_conda
+
+    if env_af_conda := os.environ.get("ALPHAFOLD_CONDA_ENV"):
+        config.alphafold_conda_env = env_af_conda
 
     # Override from config file (lowest priority after defaults)
     config_path = Path.home() / ".kimi-protein-design" / "config.yaml"

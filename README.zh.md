@@ -186,10 +186,15 @@ timeout: 3600
 rfdiffusion_path: /Users/YOURNAME/software/RFdiffusion
 proteinmpnn_path: /Users/YOURNAME/software/ProteinMPNN
 alphafold_path: /Users/YOURNAME/software/alphafold3
+rfdiffusion_conda_env: SE3nv
+proteinmpnn_conda_env: null
+alphafold_conda_env: null
 EOF
 ```
 
 将 `/Users/YOURNAME` 替换为你的实际主目录路径。
+
+**Conda 环境**：如果每个工具安装在独立的 conda 环境中，在上述配置中设置环境名。插件会自动用 `conda run -n <env>` 包装命令。如果工具在当前环境中，保持为 `null` 即可。
 
 **方案 C：符号链接**（如果不想使用配置文件，最简单的方式）
 

@@ -38,6 +38,8 @@ TOOL_METADATA: dict[str, dict[str, Any]] = {
         "expected_files": ["scripts/run_inference.py"],
         "env_var": "RFDIFFUSION_PATH",
         "config_key": "rfdiffusion_path",
+        "conda_env_config_key": "rfdiffusion_conda_env",
+        "conda_env_example": "SE3nv",
     },
     "proteinmpnn": {
         "display_name": "ProteinMPNN",
@@ -50,6 +52,7 @@ TOOL_METADATA: dict[str, dict[str, Any]] = {
         "expected_files": ["protein_mpnn_run.py"],
         "env_var": "PROTEINMPNN_PATH",
         "config_key": "proteinmpnn_path",
+        "conda_env_config_key": "proteinmpnn_conda_env",
     },
     "alphafold3": {
         "display_name": "AlphaFold3",
@@ -74,6 +77,7 @@ Option B — Local:
         "db_dir_config_key": "db_dir",
         "db_dir_env_var": "PROTEIN_DESIGN_DB_DIR",
         "expected_db_dir": "public_databases",
+        "conda_env_config_key": "alphafold_conda_env",
     },
     "pdbfixer": {
         "display_name": "PDBFixer",
@@ -202,12 +206,13 @@ def check_all_tools() -> dict[str, Any]:
     }
 
 
-def configure_tool_path(tool_name: str, path: str) -> dict[str, Any]:
+def configure_tool_path(tool_name: str, path: str, conda_env: str | None = None) -> dict[str, Any]:
     """Set the installation path for a tool and persist to config file.
 
     Args:
         tool_name: One of "rfdiffusion", "proteinmpnn", "alphafold3".
         path: Absolute path to the tool's root directory.
+        conda_env: Optional conda environment name for this tool.
 
     Returns:
         Result dict with success status and validation info.
@@ -242,6 +247,18 @@ def configure_tool_path(tool_name: str, path: str) -> dict[str, Any]:
             "hint": f"Make sure {meta['display_name']} is fully installed at this location.",
         }
 
+    # Optionally validate conda environment
+    conda_status = None
+    if conda_env:
+        from mcp_server.utils.conda_utils import check_conda_env
+        conda_status = check_conda_env(conda_env)
+        if not conda_status.get("exists"):
+            return {
+                "error": f"Conda environment '{conda_env}' not found",
+                "conda_check": conda_status,
+                "hint": "Create it first with: conda create -n <env> python=3.10",
+            }
+
     # Persist to config file
     config_path = Path.home() / ".kimi-protein-design" / "config.yaml"
     config_data: dict[str, Any] = {}
@@ -256,22 +273,33 @@ def configure_tool_path(tool_name: str, path: str) -> dict[str, Any]:
     config_key = meta["config_key"]
     config_data[config_key] = abs_path
 
+    # Also save conda_env if provided
+    conda_config_key = meta.get("conda_env_config_key")
+    if conda_env and conda_config_key:
+        config_data[conda_config_key] = conda_env
+
     config_path.parent.mkdir(parents=True, exist_ok=True)
     with open(config_path, "w", encoding="utf-8") as f:
         yaml.dump(config_data, f, default_flow_style=False, sort_keys=False)
 
     # Update in-memory config
     setattr(CONFIG, config_key, abs_path)
+    if conda_env and conda_config_key:
+        setattr(CONFIG, conda_config_key, conda_env)
 
     logger.info("Configured %s path: %s (saved to %s)", tool_name, abs_path, config_path)
 
-    return {
+    result: dict[str, Any] = {
         "success": True,
         "tool": tool_name,
         "path": abs_path,
         "config_file": str(config_path),
         "message": f"{meta['display_name']} configured successfully at {abs_path}",
     }
+    if conda_env:
+        result["conda_env"] = conda_env
+        result["conda_status"] = conda_status
+    return result
 
 
 def configure_db_dir(path: str) -> dict[str, Any]:
@@ -350,15 +378,16 @@ def get_missing_tool_prompt(tool_name: str) -> dict[str, Any]:
     next_steps = [
         f"1. Install {meta['display_name']}: {meta['download_url']}",
         f"2. Note the installation directory (e.g., ~/software/{meta['display_name']})",
-        f"3. Configure the path by saying: 'Set {tool_name} path to /your/install/dir'",
+        f"3. If the tool is in a conda environment, note the env name (e.g., '{meta.get('conda_env_example', 'myenv')}')",
+        f"4. Configure the path by saying: 'Set {tool_name} path to /your/install/dir'",
         "   Or use the configure_tool_path tool directly.",
     ]
 
     # AlphaFold3 special case: also mention databases
     if tool_name == "alphafold3":
         next_steps.extend([
-            "4. Download genetic databases (e.g., to ~/public_databases)",
-            "5. Configure database path: 'Set AlphaFold3 db_dir to ~/public_databases'",
+            "5. Download genetic databases (e.g., to ~/public_databases)",
+            "6. Configure database path: 'Set AlphaFold3 db_dir to ~/public_databases'",
             "   Or use the configure_db_dir tool directly.",
         ])
 
@@ -372,6 +401,6 @@ def get_missing_tool_prompt(tool_name: str) -> dict[str, Any]:
         "next_steps": next_steps,
         "quick_config": {
             "tool": tool_name,
-            "example_command": f"configure_tool_path(tool='{tool_name}', path='/path/to/{tool_name}')",
+            "example_command": f"configure_tool_path(tool='{tool_name}', path='/path/to/{tool_name}', conda_env='{meta.get('conda_env_example', '')}')",
         },
     }

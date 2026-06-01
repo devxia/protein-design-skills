@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any
 
 from mcp_server.utils.config import CONFIG
+from mcp_server.utils.conda_utils import run_in_conda
 
 logger = logging.getLogger(__name__)
 
@@ -107,12 +108,18 @@ def run_proteinmpnn(params: dict[str, Any], progress_callback: callable) -> dict
     if params.get("path_to_model_weights"):
         cmd.extend(["--path_to_model_weights", params["path_to_model_weights"]])
 
+    # Determine conda environment: param > config > none
+    conda_env = params.get("conda_env") or CONFIG.proteinmpnn_conda_env
+    if conda_env:
+        logger.info("Using conda environment '%s' for ProteinMPNN", conda_env)
+
     logger.info("Running ProteinMPNN: %s", " ".join(cmd))
     progress_callback(20)
 
     try:
-        process = subprocess.run(
+        process = run_in_conda(
             cmd,
+            conda_env=conda_env,
             capture_output=True,
             text=True,
             check=True,

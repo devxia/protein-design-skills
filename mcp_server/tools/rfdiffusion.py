@@ -16,6 +16,7 @@ from typing import Any
 
 from mcp_server.tools.pdbfixer_tool import preprocess_for_design
 from mcp_server.utils.config import CONFIG
+from mcp_server.utils.conda_utils import run_in_conda_popen
 
 logger = logging.getLogger(__name__)
 
@@ -119,12 +120,18 @@ def run_rfdiffusion(params: dict[str, Any], progress_callback: callable) -> dict
 
     cmd = ["python", script] + overrides
 
+    # Determine conda environment: param > config > none
+    conda_env = params.get("conda_env") or CONFIG.rfdiffusion_conda_env
+    if conda_env:
+        logger.info("Using conda environment '%s' for RFdiffusion", conda_env)
+
     logger.info("Running RFdiffusion: %s", " ".join(cmd))
     progress_callback(20)
 
     try:
-        process = subprocess.Popen(
+        process = run_in_conda_popen(
             cmd,
+            conda_env=conda_env,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,

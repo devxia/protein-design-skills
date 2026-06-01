@@ -186,10 +186,15 @@ timeout: 3600
 rfdiffusion_path: /Users/YOURNAME/software/RFdiffusion
 proteinmpnn_path: /Users/YOURNAME/software/ProteinMPNN
 alphafold_path: /Users/YOURNAME/software/alphafold3
+rfdiffusion_conda_env: SE3nv
+proteinmpnn_conda_env: null
+alphafold_conda_env: null
 EOF
 ```
 
 Replace `/Users/YOURNAME` with your actual home directory path.
+
+**Conda Environments**: If each tool is installed in a separate conda environment, set the env name above. The plugin will automatically wrap commands with `conda run -n <env>`. If a tool is in the current environment, leave it as `null`.
 
 **Method C: Symlinks** (simplest if you don't want config files)
 
