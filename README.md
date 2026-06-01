@@ -57,6 +57,14 @@ After installation, start a **new session** for the plugin to take effect:
 
 ## Prerequisites Installation
 
+> 💡 **Already have these tools installed?**
+>
+> If you already have RFdiffusion, ProteinMPNN, AlphaFold3, or PDBFixer installed, you don't need to reinstall them. Just tell the Agent:
+> - Where each tool is located (e.g., "RFdiffusion is at `~/software/RFdiffusion`")
+> - Which conda environment it runs in (e.g., "RFdiffusion uses conda env `SE3nv`")
+>
+> The plugin will auto-detect common install locations and ask you to confirm. You can also run `check_all_tools` at any time to see what's detected.
+
 ### Step 1: Create a Conda Environment
 
 ```bash

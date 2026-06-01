@@ -57,6 +57,14 @@
 
 ## 前置条件安装
 
+> 💡 **已经安装了这些工具？**
+>
+> 如果你已经安装了 RFdiffusion、ProteinMPNN、AlphaFold3 或 PDBFixer，无需重新安装。直接告诉 Agent：
+> - 每个工具的位置（例如："RFdiffusion 在 `~/software/RFdiffusion`"）
+> - 每个工具运行在哪个 conda 环境中（例如："RFdiffusion 使用 conda 环境 `SE3nv`"）
+>
+> 插件会自动探测常见安装位置并请你确认。你也可以随时运行 `check_all_tools` 查看已检测到的工具。
+
 ### 第 1 步：创建 Conda 环境
 
 ```bash
