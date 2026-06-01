@@ -15,9 +15,36 @@
 - **批量验证**：CronCreate 支持大规模 AlphaFold3 筛选
 - **Hooks (0.6.0+)**：上下文注入、GPU 安全检查及桌面通知
 
+
 ## ⚠️ 重要提示：Plugin ≠ Tools
 
 本插件**不捆绑** RFdiffusion、ProteinMPNN、AlphaFold3 或 PDBFixer。这些是大型机器学习模型（多 GB），必须单独安装。插件提供**编排层**（MCP Server + Skills），通过子进程调用这些工具。
+
+
+## 安装
+
+### 从 GitHub 安装（推荐）
+
+```
+/plugins install https://github.com/devxia/kimi-protein-design
+```
+
+### 从本地目录安装
+
+```
+/plugins install /path/to/kimi-protein-design
+```
+
+### 激活插件
+
+安装后，启动**新会话**使插件生效：
+
+```
+/new
+```
+
+> ⚠️ **重要**：插件更改仅适用于新会话。已有会话保持其初始插件快照。
+
 
 ## 环境要求
 
@@ -26,6 +53,7 @@
 - 显存 >= 16GB 的 CUDA 显卡（推荐）
 - Conda（miniconda 或 anaconda）
 - 单独安装：RFdiffusion、ProteinMPNN、AlphaFold3、PDBFixer + OpenMM
+
 
 ## 前置条件安装
 
@@ -190,29 +218,6 @@ Call health_check
 
 `health_check` 会报告 RFdiffusion、ProteinMPNN 和 AlphaFold3 是否可检测到。
 
-## 安装
-
-### 从 GitHub 安装（推荐）
-
-```
-/plugins install https://github.com/<owner>/kimi-protein-design
-```
-
-### 从本地目录安装
-
-```
-/plugins install /path/to/kimi-protein-design
-```
-
-### 激活插件
-
-安装后，启动**新会话**使插件生效：
-
-```
-/new
-```
-
-> ⚠️ **重要**：插件更改仅适用于新会话。已有会话保持其初始插件快照。
 
 ## 卸载
 
@@ -289,6 +294,7 @@ rm -rf ~/public_databases
 | 输出文件 | ❌ 否 | `rm -rf /tmp/protein-design/` |
 | 外部工具 | ❌ 否 | `rm -rf ~/software/...` |
 
+
 ## 快速开始
 
 ### 示例 1：设计一个 150 个氨基酸的单体
@@ -308,6 +314,7 @@ User: Design a binder targeting PD-L1
 → Stage 3: AlphaFold3 validates structures
 → Stage 4: Filter by ipTM > 0.8 and pLDDT > 80
 ```
+
 
 ## 架构
 
@@ -345,6 +352,7 @@ kimi-protein-design/
 └── README.md
 ```
 
+
 ## MCP 工具
 
 | 工具 | 说明 |
@@ -361,6 +369,7 @@ kimi-protein-design/
 | `convert_format` | 将 FASTA 转换为 AlphaFold3 JSON |
 | `run_filtering` | 按指标过滤和排序 |
 | `check_batch_progress` | 同时检查多个任务 |
+
 
 ## 配置
 
@@ -385,6 +394,7 @@ rfdiffusion_path: /opt/RFdiffusion
 proteinmpnn_path: /opt/ProteinMPNN
 alphafold_path: /opt/alphafold3
 ```
+
 
 ## Hooks（强烈推荐）
 
@@ -434,6 +444,7 @@ command = "python ~/.kimi-code/hooks/background-notify.py"
 timeout = 5
 ```
 
+
 ## 使用 CronCreate 进行批量验证
 
 对于大规模筛选（>10 个设计），使用 CronCreate 代替阻塞式轮询：
@@ -449,6 +460,7 @@ timeout = 5
    CronDelete(id="<id>")
    ```
 
+
 ## 质量阈值
 
 | 指标 | 可接受 | 良好 | 优秀 |
@@ -456,6 +468,7 @@ timeout = 5
 | pLDDT | >70 | >80 | >90 |
 | ipTM | >0.6 | >0.8 | >0.9 |
 | pTM | >0.5 | >0.7 | >0.9 |
+
 
 ## 故障排除
 
@@ -468,9 +481,11 @@ timeout = 5
 | AlphaFold3 MSA 超时 | 重新运行时设置 `run_data_pipeline=false` |
 | Hooks 未生效 | 验证 `~/.kimi-code/config.toml` 语法，然后 `/new` |
 
+
 ## 许可证
 
 MIT
+
 
 ## 致谢
 

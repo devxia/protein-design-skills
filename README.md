@@ -15,9 +15,36 @@ A [Kimi Code](https://github.com/MoonshotAI/Kimi-Code) plugin for end-to-end pro
 - **Batch Validation**: CronCreate support for large-scale AlphaFold3 screening
 - **Hooks (0.6.0+)**: Context injection, GPU safety checks, and desktop notifications
 
+
 ## ⚠️ Important: Plugin ≠ Tools
 
 This plugin **does not bundle** RFdiffusion, ProteinMPNN, AlphaFold3, or PDBFixer. These are large machine-learning models (multi-GB) that must be installed separately. The plugin provides the **orchestration layer** (MCP Server + Skills) that calls these tools via subprocess.
+
+
+## Installation
+
+### From GitHub (Recommended)
+
+```
+/plugins install https://github.com/devxia/kimi-protein-design
+```
+
+### From Local Directory
+
+```
+/plugins install /path/to/kimi-protein-design
+```
+
+### Activate Plugin
+
+After installation, start a **new session** for the plugin to take effect:
+
+```
+/new
+```
+
+> ⚠️ **Important**: Plugin changes only apply to new sessions. Existing sessions keep their initial plugin snapshot.
+
 
 ## Requirements
 
@@ -26,6 +53,7 @@ This plugin **does not bundle** RFdiffusion, ProteinMPNN, AlphaFold3, or PDBFixe
 - CUDA-capable GPU with >= 16GB VRAM (recommended)
 - Conda (miniconda or anaconda)
 - Separately installed: RFdiffusion, ProteinMPNN, AlphaFold3, PDBFixer + OpenMM
+
 
 ## Prerequisites Installation
 
@@ -190,29 +218,6 @@ Call health_check
 
 `health_check` will report whether RFdiffusion, ProteinMPNN, and AlphaFold3 are detectable.
 
-## Installation
-
-### From GitHub (Recommended)
-
-```
-/plugins install https://github.com/<owner>/kimi-protein-design
-```
-
-### From Local Directory
-
-```
-/plugins install /path/to/kimi-protein-design
-```
-
-### Activate Plugin
-
-After installation, start a **new session** for the plugin to take effect:
-
-```
-/new
-```
-
-> ⚠️ **Important**: Plugin changes only apply to new sessions. Existing sessions keep their initial plugin snapshot.
 
 ## Uninstallation
 
@@ -289,6 +294,7 @@ rm -rf ~/public_databases
 | Output files | ❌ No | `rm -rf /tmp/protein-design/` |
 | External tools | ❌ No | `rm -rf ~/software/...` |
 
+
 ## Quick Start
 
 ### Example 1: Design a 150-aa monomer
@@ -308,6 +314,7 @@ User: Design a binder targeting PD-L1
 → Stage 3: AlphaFold3 validates structures
 → Stage 4: Filter by ipTM > 0.8 and pLDDT > 80
 ```
+
 
 ## Architecture
 
@@ -345,6 +352,7 @@ kimi-protein-design/
 └── README.md
 ```
 
+
 ## MCP Tools
 
 | Tool | Description |
@@ -361,6 +369,7 @@ kimi-protein-design/
 | `convert_format` | Convert FASTA → AlphaFold3 JSON |
 | `run_filtering` | Filter and rank by metrics |
 | `check_batch_progress` | Check multiple jobs at once |
+
 
 ## Configuration
 
@@ -385,6 +394,7 @@ rfdiffusion_path: /opt/RFdiffusion
 proteinmpnn_path: /opt/ProteinMPNN
 alphafold_path: /opt/alphafold3
 ```
+
 
 ## Hooks (Strongly Recommended)
 
@@ -434,6 +444,7 @@ command = "python ~/.kimi-code/hooks/background-notify.py"
 timeout = 5
 ```
 
+
 ## Batch Validation with CronCreate
 
 For large-scale screening (>10 designs), use CronCreate instead of blocking polling:
@@ -449,6 +460,7 @@ For large-scale screening (>10 designs), use CronCreate instead of blocking poll
    CronDelete(id="<id>")
    ```
 
+
 ## Quality Thresholds
 
 | Metric | Acceptable | Good | Excellent |
@@ -456,6 +468,7 @@ For large-scale screening (>10 designs), use CronCreate instead of blocking poll
 | pLDDT | >70 | >80 | >90 |
 | ipTM | >0.6 | >0.8 | >0.9 |
 | pTM | >0.5 | >0.7 | >0.9 |
+
 
 ## Troubleshooting
 
@@ -468,9 +481,11 @@ For large-scale screening (>10 designs), use CronCreate instead of blocking poll
 | AlphaFold3 MSA timeout | Set `run_data_pipeline=false` if re-running |
 | Hooks not working | Verify `~/.kimi-code/config.toml` syntax, then `/new` |
 
+
 ## License
 
 MIT
+
 
 ## Acknowledgments
 
