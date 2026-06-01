@@ -308,6 +308,34 @@ rm -rf ~/public_databases
 | External tools | ❌ No | `rm -rf ~/software/...` |
 
 
+## Pipeline Defaults
+
+By default, each stage produces the following number of designs:
+
+| Stage | Tool | Default Output | Parameter |
+|-------|------|---------------|-----------|
+| 1 — Backbone | RFdiffusion | **10** backbones | `num_designs` |
+| 2 — Sequence | ProteinMPNN | **8** sequences per backbone | `num_seq_per_target` |
+| 3 — Validation | AlphaFold3 | **5** predictions (1 seed × 5 samples) | `num_seeds` × `num_samples` |
+
+**Full pipeline default**: 10 backbones × 8 sequences × 5 predictions = up to **400** AlphaFold3 results.
+
+You can adjust these numbers through natural language — no need to memorize parameter names:
+
+```
+User: "Generate 50 backbones"
+→ num_designs = 50
+
+User: "Design 16 sequences for each backbone"
+→ num_seq_per_target = 16
+
+User: "Validate with 3 seeds"
+→ num_seeds = 3
+
+User: "Give me 20 designs, 4 sequences each, validate all"
+→ num_designs = 20, num_seq_per_target = 4
+```
+
 ## Quick Start
 
 ### Example 1: Design a 150-aa monomer

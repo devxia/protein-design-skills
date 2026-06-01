@@ -12,6 +12,7 @@ from typing import Any
 
 from mcp_server.utils.config import CONFIG
 from mcp_server.utils.conda_utils import run_in_conda
+from mcp_server.utils.progress_tracker import track_progress, save_runtime_log
 
 logger = logging.getLogger(__name__)
 
@@ -114,9 +115,21 @@ def run_proteinmpnn(params: dict[str, Any], progress_callback: callable) -> dict
         logger.info("Using conda environment '%s' for ProteinMPNN", conda_env)
 
     logger.info("Running ProteinMPNN: %s", " ".join(cmd))
-    progress_callback(20)
+    progress_callback(5)
 
+    import time
+    start_time = time.time()
+    tracker = None
     try:
+        # Start file-system + ETA progress tracker
+        tracker = track_progress(
+            tool_name="proteinmpnn",
+            num_expected=params.get("num_seq_per_target", 8),
+            progress_callback=progress_callback,
+            output_dir=os.path.join(output_folder, "seqs"),
+            file_pattern="*.fa",
+        )
+
         process = run_in_conda(
             cmd,
             conda_env=conda_env,
@@ -126,17 +139,31 @@ def run_proteinmpnn(params: dict[str, Any], progress_callback: callable) -> dict
             timeout=CONFIG.timeout,
             cwd=os.path.dirname(script),
         )
-        progress_callback(90)
+
+        tracker.stop()
+
+        # Record actual runtime for future ETA estimates
+        duration = time.time() - start_time
+        save_runtime_log(
+            tool_name="proteinmpnn",
+            num_items=params.get("num_seq_per_target", 8),
+            duration_seconds=duration,
+            metadata={"model_name": params.get("model_name", "v_48_020")},
+        )
+
     except subprocess.CalledProcessError as exc:
+        if tracker:
+            tracker.stop()
         raise RuntimeError(f"ProteinMPNN failed: {exc.stderr}") from exc
     except subprocess.TimeoutExpired:
+        if tracker:
+            tracker.stop()
         raise RuntimeError("ProteinMPNN timed out")
 
     # Collect outputs
     import glob
     fasta_files = sorted(glob.glob(os.path.join(output_folder, "seqs", "*.fa")))
     if not fasta_files:
-        # Some versions use .fasta extension
         fasta_files = sorted(glob.glob(os.path.join(output_folder, "seqs", "*.fasta")))
 
     npz_files = []
@@ -154,5 +181,6 @@ def run_proteinmpnn(params: dict[str, Any], progress_callback: callable) -> dict
             "score_files": npz_files,
             "command": " ".join(cmd),
             "stdout_preview": process.stdout[:500] if process.stdout else "",
+            "duration_seconds": round(duration, 1),
         },
     }

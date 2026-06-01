@@ -17,6 +17,7 @@ from typing import Any
 from mcp_server.tools.pdbfixer_tool import preprocess_for_design
 from mcp_server.utils.config import CONFIG
 from mcp_server.utils.conda_utils import run_in_conda_popen
+from mcp_server.utils.progress_tracker import track_progress, save_runtime_log
 
 logger = logging.getLogger(__name__)
 
@@ -126,8 +127,10 @@ def run_rfdiffusion(params: dict[str, Any], progress_callback: callable) -> dict
         logger.info("Using conda environment '%s' for RFdiffusion", conda_env)
 
     logger.info("Running RFdiffusion: %s", " ".join(cmd))
-    progress_callback(20)
+    progress_callback(5)
 
+    start_time = time.time()
+    tracker = None
     try:
         process = run_in_conda_popen(
             cmd,
@@ -138,38 +141,40 @@ def run_rfdiffusion(params: dict[str, Any], progress_callback: callable) -> dict
             cwd=os.path.dirname(script),
         )
 
-        # Simple progress simulation based on expected runtime
-        # (RFdiffusion doesn't output parseable progress)
-        import time
-        estimated_per_design = 30  # seconds, rough estimate
-        total_estimated = max(estimated_per_design * num_designs, 60)
-
-        while process.poll() is None:
-            time.sleep(5)
-            # Progress from 20% to 90% based on time elapsed
-            # This is approximate since we can't parse real progress
-            elapsed = time.time() - process.pid  # not real elapsed, just a placeholder
-            # Use a simple approach: increment slowly
-            # In production, you might parse stdout for actual progress
-            pass
+        # Start file-system + ETA progress tracker
+        tracker = track_progress(
+            tool_name="rfdiffusion",
+            num_expected=num_designs,
+            progress_callback=progress_callback,
+            output_dir=output_dir,
+            file_pattern="design_*.pdb",
+        )
 
         stdout, stderr = process.communicate(timeout=CONFIG.timeout)
+
+        tracker.stop()
 
         if process.returncode != 0:
             raise RuntimeError(f"RFdiffusion failed (exit {process.returncode}): {stderr}")
 
-        progress_callback(90)
+        # Record actual runtime for future ETA estimates
+        duration = time.time() - start_time
+        save_runtime_log(
+            tool_name="rfdiffusion",
+            num_items=num_designs,
+            duration_seconds=duration,
+            metadata={"contig": contig, "diffuser_T": params.get("diffuser_T", 50)},
+        )
 
     except subprocess.TimeoutExpired:
+        if tracker:
+            tracker.stop()
         process.kill()
         raise RuntimeError("RFdiffusion timed out")
 
     # Collect output PDBs
-    pdb_files = sorted(glob.glob(os.path.join(output_dir, "*.pdb")))
-    trb_files = sorted(glob.glob(os.path.join(output_dir, "*.trb")))
-
-    # Exclude the preprocessed input if it ended up in the same dir
-    pdb_files = [f for f in pdb_files if "input_fixed" not in os.path.basename(f)]
+    pdb_files = sorted(glob.glob(os.path.join(output_dir, "design_*.pdb")))
+    trb_files = sorted(glob.glob(os.path.join(output_dir, "design_*.trb")))
 
     progress_callback(100)
 
@@ -182,5 +187,6 @@ def run_rfdiffusion(params: dict[str, Any], progress_callback: callable) -> dict
             "trb_files": trb_files,
             "contig": contig,
             "command": " ".join(cmd),
+            "duration_seconds": round(duration, 1),
         },
     }

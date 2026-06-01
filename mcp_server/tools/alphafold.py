@@ -14,6 +14,7 @@ from typing import Any
 
 from mcp_server.utils.config import CONFIG
 from mcp_server.utils.conda_utils import run_in_conda
+from mcp_server.utils.progress_tracker import track_progress, save_runtime_log
 
 logger = logging.getLogger(__name__)
 
@@ -311,9 +312,27 @@ def run_alphafold3(params: dict[str, Any], progress_callback: callable) -> dict[
         logger.info("Using conda environment '%s' for AlphaFold3", conda_env)
 
     logger.info("Running AlphaFold3: %s", " ".join(cmd))
-    progress_callback(10)
+    progress_callback(5)
 
+    num_seeds = params.get("num_seeds", 1)
+    num_samples = params.get("num_samples", 5)
+    num_expected = num_seeds * num_samples
+
+    import time
+    start_time = time.time()
+    tracker = None
     try:
+        # Start file-system + ETA progress tracker
+        # AlphaFold3 creates subdirs like seed-1234_sample-0/ with model.cif inside
+        tracker = track_progress(
+            tool_name="alphafold3",
+            num_expected=num_expected,
+            progress_callback=progress_callback,
+            output_dir=output_dir,
+            file_pattern="*/*_model.cif",
+            with_msa=params.get("run_data_pipeline", True),
+        )
+
         process = run_in_conda(
             cmd,
             conda_env=conda_env,
@@ -323,10 +342,29 @@ def run_alphafold3(params: dict[str, Any], progress_callback: callable) -> dict[
             timeout=CONFIG.timeout,
             cwd=os.path.dirname(script),
         )
-        progress_callback(90)
+
+        tracker.stop()
+
+        # Record actual runtime for future ETA estimates
+        duration = time.time() - start_time
+        save_runtime_log(
+            tool_name="alphafold3",
+            num_items=num_expected,
+            duration_seconds=duration,
+            metadata={
+                "num_seeds": num_seeds,
+                "num_samples": num_samples,
+                "with_msa": params.get("run_data_pipeline", True),
+            },
+        )
+
     except subprocess.CalledProcessError as exc:
+        if tracker:
+            tracker.stop()
         raise RuntimeError(f"AlphaFold3 failed: {exc.stderr}") from exc
     except subprocess.TimeoutExpired:
+        if tracker:
+            tracker.stop()
         raise RuntimeError("AlphaFold3 timed out")
 
     # Collect outputs
@@ -346,5 +384,6 @@ def run_alphafold3(params: dict[str, Any], progress_callback: callable) -> dict[
             "job_name": job_name,
             "command": " ".join(cmd),
             "stdout_preview": process.stdout[:500] if process.stdout else "",
+            "duration_seconds": round(duration, 1),
         },
     }
