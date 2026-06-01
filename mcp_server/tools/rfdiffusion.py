@@ -93,10 +93,17 @@ def run_rfdiffusion(params: dict[str, Any], progress_callback: callable) -> dict
     # Hydra values with spaces or brackets must be passed as individual
     # CLI arguments (not shell-quoted strings) so that Hydra receives them
     # without the surrounding quotes.
+    #
+    # Contig may already include brackets (e.g. "[A1-352/0 20-30]").
+    # Avoid double-bracketing by checking before wrapping.
+    contig_val = contig.strip()
+    if not (contig_val.startswith("[") and contig_val.endswith("]")):
+        contig_val = f"[{contig_val}]"
+
     overrides = [
         f"inference.output_prefix={output_prefix}",
         f"inference.num_designs={num_designs}",
-        f"contigmap.contigs=[{contig}]",
+        f"contigmap.contigs={contig_val}",
     ]
 
     if input_pdb:
