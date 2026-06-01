@@ -10,9 +10,12 @@ Design principles:
   - Never activate/ deactivate shells; `conda run` is stateless
 """
 
+from __future__ import annotations
+
 import logging
 import shutil
 import subprocess
+from pathlib import Path
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -162,3 +165,59 @@ def run_in_conda_popen(
     wrapped = build_conda_cmd(cmd, conda_env)
     logger.info("Executing (Popen): %s", " ".join(wrapped))
     return subprocess.Popen(wrapped, **subprocess_kwargs)
+
+
+def run_in_conda_with_logs(
+    cmd: list[str],
+    conda_env: str | None = None,
+    stdout_log: str | None = None,
+    stderr_log: str | None = None,
+    cwd: str | None = None,
+    timeout: int | None = None,
+) -> subprocess.CompletedProcess:
+    """Run a command in a conda environment with stdout/stderr written to log files.
+
+    This solves the buffering issue with ``conda run`` where capture_output=True
+    can return empty strings. By redirecting to files, logs are always persisted.
+
+    Args:
+        cmd: Base command list.
+        conda_env: Optional conda environment name.
+        stdout_log: Path to write stdout. If None, stdout is discarded.
+        stderr_log: Path to write stderr. If None, stderr is discarded.
+        cwd: Working directory for the subprocess.
+        timeout: Timeout in seconds.
+
+    Returns:
+        CompletedProcess with returncode. stdout and stderr attributes are empty
+        strings because output was written to files.
+    """
+    wrapped = build_conda_cmd(cmd, conda_env)
+    logger.info("Executing with logs: %s", " ".join(wrapped))
+
+    import tempfile
+
+    stdout_file = None
+    stderr_file = None
+    try:
+        if stdout_log:
+            Path(stdout_log).parent.mkdir(parents=True, exist_ok=True)
+            stdout_file = open(stdout_log, "w", encoding="utf-8")
+        if stderr_log:
+            Path(stderr_log).parent.mkdir(parents=True, exist_ok=True)
+            stderr_file = open(stderr_log, "w", encoding="utf-8")
+
+        kwargs: dict[str, Any] = {
+            "stdout": stdout_file if stdout_file else subprocess.DEVNULL,
+            "stderr": stderr_file if stderr_file else subprocess.DEVNULL,
+        }
+        if cwd:
+            kwargs["cwd"] = cwd
+
+        proc = subprocess.run(wrapped, timeout=timeout, **kwargs)
+        return proc
+    finally:
+        if stdout_file:
+            stdout_file.close()
+        if stderr_file:
+            stderr_file.close()

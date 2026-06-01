@@ -144,8 +144,35 @@ def get_gpu_status() -> dict[str, Any]:
     gpu_info = get_gpu_info()
     availability = check_gpu_available(min_memory_mb=1000.0)
 
+    # Add GPU architecture recommendations
+    recommendations = []
+    if gpu_info.get("available"):
+        for gpu in gpu_info.get("gpus", []):
+            arch = gpu.get("compute_capability", "")
+            name = gpu.get("name", "").lower()
+            if arch.startswith(("7.", "6.", "5.")) or "v100" in name:
+                recommendations.append({
+                    "gpu": gpu.get("name"),
+                    "compute_capability": arch,
+                    "recommended_env": {
+                        "XLA_FLAGS": "--xla_gpu_cuda_data_dir=/usr/local/cuda",
+                        "XLA_PYTHON_CLIENT_PREALLOCATE": "false",
+                    },
+                    "reason": "Older GPU architecture detected. XLA_FLAGS may be needed for JAX/TensorFlow.",
+                })
+            elif arch.startswith(("8.", "9.")):
+                recommendations.append({
+                    "gpu": gpu.get("name"),
+                    "compute_capability": arch,
+                    "recommended_env": {
+                        "XLA_PYTHON_CLIENT_PREALLOCATE": "false",
+                    },
+                    "reason": "Modern GPU architecture. Standard settings should work.",
+                })
+
     return {
         "gpu": gpu_info,
         "suitable_for_design": availability["available"],
+        "recommendations": recommendations,
         **availability,
     }

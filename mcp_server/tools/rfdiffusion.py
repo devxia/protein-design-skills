@@ -11,12 +11,13 @@ import glob
 import logging
 import os
 import subprocess
+import time
 from pathlib import Path
 from typing import Any
 
 from mcp_server.tools.pdbfixer_tool import preprocess_for_design
 from mcp_server.utils.config import CONFIG
-from mcp_server.utils.conda_utils import run_in_conda_popen
+from mcp_server.utils.conda_utils import run_in_conda_popen, run_in_conda_with_logs
 from mcp_server.utils.progress_tracker import track_progress, save_runtime_log
 
 logger = logging.getLogger(__name__)
@@ -89,10 +90,13 @@ def run_rfdiffusion(params: dict[str, Any], progress_callback: callable) -> dict
         progress_callback(15)
 
     # Build Hydra config overrides
+    # Hydra values with spaces or brackets must be passed as individual
+    # CLI arguments (not shell-quoted strings) so that Hydra receives them
+    # without the surrounding quotes.
     overrides = [
         f"inference.output_prefix={output_prefix}",
         f"inference.num_designs={num_designs}",
-        f"'contigmap.contigs=[{contig}]'",
+        f"contigmap.contigs=[{contig}]",
     ]
 
     if input_pdb:
@@ -102,7 +106,7 @@ def run_rfdiffusion(params: dict[str, Any], progress_callback: callable) -> dict
         hotspots = params["hotspot_res"]
         if isinstance(hotspots, list):
             hotspots = ",".join(hotspots)
-        overrides.append(f"'ppi.hotspot_res=[{hotspots}]'")
+        overrides.append(f"ppi.hotspot_res=[{hotspots}]")
 
     if params.get("symmetry"):
         overrides.append(f"inference.symmetry={params['symmetry']}")
@@ -119,7 +123,15 @@ def run_rfdiffusion(params: dict[str, Any], progress_callback: callable) -> dict
         from mcp_server.tools.tool_installer import get_missing_tool_prompt
         return get_missing_tool_prompt("rfdiffusion")
 
-    cmd = ["python", script] + overrides
+    # Support wrapper scripts that set up the environment
+    wrapper_script = params.get("wrapper_script")
+    if wrapper_script:
+        if not os.path.exists(wrapper_script):
+            raise FileNotFoundError(f"Wrapper script not found: {wrapper_script}")
+        # Wrapper script receives the python command as arguments
+        cmd = ["bash", wrapper_script, "python", script] + overrides
+    else:
+        cmd = ["python", script] + overrides
 
     # Determine conda environment: param > config > none
     conda_env = params.get("conda_env") or CONFIG.rfdiffusion_conda_env
@@ -131,17 +143,9 @@ def run_rfdiffusion(params: dict[str, Any], progress_callback: callable) -> dict
 
     start_time = time.time()
     tracker = None
+    stdout_log = os.path.join(output_dir, "rfdiffusion_stdout.log")
+    stderr_log = os.path.join(output_dir, "rfdiffusion_stderr.log")
     try:
-        process = run_in_conda_popen(
-            cmd,
-            conda_env=conda_env,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-            cwd=os.path.dirname(script),
-        )
-
-        # Start file-system + ETA progress tracker
         tracker = track_progress(
             tool_name="rfdiffusion",
             num_expected=num_designs,
@@ -150,12 +154,28 @@ def run_rfdiffusion(params: dict[str, Any], progress_callback: callable) -> dict
             file_pattern="design_*.pdb",
         )
 
-        stdout, stderr = process.communicate(timeout=CONFIG.timeout)
+        process = run_in_conda_with_logs(
+            cmd,
+            conda_env=conda_env,
+            stdout_log=stdout_log,
+            stderr_log=stderr_log,
+            cwd=os.path.dirname(script),
+            timeout=CONFIG.timeout,
+        )
 
         tracker.stop()
 
         if process.returncode != 0:
-            raise RuntimeError(f"RFdiffusion failed (exit {process.returncode}): {stderr}")
+            stderr_preview = ""
+            try:
+                with open(stderr_log, "r", encoding="utf-8") as f:
+                    stderr_preview = f.read()[-1000:]
+            except Exception:
+                pass
+            raise RuntimeError(
+                f"RFdiffusion failed (exit {process.returncode}). "
+                f"See {stderr_log} for details. Last lines: {stderr_preview}"
+            )
 
         # Record actual runtime for future ETA estimates
         duration = time.time() - start_time
@@ -169,7 +189,6 @@ def run_rfdiffusion(params: dict[str, Any], progress_callback: callable) -> dict
     except subprocess.TimeoutExpired:
         if tracker:
             tracker.stop()
-        process.kill()
         raise RuntimeError("RFdiffusion timed out")
 
     # Collect output PDBs
@@ -188,5 +207,7 @@ def run_rfdiffusion(params: dict[str, Any], progress_callback: callable) -> dict
             "contig": contig,
             "command": " ".join(cmd),
             "duration_seconds": round(duration, 1),
+            "stdout_log": stdout_log,
+            "stderr_log": stderr_log,
         },
     }

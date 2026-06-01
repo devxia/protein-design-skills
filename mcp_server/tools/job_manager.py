@@ -42,6 +42,7 @@ class Job:
     started_at: Optional[float] = None
     completed_at: Optional[float] = None
     future: Optional[Future] = None
+    process: Optional[Any] = None  # subprocess.Popen handle for cancellation
 
 
 class JobManager:
@@ -186,6 +187,9 @@ class JobManager:
     def cancel_job(self, task_id: str) -> dict[str, Any]:
         """Request cancellation of a running job.
 
+        Attempts to terminate the subprocess (if tracked) and cleans up
+        partial output files to avoid stale data on restart.
+
         Args:
             task_id: The task ID to cancel.
 
@@ -209,8 +213,45 @@ class JobManager:
                 "message": f"Job already in terminal state: {job.status.value}",
             }
 
+        # Terminate subprocess if we have a handle
+        if job.process is not None:
+            try:
+                job.process.terminate()
+                # Give it a few seconds to exit gracefully
+                import time as _time
+                _time.sleep(2)
+                if job.process.poll() is None:
+                    job.process.kill()
+            except Exception as exc:
+                logger.warning("Failed to terminate process for job %s: %s", task_id, exc)
+
         if job.future and not job.future.done():
             job.future.cancel()
+
+        # Clean up partial outputs
+        cleanup_msg = ""
+        output_dir = job.params.get("output_dir") or job.params.get("output_prefix")
+        if output_dir:
+            import shutil
+            import os as _os
+            try:
+                # If output_prefix is a file prefix, get its directory
+                if _os.path.isfile(output_dir) or "." in _os.path.basename(output_dir):
+                    cleanup_dir = _os.path.dirname(output_dir) or "."
+                else:
+                    cleanup_dir = output_dir
+
+                # Remove known incomplete markers/files
+                removed = 0
+                for root, _dirs, files in _os.walk(cleanup_dir):
+                    for f in files:
+                        if f.endswith((".tmp", ".incomplete", "_partial.pdb")):
+                            _os.remove(_os.path.join(root, f))
+                            removed += 1
+                if removed:
+                    cleanup_msg = f" Cleaned up {removed} partial files."
+            except Exception as exc:
+                logger.warning("Cleanup failed for job %s: %s", task_id, exc)
 
         with self._lock:
             job.status = JobStatus.CANCELLED
@@ -219,7 +260,7 @@ class JobManager:
         return {
             "task_id": task_id,
             "status": JobStatus.CANCELLED.value,
-            "message": "Job cancellation requested.",
+            "message": f"Job cancellation requested.{cleanup_msg}",
         }
 
     def list_jobs(self) -> dict[str, Any]:

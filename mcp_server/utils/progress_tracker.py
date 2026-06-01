@@ -13,6 +13,8 @@ Historical runtimes are stored in ~/.kimi-protein-design/history.jsonl
 as newline-delimited JSON records.
 """
 
+from __future__ import annotations
+
 import glob
 import json
 import logging
@@ -219,24 +221,46 @@ class FileProgressTracker:
     def _compute_progress(self) -> int:
         """Compute best progress estimate (0-100).
 
-        Returns max(file_progress, time_progress), capped at 95 until
-        explicitly completed.
+        Combines file-based and time-based progress. Uses the more
+        optimistic signal, but caps at 95% until explicitly completed.
+        Also checks for tool-specific progress markers (log lines, etc.).
         """
         # A. File-based progress
+        file_progress = 0.0
         try:
-            pattern = os.path.join(self.output_dir, self.file_pattern)
-            matched = glob.glob(pattern)
-            file_progress = len(matched) / self.num_expected * 100
+            if os.path.exists(self.output_dir):
+                pattern = os.path.join(self.output_dir, self.file_pattern)
+                matched = glob.glob(pattern)
+                # Also check for recursive patterns (e.g., */*_model.cif)
+                if "**" in self.file_pattern or "/" in self.file_pattern:
+                    matched = glob.glob(pattern, recursive=True)
+                file_progress = len(matched) / self.num_expected * 100
         except Exception:
             file_progress = 0.0
+
+        # B. Log-based progress markers (e.g., "step X/Y" in stdout log)
+        log_progress = 0.0
+        try:
+            stdout_log = os.path.join(self.output_dir, f"{self.tool_name}_stdout.log")
+            if os.path.exists(stdout_log):
+                with open(stdout_log, "r", encoding="utf-8", errors="ignore") as f:
+                    content = f.read()
+                # Check for common progress patterns
+                if "step" in content.lower():
+                    import re
+                    steps = re.findall(r"[Ss]tep\s+(\d+)/(\d+)", content)
+                    if steps:
+                        last_step, total_steps = steps[-1]
+                        log_progress = int(last_step) / int(total_steps) * 100
+        except Exception:
+            log_progress = 0.0
 
         # C. Time-based progress
         elapsed = time.time() - self.start_time
         time_progress = elapsed / self.estimated_total * 100
 
-        # Combine: take the more optimistic signal, but cap at 95%
-        # (final 5% reserved for explicit completion call)
-        best = max(file_progress, time_progress)
+        # Combine: take the most optimistic signal, cap at 95%
+        best = max(file_progress, time_progress, log_progress)
         return min(int(best), 95)
 
 

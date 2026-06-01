@@ -123,6 +123,7 @@ TOOL_SCHEMAS: list[dict[str, Any]] = [
                 "skip_preprocessing": {"type": "boolean", "default": False, "description": "Skip automatic PDBFixer preprocessing"},
                 "keep_chains": {"type": "array", "items": {"type": "string"}, "description": "Chains to keep during preprocessing"},
                 "conda_env": {"type": "string", "description": "Conda environment name for RFdiffusion (e.g. 'SE3nv'). Falls back to config or current env."},
+                "wrapper_script": {"type": "string", "description": "Optional path to a shell wrapper script that sets up the environment (env vars, conda activation, etc.) before running RFdiffusion. Overrides conda_env."},
             },
             "required": ["output_prefix", "contig"],
         },
@@ -143,6 +144,7 @@ TOOL_SCHEMAS: list[dict[str, Any]] = [
                 "use_soluble_model": {"type": "boolean", "default": False, "description": "Use soluble protein model"},
                 "seed": {"type": "integer", "default": 37, "description": "Random seed"},
                 "conda_env": {"type": "string", "description": "Conda environment name for ProteinMPNN. Falls back to config or current env."},
+                "wrapper_script": {"type": "string", "description": "Optional path to a shell wrapper script that sets up the environment before running ProteinMPNN. Overrides conda_env."},
             },
             "required": ["pdb_path", "output_folder"],
         },
@@ -159,8 +161,9 @@ TOOL_SCHEMAS: list[dict[str, Any]] = [
                 "output_dir": {"type": "string", "description": "Output directory"},
                 "num_seeds": {"type": "integer", "default": 1, "description": "Number of seeds"},
                 "num_samples": {"type": "integer", "default": 5, "description": "Samples per seed"},
-                "run_data_pipeline": {"type": "boolean", "default": True, "description": "Run MSA search (CPU-only, slow)"},
+                "run_data_pipeline": {"type": "boolean", "default": True, "description": "Run MSA search (CPU-only, slow). Default true. Set to false only for fast inference with pre-computed features or no-MSA mode."},
                 "conda_env": {"type": "string", "description": "Conda environment name for AlphaFold3. Falls back to config or current env."},
+                "wrapper_script": {"type": "string", "description": "Optional path to a shell wrapper script (e.g., run_af3.sh) that sets up the environment (XLA_FLAGS, model_dir, db_dir, HMMER paths) before running AlphaFold3. Overrides conda_env and auto-detected db_dir."},
             },
             "required": ["json_path", "output_dir"],
         },
@@ -381,7 +384,11 @@ def execute_tool(name: str, arguments: dict[str, Any]) -> dict[str, Any]:
         return check_all_tools()
 
     if name == "configure_tool_path":
-        return configure_tool_path(arguments["tool_name"], arguments["path"])
+        return configure_tool_path(
+            arguments["tool_name"],
+            arguments["path"],
+            conda_env=arguments.get("conda_env"),
+        )
 
     if name == "configure_db_dir":
         return configure_db_dir(arguments["path"])

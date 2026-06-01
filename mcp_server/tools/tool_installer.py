@@ -10,6 +10,8 @@ Users can then call configure_tool_path() to set paths interactively,
 which are persisted to ~/.kimi-protein-design/config.yaml.
 """
 
+from __future__ import annotations
+
 import logging
 import os
 from pathlib import Path
@@ -98,14 +100,75 @@ Or if conda is unavailable:
 }
 
 
+def _find_tool_in_conda_env(tool_name: str, env_name: str) -> str | None:
+    """Try to locate a tool script inside a specific conda environment.
+
+    Searches common install locations under the conda env's home directory.
+
+    Args:
+        tool_name: Tool identifier.
+        env_name: Conda environment name.
+
+    Returns:
+        Absolute path to the script if found, else None.
+    """
+    import shutil
+    import subprocess
+
+    try:
+        proc = subprocess.run(
+            ["conda", "run", "-n", env_name, "python", "-c",
+             "import sys; print(sys.prefix)"],
+            capture_output=True, text=True, check=False, timeout=10,
+        )
+        if proc.returncode != 0:
+            return None
+        env_prefix = proc.stdout.strip()
+    except Exception:
+        return None
+
+    search_paths = []
+    if tool_name == "rfdiffusion":
+        search_paths = [
+            os.path.join(env_prefix, "RFdiffusion", "scripts", "run_inference.py"),
+            os.path.join(os.path.expanduser("~"), "RFdiffusion", "scripts", "run_inference.py"),
+            "/opt/RFdiffusion/scripts/run_inference.py",
+        ]
+    elif tool_name == "proteinmpnn":
+        search_paths = [
+            os.path.join(env_prefix, "ProteinMPNN", "protein_mpnn_run.py"),
+            os.path.join(os.path.expanduser("~"), "ProteinMPNN", "protein_mpnn_run.py"),
+            "/opt/ProteinMPNN/protein_mpnn_run.py",
+        ]
+    elif tool_name == "alphafold3":
+        search_paths = [
+            os.path.join(env_prefix, "alphafold3", "run_alphafold.py"),
+            os.path.join(env_prefix, "alphafold", "run_alphafold.py"),
+            os.path.join(os.path.expanduser("~"), "alphafold3", "run_alphafold.py"),
+            os.path.join(os.path.expanduser("~"), "alphafold", "run_alphafold.py"),
+            "/opt/alphafold3/run_alphafold.py",
+        ]
+
+    for candidate in search_paths:
+        if os.path.exists(candidate):
+            return os.path.abspath(candidate)
+
+    return None
+
+
 def check_tool_status(tool_name: str) -> dict[str, Any]:
     """Check whether a specific tool is installed and detectable.
+
+    Checks (in order):
+      1. Configured path + conda env
+      2. Current environment (PATH / default locations)
+      3. Other known conda environments
 
     Args:
         tool_name: One of "rfdiffusion", "proteinmpnn", "alphafold3", "pdbfixer".
 
     Returns:
-        Status dict with installed bool, path, and metadata.
+        Status dict with installed bool, path, conda_env, and metadata.
     """
     meta = TOOL_METADATA.get(tool_name)
     if not meta:
@@ -116,21 +179,40 @@ def check_tool_status(tool_name: str) -> dict[str, Any]:
         "display_name": meta["display_name"],
         "installed": False,
         "path": None,
+        "conda_env": None,
         "download_url": meta["download_url"],
         "install_guide": meta["install_guide"],
     }
 
-    # Special case: pdbfixer is a Python package
+    # Special case: pdbfixer is a Python package, possibly in any conda env
     if tool_name == "pdbfixer":
+        # Try current env first
         try:
             import pdbfixer  # noqa: F401
             result["installed"] = True
-            result["path"] = "Python package"
+            result["path"] = "Python package (current env)"
             return result
         except ImportError:
-            return result
+            pass
+        # Try common conda envs
+        for env_name in ["protein-design", "BindCraft", "openmm", "base"]:
+            try:
+                import subprocess
+                proc = subprocess.run(
+                    ["conda", "run", "-n", env_name, "python", "-c",
+                     "import pdbfixer; print('ok')"],
+                    capture_output=True, text=True, check=False, timeout=10,
+                )
+                if proc.returncode == 0 and "ok" in proc.stdout:
+                    result["installed"] = True
+                    result["path"] = f"Python package (conda env: {env_name})"
+                    result["conda_env"] = env_name
+                    return result
+            except Exception:
+                continue
+        return result
 
-    # Script-based tools: try to find the script
+    # Script-based tools: try configured/current env first
     from mcp_server.tools import rfdiffusion, proteinmpnn, alphafold
 
     finders = {
@@ -145,22 +227,36 @@ def check_tool_status(tool_name: str) -> dict[str, Any]:
             path = finder()
             result["installed"] = True
             result["path"] = path
+            # Infer conda_env from config if available
+            conda_key = meta.get("conda_env_config_key")
+            if conda_key:
+                result["conda_env"] = getattr(CONFIG, conda_key, None)
         except FileNotFoundError:
             pass
 
+    # If not found, scan other known conda environments
+    if not result["installed"]:
+        known_envs = ["protein-design", "SE3nv", "AF3", "alphafold3", "proteinmpnn"]
+        for env_name in known_envs:
+            found_path = _find_tool_in_conda_env(tool_name, env_name)
+            if found_path:
+                result["installed"] = True
+                result["path"] = found_path
+                result["conda_env"] = env_name
+                break
+
     # AlphaFold3: also check genetic databases
-    if tool_name == "alphafold3" and result.get("installed"):
+    if tool_name == "alphafold3":
         from mcp_server.tools.alphafold import check_af3_database_status
         db_status = check_af3_database_status()
         result["database"] = db_status
-        # If script is found but databases are missing, downgrade readiness
-        if not db_status.get("detected"):
-            result["installed"] = False  # Not fully ready without databases
-            result["missing_db_reason"] = db_status.get("reason")
+        # If script is found but databases are missing, warn but don't block
+        if result["installed"] and not db_status.get("detected"):
             result["note"] = (
                 "AlphaFold3 script found, but genetic databases are missing. "
-                "MSA search (run_data_pipeline) will fail. "
-                "Install databases to ~/public_databases or configure db_dir."
+                "MSA search (run_data_pipeline) will fail if enabled. "
+                "Install databases to ~/public_databases or configure db_dir. "
+                "You can still run with run_data_pipeline=false for fast inference."
             )
 
     return result
@@ -318,13 +414,15 @@ def configure_db_dir(path: str) -> dict[str, Any]:
             "hint": "Provide the directory containing AlphaFold3 genetic databases (e.g., ~/public_databases)",
         }
 
-    # Validate it looks like AF3 databases
+    # Validate it looks like AF3 databases (warn but allow flat-file layouts)
     from mcp_server.tools.alphafold import _looks_like_af3_databases, check_af3_database_status
-    if not _looks_like_af3_databases(abs_path):
+    db_status = check_af3_database_status(abs_path)
+    if not db_status.get("detected"):
         return {
             "warning": f"Directory exists but does not look like AlphaFold3 databases: {abs_path}",
-            "hint": "Expected subdirectories: bfd, mgy_clusters, pdb_seqres, rnacentral, uniprot, uniref90, nt",
+            "hint": "Expected subdirectories or files: bfd, mgy_clusters, pdb_seqres, rnacentral, uniprot, uniref90, nt. If you have a flat-file layout, you can proceed anyway.",
             "proceed_anyway": True,
+            "database_status": db_status,
         }
 
     # Persist to config file

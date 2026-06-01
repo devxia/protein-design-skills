@@ -3,11 +3,20 @@
 Converts between file formats used by different tools:
 - ProteinMPNN FASTA → AlphaFold3 JSON
 - PDB validation and standardization
+- Raw sequence string → AlphaFold3 JSON
+
+AlphaFold3 JSON schema support:
+  - "protein" key (older AF3 server/local versions)
+  - "proteinChain" key (newer AF3 versions)
+  Auto-detects based on user preference or defaults to "protein".
 """
+
+from __future__ import annotations
 
 import json
 import logging
 import os
+import re
 from pathlib import Path
 from typing import Any
 
@@ -15,12 +24,74 @@ from Bio import SeqIO
 
 logger = logging.getLogger(__name__)
 
+# Standard amino acid residues
+STANDARD_AAS = set("ACDEFGHIKLMNPQRSTVWY")
+
+
+def _validate_sequence(seq: str) -> tuple[bool, list[str]]:
+    """Validate that a sequence contains only standard amino acids.
+
+    Args:
+        seq: Protein sequence string.
+
+    Returns:
+        Tuple of (is_valid, list_of_invalid_chars).
+    """
+    invalid = [c for c in seq.upper() if c not in STANDARD_AAS]
+    return len(invalid) == 0, invalid
+
+
+def _build_af3_sequence(
+    chain_seq: str,
+    chain_id: str,
+    schema: str = "protein",
+) -> dict[str, Any]:
+    """Build a single AlphaFold3 sequence entry.
+
+    Args:
+        chain_seq: Amino acid sequence.
+        chain_id: Chain identifier (e.g., "A", "B").
+        schema: Either "protein" or "proteinChain".
+
+    Returns:
+        AF3 sequence dict.
+    """
+    chain_seq = chain_seq.upper().strip()
+    is_valid, invalid = _validate_sequence(chain_seq)
+    if not is_valid:
+        logger.warning(
+            "Chain %s contains non-standard residues: %s", chain_id, invalid
+        )
+
+    if schema == "proteinChain":
+        return {
+            "proteinChain": {
+                "id": chain_id,
+                "sequence": chain_seq,
+                "unpairedMsa": None,
+                "pairedMsa": None,
+                "templates": None,
+            }
+        }
+    else:
+        return {
+            "protein": {
+                "id": chain_id,
+                "sequence": chain_seq,
+                "modifications": [],
+                "unpairedMsa": None,
+                "pairedMsa": None,
+                "templates": None,
+            }
+        }
+
 
 def fasta_to_alphafold3_json(
     fasta_path: str,
     job_name: str,
     seed: int = 1,
     output_path: str | None = None,
+    schema: str = "protein",
 ) -> str:
     """Convert ProteinMPNN output FASTA to AlphaFold3 input JSON.
 
@@ -35,6 +106,7 @@ def fasta_to_alphafold3_json(
         job_name: Job name for AlphaFold3.
         seed: Random seed for AlphaFold3.
         output_path: Optional explicit output JSON path.
+        schema: AF3 JSON schema variant — "protein" or "proteinChain".
 
     Returns:
         Path to the generated JSON file.
@@ -55,22 +127,49 @@ def fasta_to_alphafold3_json(
         design_seq = str(records[0].seq)
         logger.warning("No generated sequences (T=) found, using first record")
 
+    return sequence_to_alphafold3_json(
+        sequence=design_seq,
+        job_name=job_name,
+        seed=seed,
+        output_path=output_path,
+        schema=schema,
+        source_fasta=fasta_path,
+    )
+
+
+def sequence_to_alphafold3_json(
+    sequence: str,
+    job_name: str,
+    seed: int = 1,
+    output_path: str | None = None,
+    schema: str = "protein",
+    source_fasta: str | None = None,
+) -> str:
+    """Convert a raw protein sequence (possibly multi-chain) to AlphaFold3 JSON.
+
+    Args:
+        sequence: Protein sequence string. Multi-chain sequences use "/" separator.
+        job_name: Job name for AlphaFold3.
+        seed: Random seed.
+        output_path: Optional explicit output JSON path.
+        schema: AF3 JSON schema variant — "protein" or "proteinChain".
+        source_fasta: Optional source FASTA path for metadata.
+
+    Returns:
+        Path to the generated JSON file.
+    """
     # Split by "/" for multi-chain
-    chains = design_seq.split("/")
+    chains = [c.strip() for c in sequence.split("/") if c.strip()]
+    if not chains:
+        raise ValueError(f"No valid sequences after splitting: {sequence}")
 
     # Build AlphaFold3 JSON
     sequences = []
     for i, chain_seq in enumerate(chains):
         chain_id = chr(ord("A") + i)  # A, B, C, ...
-        sequences.append({
-            "protein": {
-                "id": chain_id,
-                "sequence": chain_seq.upper(),
-                "modifications": [],
-            }
-        })
+        sequences.append(_build_af3_sequence(chain_seq, chain_id, schema=schema))
 
-    af3_input = {
+    af3_input: dict[str, Any] = {
         "name": job_name,
         "modelSeeds": [seed],
         "sequences": sequences,
@@ -79,7 +178,7 @@ def fasta_to_alphafold3_json(
     }
 
     if not output_path:
-        output_dir = os.path.dirname(fasta_path) or "."
+        output_dir = os.path.dirname(source_fasta or ".") or "."
         output_path = os.path.join(output_dir, f"{job_name}_af3_input.json")
 
     Path(output_path).parent.mkdir(parents=True, exist_ok=True)
@@ -87,7 +186,7 @@ def fasta_to_alphafold3_json(
     with open(output_path, "w", encoding="utf-8") as f:
         json.dump(af3_input, f, indent=2)
 
-    logger.info("Converted FASTA to AlphaFold3 JSON: %s", output_path)
+    logger.info("Converted sequence to AlphaFold3 JSON (%s schema): %s", schema, output_path)
     return output_path
 
 
@@ -155,6 +254,7 @@ def convert_format(params: dict[str, Any]) -> dict[str, Any]:
     to_format = params["to_format"]
     input_path = params["input_path"]
     output_path = params.get("output_path")
+    schema = params.get("schema", "protein")
 
     if not os.path.exists(input_path):
         raise FileNotFoundError(f"Input file not found: {input_path}")
@@ -162,13 +262,16 @@ def convert_format(params: dict[str, Any]) -> dict[str, Any]:
     if from_format == "fasta" and to_format == "alphafold3_json":
         job_name = params.get("job_name", "design")
         seed = int(params.get("seed", 1))
-        json_path = fasta_to_alphafold3_json(input_path, job_name, seed, output_path)
+        json_path = fasta_to_alphafold3_json(
+            input_path, job_name, seed, output_path, schema=schema
+        )
         return {
             "status": "completed",
             "input_path": input_path,
             "output_path": json_path,
             "from_format": from_format,
             "to_format": to_format,
+            "schema": schema,
         }
 
     if from_format == "pdb" and to_format == "validated_pdb":
