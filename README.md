@@ -6,7 +6,7 @@ A [Kimi Code](https://github.com/MoonshotAI/Kimi-Code) plugin for end-to-end pro
 
 ## Features
 
-- **Stage 0 — Structure Preprocessing**: Automatic PDB repair with PDBFixer (non-standard residues, heterogens, missing atoms)
+- **Stage 0 — Structure Preprocessing**: Automatic PDB repair with PDBFixer
 - **Stage 1 — Backbone Generation**: RFdiffusion for monomers, binders, motif scaffolding, and symmetric oligomers
 - **Stage 2 — Sequence Design**: ProteinMPNN for amino acid sequence assignment
 - **Stage 3 — Structure Validation**: AlphaFold3 for confidence scoring (pLDDT, ipTM, pTM)
@@ -16,37 +16,19 @@ A [Kimi Code](https://github.com/MoonshotAI/Kimi-Code) plugin for end-to-end pro
 - **Hooks (0.6.0+)**: Context injection, GPU safety checks, and desktop notifications
 
 
-## ⚠️ Important: Plugin ≠ Tools
-
-This plugin **does not bundle** RFdiffusion, ProteinMPNN, AlphaFold3, or PDBFixer. These are large machine-learning models (multi-GB) that must be installed separately. The plugin provides the **orchestration layer** (MCP Server + Skills) that calls these tools via subprocess.
+> **Note:** This plugin does not bundle RFdiffusion, ProteinMPNN, AlphaFold3, or PDBFixer. These are large machine-learning models (multi-GB) that must be installed separately. The plugin provides the orchestration layer (MCP Server + Skills) that calls these tools via subprocess.
 
 
 ## Installation
 
-### From GitHub (Recommended)
+### Install the plugin
 
 ```
 /plugins install https://github.com/devxia/kimi-protein-design
-```
-
-### From Local Directory
-
-```
-/plugins install /path/to/kimi-protein-design
-```
-
-### Activate Plugin
-
-After installation, start a **new session** for the plugin to take effect:
-
-```
 /new
 ```
 
-> ⚠️ **Important**: Plugin changes only apply to new sessions. Existing sessions keep their initial plugin snapshot.
-
-
-## Requirements
+### System requirements
 
 - Kimi Code >= 0.6.0
 - Python >= 3.9
@@ -54,291 +36,28 @@ After installation, start a **new session** for the plugin to take effect:
 - Conda (miniconda or anaconda)
 - Separately installed: RFdiffusion, ProteinMPNN, AlphaFold3, PDBFixer + OpenMM
 
+> 📚 **Detailed installation steps for each tool**: [docs/en/guides/installation.md](./docs/en/guides/installation.md)
 
-## Prerequisites Installation
 
-> 💡 **Already have these tools installed?**
->
-> If you already have RFdiffusion, ProteinMPNN, AlphaFold3, or PDBFixer installed, you don't need to reinstall them. Just tell the Agent:
-> - Where each tool is located (e.g., "RFdiffusion is at `~/software/RFdiffusion`")
-> - Which conda environment it runs in (e.g., "RFdiffusion uses conda env `SE3nv`")
->
-> The plugin will auto-detect common install locations and ask you to confirm. You can also run `check_all_tools` at any time to see what's detected.
+## Setup via conversation
 
-### Step 1: Create a Conda Environment
+The easiest way to configure the plugin is to **talk to the Agent**.
 
-```bash
-conda create -n protein-design python=3.10
-conda activate protein-design
-```
+**Already have the tools installed?** Just tell the Agent:
+- Where each tool is located (e.g., "RFdiffusion is at `~/software/RFdiffusion`")
+- Which conda environment it runs in (e.g., "RFdiffusion uses conda env `SE3nv`")
 
-### Step 2: Install PDBFixer + OpenMM (Stage 0)
+The plugin auto-detects common install locations and asks you to confirm. You can also run `check_all_tools` at any time to see what's detected.
 
-PDBFixer is the only Python-API dependency; the rest are subprocess calls.
+**Prefer manual configuration?** You can set paths via:
+- Environment variables (`RFDIFFUSION_PATH`, `PROTEINMPNN_PATH`, `ALPHAFOLD_PATH`)
+- Config file (`~/.kimi-protein-design/config.yaml`)
+- Symlinks in the plugin root directory
 
-```bash
-conda install -c conda-forge pdbfixer openmm>=8.2
-```
+> 📚 See [docs/en/guides/installation.md](./docs/en/guides/installation.md) for detailed configuration options.
 
-Verify:
-```bash
-python -c "from pdbfixer import PDBFixer; print('PDBFixer OK')"
-```
 
-### Step 3: Install RFdiffusion (Stage 1)
-
-```bash
-# Clone repository
-cd ~/software  # or your preferred directory
-git clone https://github.com/RosettaCommons/RFdiffusion.git
-cd RFdiffusion
-
-# Create its own conda environment (recommended)
-conda env create -f env/SE3nv.yml
-conda activate SE3nv
-
-# Install RFdiffusion package
-pip install -e .
-
-# Download model weights (~2GB)
-mkdir -p models
-# Follow official instructions: https://github.com/RosettaCommons/RFdiffusion
-# Typically involves downloading from Zenodo or HuggingFace
-```
-
-The plugin looks for `RFdiffusion/scripts/run_inference.py` at these locations (in order):
-1. `$RFDIFFUSION_PATH/scripts/run_inference.py` (environment variable)
-2. `./RFdiffusion/scripts/run_inference.py`
-3. `~/RFdiffusion/scripts/run_inference.py`
-4. `/opt/RFdiffusion/scripts/run_inference.py`
-
-### Step 4: Install ProteinMPNN (Stage 2)
-
-```bash
-cd ~/software
-git clone https://github.com/dauparas/ProteinMPNN.git
-```
-
-No additional pip install is needed — it's run directly as a script.
-
-The plugin looks for `ProteinMPNN/protein_mpnn_run.py` at:
-1. `$PROTEINMPNN_PATH/protein_mpnn_run.py` (environment variable)
-2. `./ProteinMPNN/protein_mpnn_run.py`
-3. `~/ProteinMPNN/protein_mpnn_run.py`
-4. `/opt/ProteinMPNN/protein_mpnn_run.py`
-
-### Step 5: Install AlphaFold3 (Stage 3)
-
-AlphaFold3 is the most complex dependency. Two installation modes:
-
-#### Option A: Docker (Recommended, Easiest)
-
-```bash
-cd ~/software
-git clone https://github.com/google-deepmind/alphafold3.git
-cd alphafold3
-
-# Build Docker image
-docker build -t alphafold3 -f docker/Dockerfile .
-
-# Download model parameters (~1.6GB) and databases (~2.6TB total)
-# Follow: https://github.com/google-deepmind/alphafold3/blob/main/docs/installation.md
-```
-
-> **Note:** The plugin uses local Python execution by default. For Docker mode or custom environment setups, use the `wrapper_script` parameter (see [Wrapper Scripts](#wrapper-scripts) below).
-
-#### Option B: Local Installation
-
-```bash
-cd ~/software
-git clone https://github.com/google-deepmind/alphafold3.git
-cd alphafold3
-
-# Install dependencies
-pip install -r requirements.txt
-
-# Download model parameters to ~/models
-# Download genetic databases to ~/public_databases
-# See: https://github.com/google-deepmind/alphafold3/blob/main/docs/installation.md
-```
-
-The plugin looks for `alphafold3/run_alphafold.py` at:
-1. `$ALPHAFOLD_PATH/run_alphafold.py` (environment variable)
-2. `./alphafold3/run_alphafold.py`
-3. `~/alphafold3/run_alphafold.py`
-4. `/opt/alphafold3/run_alphafold.py`
-
-### Step 6: Tell the Plugin Where Your Tools Are
-
-After installing the tools, you must inform the plugin of their locations.
-
-**Method A: Environment Variables** (temporary, current shell only)
-
-```bash
-export RFDIFFUSION_PATH="$HOME/software/RFdiffusion"
-export PROTEINMPNN_PATH="$HOME/software/ProteinMPNN"
-export ALPHAFOLD_PATH="$HOME/software/alphafold3"
-export PROTEIN_DESIGN_OUTPUT_DIR="/tmp/protein-design"
-```
-
-Add to `~/.bashrc` or `~/.zshrc` to make permanent.
-
-**Method B: Config File** (persistent, recommended)
-
-```bash
-mkdir -p ~/.kimi-protein-design
-cat > ~/.kimi-protein-design/config.yaml << 'EOF'
-output_dir: /tmp/protein-design
-max_jobs: 4
-timeout: 3600
-rfdiffusion_path: /Users/YOURNAME/software/RFdiffusion
-proteinmpnn_path: /Users/YOURNAME/software/ProteinMPNN
-alphafold_path: /Users/YOURNAME/software/alphafold3
-rfdiffusion_conda_env: SE3nv
-proteinmpnn_conda_env: null
-alphafold_conda_env: null
-EOF
-```
-
-Replace `/Users/YOURNAME` with your actual home directory path.
-
-**Conda Environments**: If each tool is installed in a separate conda environment, set the env name above. The plugin will automatically wrap commands with `conda run -n <env>`. If a tool is in the current environment, leave it as `null`.
-
-**Wrapper Scripts**: For complex setups (custom `XLA_FLAGS`, multiple conda activations, or Docker wrappers), you can provide a shell script path via the `wrapper_script` parameter when running any tool. The wrapper receives the tool command as arguments. See [Wrapper Scripts](#wrapper-scripts) for details.
-
-**Method C: Symlinks** (simplest if you don't want config files)
-
-```bash
-ln -s ~/software/RFdiffusion ./RFdiffusion
-ln -s ~/software/ProteinMPNN ./ProteinMPNN
-ln -s ~/software/alphafold3 ./alphafold3
-```
-
-Place these symlinks in the same directory where Kimi Code launches the MCP server (i.e., the plugin root directory).
-
-### Step 7: Verify Installation
-
-After installing the plugin (`/plugins install ...` + `/new`), run:
-
-```
-/mcp
-```
-
-You should see `protein` server connected. Then test:
-
-```
-Call get_tool_info
-Call health_check
-```
-
-`health_check` will report whether RFdiffusion, ProteinMPNN, and AlphaFold3 are detectable.
-
-
-## Uninstallation
-
-### What `/plugins install` Actually Installs
-
-When you run `/plugins install`, Kimi Code downloads the plugin repository to its internal plugin directory (`~/.kimi-code/plugins/...`) and registers:
-
-| Component | What it is | Location |
-|-----------|-----------|----------|
-| **Manifest** | `kimi.plugin.json` | Inside plugin directory |
-| **Skills** | 7 Markdown files under `skills/` | Inside plugin directory |
-| **MCP Server** | Python source under `mcp_server/` | Inside plugin directory |
-| **MCP Registration** | Stdio server config | Kimi Code internal state |
-| **Session Start** | Auto-load skill binding | Kimi Code internal state |
-
-**Important**: The plugin does **NOT** install RFdiffusion, ProteinMPNN, AlphaFold3, or PDBFixer. Those are external tools you install separately.
-
-### Plugin-Level Uninstall
-
-```
-/plugins remove kimi-protein-design
-```
-
-This removes:
-- ✅ Plugin source code (`~/.kimi-code/plugins/.../kimi-protein-design/`)
-- ✅ MCP server registration (protein server no longer starts)
-- ✅ Skills index and session-start binding
-
-This does **NOT** remove:
-- ❌ `~/.kimi-protein-design/config.yaml` (your path configurations)
-- ❌ Hooks in `~/.kimi-code/hooks/` (if you ran `install-hooks.py`)
-- ❌ Hooks entries in `~/.kimi-code/config.toml`
-- ❌ Output files in `/tmp/protein-design/`
-- ❌ External tools (RFdiffusion, ProteinMPNN, AlphaFold3, databases)
-
-### Complete Cleanup (Remove Everything)
-
-To completely erase all traces:
-
-```bash
-# 1. Uninstall plugin (in Kimi Code)
-# /plugins remove kimi-protein-design
-
-# 2. Delete plugin configuration
-rm -rf ~/.kimi-protein-design/
-
-# 3. Delete hooks (if installed)
-rm -f ~/.kimi-code/hooks/protein-context-inject.py
-rm -f ~/.kimi-code/hooks/gpu-check-hook.py
-rm -f ~/.kimi-code/hooks/design-complete-notify.py
-rm -f ~/.kimi-code/hooks/background-notify.py
-
-# 4. Edit ~/.kimi-code/config.toml and remove [[hooks]] sections for this plugin
-
-# 5. Delete history outputs (optional)
-rm -rf /tmp/protein-design/
-
-# 6. External tools (optional, very large)
-rm -rf ~/software/RFdiffusion
-rm -rf ~/software/ProteinMPNN
-rm -rf ~/software/alphafold3
-rm -rf ~/public_databases
-```
-
-### Cleanup Checklist
-
-| Component | `remove` command | Manual cleanup needed? |
-|-----------|-----------------|----------------------|
-| Plugin source | ✅ Auto | No |
-| MCP registration | ✅ Auto | No |
-| `~/.kimi-protein-design/config.yaml` | ❌ No | `rm -rf ~/.kimi-protein-design/` |
-| Hooks scripts | ❌ No | `rm ~/.kimi-code/hooks/*.py` |
-| Hooks config.toml entries | ❌ No | Edit `~/.kimi-code/config.toml` |
-| Output files | ❌ No | `rm -rf /tmp/protein-design/` |
-| External tools | ❌ No | `rm -rf ~/software/...` |
-
-
-## Pipeline Defaults
-
-By default, each stage produces the following number of designs:
-
-| Stage | Tool | Default Output | Parameter |
-|-------|------|---------------|-----------|
-| 1 — Backbone | RFdiffusion | **10** backbones | `num_designs` |
-| 2 — Sequence | ProteinMPNN | **8** sequences per backbone | `num_seq_per_target` |
-| 3 — Validation | AlphaFold3 | **5** predictions (1 seed × 5 samples) | `num_seeds` × `num_samples` |
-
-**Full pipeline default**: 10 backbones × 8 sequences × 5 predictions = up to **400** AlphaFold3 results.
-
-You can adjust these numbers through natural language — no need to memorize parameter names:
-
-```
-User: "Generate 50 backbones"
-→ num_designs = 50
-
-User: "Design 16 sequences for each backbone"
-→ num_seq_per_target = 16
-
-User: "Validate with 3 seeds"
-→ num_seeds = 3
-
-User: "Give me 20 designs, 4 sequences each, validate all"
-→ num_designs = 20, num_seq_per_target = 4
-```
-
-## Quick Start
+## Quick start
 
 ### Example 1: Design a 150-aa monomer
 
@@ -358,247 +77,28 @@ User: Design a binder targeting PD-L1
 → Stage 4: Filter by ipTM > 0.8 and pLDDT > 80
 ```
 
-
-## Architecture
-
-```
-kimi-protein-design/
-├── kimi.plugin.json              # Plugin manifest
-├── skills/                       # Workflow guidance
-│   ├── protein-design-context/   # Session-start context
-│   ├── structure-preprocessing/  # Stage 0: PDBFixer
-│   ├── structure-generation/     # Stage 1: RFdiffusion
-│   ├── sequence-design/          # Stage 2: ProteinMPNN
-│   ├── structure-validation/     # Stage 3: AlphaFold3
-│   ├── filtering-ranking/        # Stage 4: Filtering
-│   └── full-pipeline/            # End-to-end orchestration
-├── mcp_server/                   # MCP Server (stdio JSON-RPC)
-│   ├── server.py                 # Main entry
-│   ├── tools/                    # Tool implementations
-│   │   ├── job_manager.py        # Async task management
-│   │   ├── pdbfixer_tool.py      # PDB preprocessing
-│   │   ├── rfdiffusion.py        # Backbone generation
-│   │   ├── proteinmpnn.py        # Sequence design
-│   │   ├── alphafold.py          # Structure validation
-│   │   ├── format_converter.py   # FASTA ↔ JSON conversion
-│   │   ├── filtering.py          # Quality filtering
-│   │   └── system_info.py        # Environment checks
-│   ├── utils/                    # Utilities
-│   │   ├── config.py             # Configuration
-│   │   └── gpu_utils.py          # GPU detection
-│   └── hooks/                    # Recommended hooks
-│       ├── install-hooks.py      # One-click installer
-│       ├── protein-context-inject.py
-│       ├── gpu-check-hook.py
-│       ├── design-complete-notify.py
-│       └── background-notify.py
-└── README.md
-```
+Pipeline defaults: 10 backbones → 8 sequences each → 5 predictions each. Adjust through natural language (e.g., "Generate 50 backbones", "Validate with 3 seeds").
 
 
-## MCP Tools
+## Documentation
 
-| Tool | Description |
-|------|-------------|
-| `get_tool_info` | List all tools and their parameters |
-| `health_check` | Check GPU, CUDA, conda, disk space |
-| `submit_job` | Submit async computation job |
-| `query_job` | Poll job status by task_id |
-| `cancel_job` | Cancel a running job |
-| `run_pdbfixer` | Preprocess PDB/CIF (mandatory Stage 0). Supports cross-conda-environment execution via `conda_env` |
-| `run_rfdiffusion` | Generate protein backbones |
-| `run_proteinmpnn` | Design amino acid sequences |
-| `run_alphafold3` | Predict and validate structures |
-| `convert_format` | Convert FASTA → AlphaFold3 JSON. Supports `protein`/`proteinChain` schema and optional `receptor_pdb` for multi-chain complexes |
-| `run_filtering` | Filter and rank by metrics (accepts both `metrics` nested dict and top-level fields) |
-| `analyze_alphafold3_results` | Parse AF3 output directory and extract confidence metrics (pLDDT, ipTM, pTM, per-chain pLDDT, ranking scores) without re-running |
-| `check_batch_progress` | Check multiple jobs at once |
+| Document | Description |
+|----------|-------------|
+| [Installation Guide](./docs/en/guides/installation.md) | Step-by-step tool installation and configuration |
+| [Quick Start](./docs/en/guides/quickstart.md) | Pipeline defaults and example workflows |
+| [Pipeline Architecture](./docs/en/guides/pipeline.md) | 5-stage design flow and project structure |
+| [API Reference](./docs/en/api-reference/tools.md) | All MCP tools and their parameters |
+| [Troubleshooting](./docs/en/guides/troubleshooting.md) | Common issues and solutions |
+| [Changelog](./docs/en/release-notes/changelog.md) | Release notes |
 
 
-## Configuration
-
-Environment variables:
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `PROTEIN_DESIGN_OUTPUT_DIR` | `/tmp/protein-design` | Output directory |
-| `PROTEIN_DESIGN_MAX_JOBS` | `4` | Max concurrent jobs |
-| `PROTEIN_DESIGN_TIMEOUT` | `3600` | Job timeout (seconds) |
-| `RFDIFFUSION_PATH` | auto-detect | RFdiffusion install path |
-| `PROTEINMPNN_PATH` | auto-detect | ProteinMPNN install path |
-| `ALPHAFOLD_PATH` | auto-detect | AlphaFold3 install path |
-
-Config file: `~/.kimi-protein-design/config.yaml`
-
-```yaml
-output_dir: /tmp/protein-design
-max_jobs: 4
-timeout: 3600
-rfdiffusion_path: /opt/RFdiffusion
-proteinmpnn_path: /opt/ProteinMPNN
-alphafold_path: /opt/alphafold3
-```
-
-
-## Hooks (Strongly Recommended)
-
-Kimi Code 0.6.0+ supports hooks for enhanced protein design workflows.
-
-### Install Hooks
-
-```bash
-python mcp_server/hooks/install-hooks.py
-```
-
-This installs:
-- **UserPromptSubmit** — Auto-inject GPU/tool status into model context
-- **PreToolUse** — Block submit_job if GPU/disk is insufficient
-- **PostToolUse** — Desktop notification when jobs complete
-- **Notification** — Alert on background task completion/failure
-
-Then restart Kimi Code: `/new`
-
-### Manual Hook Configuration
-
-Add to `~/.kimi-code/config.toml`:
-
-```toml
-[[hooks]]
-event = "UserPromptSubmit"
-matcher = "(?i)(protein|pdb|binder|alphafold|rfdiffusion|proteinmpnn|design|structure|sequence|residue|loop|scaffold)"
-command = "python ~/.kimi-code/hooks/protein-context-inject.py"
-timeout = 3
-
-[[hooks]]
-event = "PreToolUse"
-matcher = "mcp__.*__submit_job"
-command = "python ~/.kimi-code/hooks/gpu-check-hook.py"
-timeout = 5
-
-[[hooks]]
-event = "PostToolUse"
-matcher = "mcp__.*__query_job"
-command = "python ~/.kimi-code/hooks/design-complete-notify.py"
-timeout = 5
-
-[[hooks]]
-event = "Notification"
-matcher = "task\\.completed|task\\.failed|task\\.killed"
-command = "python ~/.kimi-code/hooks/background-notify.py"
-timeout = 5
-```
-
-
-## Batch Validation with CronCreate
-
-For large-scale screening (>10 designs), use CronCreate instead of blocking polling:
-
-1. Submit all AlphaFold3 validation jobs (async)
-2. Create periodic check:
-   ```
-   CronCreate(cron="*/10 * * * *", prompt="Check AF3 batch progress for task_ids [X,Y,Z]. Report completed count and pLDDT>80 pass rate.")
-   ```
-3. Session is freed for other work
-4. When done, cancel timer:
-   ```
-   CronDelete(id="<id>")
-   ```
-
-
-## Quality Thresholds
+## Quality thresholds
 
 | Metric | Acceptable | Good | Excellent |
 |--------|-----------|------|-----------|
 | pLDDT | >70 | >80 | >90 |
 | ipTM | >0.6 | >0.8 | >0.9 |
 | pTM | >0.5 | >0.7 | >0.9 |
-
-
-## Troubleshooting
-
-| Issue | Solution |
-|-------|----------|
-| Plugin not loading | Run `/new` after installation |
-| `run_pdbfixer` not found | `conda install -c conda-forge pdbfixer openmm`, or use `conda_env` param to run in another env |
-| RFdiffusion not found | Set `RFDIFFUSION_PATH` env var |
-| GPU out of memory | Reduce `num_designs` or `diffuser_T` |
-| AlphaFold3 MSA timeout | Default runs full MSA. Set `run_data_pipeline=false` to skip (faster, less accurate) |
-| Tool not found in other env | `check_all_tools` now auto-scans common conda envs + editable installs |
-| Binder validation needs receptor | Use `convert_format` with `receptor_pdb` to generate multi-chain AF3 JSON |
-| Hooks not working | Verify `~/.kimi-code/config.toml` syntax, then `/new` |
-
-
-## Cross-Conda Environment Execution
-
-If your tools are installed in different conda environments (e.g., PDBFixer in `BindCraft`, RFdiffusion in `protein-design`, AlphaFold3 in `AF3`), you don't need to install them all in one env:
-
-- **`run_pdbfixer`**: Use `conda_env="BindCraft"` to run PDBFixer in the target environment
-- **`run_rfdiffusion` / `run_proteinmpnn` / `run_alphafold3`**: Use `conda_env` or `wrapper_script` to specify the target environment
-
-The plugin auto-detects tools across common conda environments and editable installs.
-
-
-## Multi-Chain Complex Validation
-
-For binder/peptide design validation, AlphaFold3 needs both the receptor and the designed peptide in one JSON. Instead of manually writing the JSON:
-
-```python
-# Auto-generates AF3 JSON with receptor + designed peptide
-convert_format(
-    from_format="fasta",
-    to_format="alphafold3_json",
-    input_path="/path/to/proteinmpnn_out.fasta",
-    receptor_pdb="/path/to/receptor_fixed.pdb",
-    receptor_chain="A",
-    job_name="binder_validation"
-)
-```
-
-After AlphaFold3 finishes, analyze results without re-running:
-
-```python
-analyze_alphafold3_results(output_dir="/path/to/af3_output", job_name="binder_validation")
-# Returns: per-chain pLDDT, ipTM, pTM, ranking scores, clash status, best structure
-```
-
-
-## Wrapper Scripts
-
-For complex execution environments, each tool (`run_rfdiffusion`, `run_proteinmpnn`, `run_alphafold3`) accepts an optional `wrapper_script` path. This is useful when:
-
-- You need custom environment variables (e.g., `XLA_FLAGS` for old GPUs)
-- Your tool requires multiple conda activations or module loads
-- You want to wrap execution in Docker or a job scheduler
-- The tool has a custom launcher script (e.g., `run_af3.sh`)
-
-Example wrapper script (`run_af3.sh`):
-
-```bash
-#!/bin/bash
-# Setup environment
-export XLA_FLAGS="--xla_gpu_cuda_data_dir=/usr/local/cuda"
-export model_dir="~/models"
-export db_dir="~/public_databases"
-
-# The remaining arguments are the actual tool command
-exec "$@"
-```
-
-Usage:
-
-```
-submit_job(tool="alphafold3", params={
-  "json_path": "/path/to/input.json",
-  "output_dir": "/path/to/output",
-  "wrapper_script": "/path/to/run_af3.sh"
-})
-```
-
-When `wrapper_script` is provided, it overrides `conda_env`. The plugin runs:
-
-```bash
-bash /path/to/wrapper_script python run_alphafold.py --json_path=... ...
-```
 
 
 ## License

@@ -5,7 +5,7 @@ source: README.zh.md
 
 # 安装指南
 
-> ⚠️ **重要**：本插件**不附带** RFdiffusion、ProteinMPNN、AlphaFold3 或 PDBFixer。这些都是大型机器学习模型（多 GB），必须单独安装。插件提供的是**编排层**，通过子进程调用这些工具。
+> ⚠️ **重要：**本插件**不附带** RFdiffusion、ProteinMPNN、AlphaFold3 或 PDBFixer。这些都是大型机器学习模型（多 GB），必须单独安装。插件提供的是**编排层**，通过子进程调用这些工具。
 
 ## 安装插件
 

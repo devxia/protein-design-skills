@@ -5,7 +5,7 @@ source: README.md
 
 # Pipeline Architecture
 
-## Project Structure
+## Project structure
 
 ```
 kimi-protein-design/
@@ -41,7 +41,7 @@ kimi-protein-design/
 └── README.md
 ```
 
-## Design Pipeline (5 Stages)
+## Design pipeline (5 stages)
 
 | Stage | Purpose | Tool | Default Output |
 |-------|---------|------|---------------|

@@ -5,7 +5,7 @@ source: README.md
 
 # Troubleshooting
 
-## Common Issues
+## Common issues
 
 | Issue | Solution |
 |-------|----------|
@@ -18,7 +18,7 @@ source: README.md
 | Binder validation needs receptor | Use `convert_format` with `receptor_pdb` to generate multi-chain AF3 JSON |
 | Hooks not working | Verify `~/.kimi-code/config.toml` syntax, then `/new` |
 
-## Cross-Conda Environment Execution
+## Cross-Conda environment execution
 
 If your tools are installed in different conda environments, you don't need to install them all in one env:
 
@@ -27,7 +27,7 @@ If your tools are installed in different conda environments, you don't need to i
 
 The plugin auto-detects tools across common conda environments and editable installs.
 
-## Multi-Chain Complex Validation
+## Multi-chain complex validation
 
 For binder/peptide design validation, AlphaFold3 needs both the receptor and the designed peptide in one JSON:
 

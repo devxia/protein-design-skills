@@ -7,15 +7,15 @@ source: README.md
 
 > ⚠️ **Important**: This plugin does **NOT** install RFdiffusion, ProteinMPNN, AlphaFold3, or PDBFixer. These are large machine-learning models (multi-GB) that must be installed separately. The plugin provides the **orchestration layer** that calls these tools via subprocess.
 
-## Install the Plugin
+## Install the plugin
 
-### From GitHub (Recommended)
+### From GitHub (recommended)
 
 ```
 /plugins install https://github.com/devxia/kimi-protein-design
 ```
 
-### From Local Directory
+### From local directory
 
 ```
 /plugins install /path/to/kimi-protein-design
@@ -31,7 +31,7 @@ After installation, start a **new session**:
 
 > Plugin changes only apply to new sessions.
 
-## System Requirements
+## System requirements
 
 - Kimi Code >= 0.6.0
 - Python >= 3.9
@@ -39,11 +39,11 @@ After installation, start a **new session**:
 - Conda (miniconda or anaconda)
 - Separately installed: RFdiffusion, ProteinMPNN, AlphaFold3, PDBFixer + OpenMM
 
-## Install External Tools
+## Install external tools
 
 > 💡 **Already have these tools?** Just tell the Agent where each tool is located and which conda environment it uses. The plugin auto-detects common install locations.
 
-### Step 1: Create a Conda Environment
+### Step 1: Create a Conda environment
 
 ```bash
 conda create -n protein-design python=3.10
@@ -100,7 +100,7 @@ pip install -r requirements.txt
 
 Download model parameters (~1.6GB) and genetic databases (~2.6TB).
 
-## Configure Tool Paths
+## Configure tool paths
 
 **Method A: Environment Variables**
 
@@ -134,7 +134,7 @@ ln -s ~/software/ProteinMPNN ./ProteinMPNN
 ln -s ~/software/alphafold3 ./alphafold3
 ```
 
-## Verify Installation
+## Verify installation
 
 ```
 /mcp

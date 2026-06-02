@@ -6,7 +6,7 @@
 
 ## 功能特性
 
-- **Stage 0 — 结构预处理**：使用 PDBFixer 自动修复 PDB（非标准残基、异质原子、缺失原子）
+- **Stage 0 — 结构预处理**：使用 PDBFixer 自动修复 PDB
 - **Stage 1 — 骨架生成**：RFdiffusion 用于单体、结合物、基序支架及对称寡聚体
 - **Stage 2 — 序列设计**：ProteinMPNN 用于氨基酸序列分配
 - **Stage 3 — 结构验证**：AlphaFold3 用于置信度评分（pLDDT、ipTM、pTM）
@@ -16,37 +16,19 @@
 - **Hooks (0.6.0+)**：上下文注入、GPU 安全检查及桌面通知
 
 
-## ⚠️ 重要提示：Plugin ≠ Tools
-
-本插件**不捆绑** RFdiffusion、ProteinMPNN、AlphaFold3 或 PDBFixer。这些是大型机器学习模型（多 GB），必须单独安装。插件提供**编排层**（MCP Server + Skills），通过子进程调用这些工具。
+> **注意：** 本插件不捆绑 RFdiffusion、ProteinMPNN、AlphaFold3 或 PDBFixer。这些是大型机器学习模型（多 GB），必须单独安装。插件提供编排层（MCP Server + Skills），通过子进程调用这些工具。
 
 
 ## 安装
 
-### 从 GitHub 安装（推荐）
+### 安装插件
 
 ```
 /plugins install https://github.com/devxia/kimi-protein-design
-```
-
-### 从本地目录安装
-
-```
-/plugins install /path/to/kimi-protein-design
-```
-
-### 激活插件
-
-安装后，启动**新会话**使插件生效：
-
-```
 /new
 ```
 
-> ⚠️ **重要**：插件更改仅适用于新会话。已有会话保持其初始插件快照。
-
-
-## 环境要求
+### 环境要求
 
 - Kimi Code >= 0.6.0
 - Python >= 3.9
@@ -54,455 +36,60 @@
 - Conda（miniconda 或 anaconda）
 - 单独安装：RFdiffusion、ProteinMPNN、AlphaFold3、PDBFixer + OpenMM
 
+> 📚 **各工具的详细安装步骤**：[docs/zh/guides/installation.md](./docs/zh/guides/installation.md)
 
-## 前置条件安装
 
-> 💡 **已经安装了这些工具？**
->
-> 如果你已经安装了 RFdiffusion、ProteinMPNN、AlphaFold3 或 PDBFixer，无需重新安装。直接告诉 Agent：
-> - 每个工具的位置（例如："RFdiffusion 在 `~/software/RFdiffusion`"）
-> - 每个工具运行在哪个 conda 环境中（例如："RFdiffusion 使用 conda 环境 `SE3nv`"）
->
-> 插件会自动探测常见安装位置并请你确认。你也可以随时运行 `check_all_tools` 查看已检测到的工具。
+## 通过与 Agent 对话完成设置
 
-### 第 1 步：创建 Conda 环境
+配置插件最简单的方式就是**直接和 Agent 对话**。
 
-```bash
-conda create -n protein-design python=3.10
-conda activate protein-design
-```
+**已经安装了这些工具？** 直接告诉 Agent：
+- 每个工具的位置（例如："RFdiffusion 在 `~/software/RFdiffusion`"）
+- 每个工具运行在哪个 conda 环境中（例如："RFdiffusion 使用 conda 环境 `SE3nv`"）
 
-### 第 2 步：安装 PDBFixer + OpenMM（Stage 0）
+插件会自动探测常见安装位置并请你确认。你也可以随时运行 `check_all_tools` 查看已检测到的工具。
 
-PDBFixer 是唯一的 Python API 依赖；其余均通过子进程调用。
+**偏好手动配置？** 你可以通过以下方式设置路径：
+- 环境变量（`RFDIFFUSION_PATH`、`PROTEINMPNN_PATH`、`ALPHAFOLD_PATH`）
+- 配置文件（`~/.kimi-protein-design/config.yaml`）
+- 插件根目录中的符号链接
 
-```bash
-conda install -c conda-forge pdbfixer openmm>=8.2
-```
+> 📚 详见 [docs/zh/guides/installation.md](./docs/zh/guides/installation.md) 中的详细配置说明。
 
-验证：
-```bash
-python -c "from pdbfixer import PDBFixer; print('PDBFixer OK')"
-```
-
-### 第 3 步：安装 RFdiffusion（Stage 1）
-
-```bash
-# 克隆仓库
-cd ~/software  # 或你偏好的目录
-git clone https://github.com/RosettaCommons/RFdiffusion.git
-cd RFdiffusion
-
-# 创建独立的 conda 环境（推荐）
-conda env create -f env/SE3nv.yml
-conda activate SE3nv
-
-# 安装 RFdiffusion 包
-pip install -e .
-
-# 下载模型权重（~2GB）
-mkdir -p models
-# 按官方说明操作：https://github.com/RosettaCommons/RFdiffusion
-# 通常需要从 Zenodo 或 HuggingFace 下载
-```
-
-插件按以下顺序查找 `RFdiffusion/scripts/run_inference.py`：
-1. `$RFDIFFUSION_PATH/scripts/run_inference.py`（环境变量）
-2. `./RFdiffusion/scripts/run_inference.py`
-3. `~/RFdiffusion/scripts/run_inference.py`
-4. `/opt/RFdiffusion/scripts/run_inference.py`
-
-### 第 4 步：安装 ProteinMPNN（Stage 2）
-
-```bash
-cd ~/software
-git clone https://github.com/dauparas/ProteinMPNN.git
-```
-
-无需额外 pip 安装 —— 直接作为脚本运行。
-
-插件按以下顺序查找 `ProteinMPNN/protein_mpnn_run.py`：
-1. `$PROTEINMPNN_PATH/protein_mpnn_run.py`（环境变量）
-2. `./ProteinMPNN/protein_mpnn_run.py`
-3. `~/ProteinMPNN/protein_mpnn_run.py`
-4. `/opt/ProteinMPNN/protein_mpnn_run.py`
-
-### 第 5 步：安装 AlphaFold3（Stage 3）
-
-AlphaFold3 是最复杂的依赖。有两种安装方式：
-
-#### 方案 A：Docker（推荐，最简单）
-
-```bash
-cd ~/software
-git clone https://github.com/google-deepmind/alphafold3.git
-cd alphafold3
-
-# 构建 Docker 镜像
-docker build -t alphafold3 -f docker/Dockerfile .
-
-# 下载模型参数（~1.6GB）和数据库（总计 ~2.6TB）
-# 参考：https://github.com/google-deepmind/alphafold3/blob/main/docs/installation.md
-```
-
-> **注意：** 插件默认使用本地 Python 执行。如需 Docker 模式或自定义环境设置，可使用 `wrapper_script` 参数（详见下方的 [Wrapper 脚本](#wrapper-脚本)）。
-
-#### 方案 B：本地安装
-
-```bash
-cd ~/software
-git clone https://github.com/google-deepmind/alphafold3.git
-cd alphafold3
-
-# 安装依赖
-pip install -r requirements.txt
-
-# 下载模型参数到 ~/models
-# 下载基因数据库到 ~/public_databases
-# 参考：https://github.com/google-deepmind/alphafold3/blob/main/docs/installation.md
-```
-
-插件按以下顺序查找 `alphafold3/run_alphafold.py`：
-1. `$ALPHAFOLD_PATH/run_alphafold.py`（环境变量）
-2. `./alphafold3/run_alphafold.py`
-3. `~/alphafold3/run_alphafold.py`
-4. `/opt/alphafold3/run_alphafold.py`
-
-### 第 6 步：告诉插件工具的安装位置
-
-安装完工具后，必须告知插件它们的位置。
-
-**方案 A：环境变量**（临时，仅当前 shell 有效）
-
-```bash
-export RFDIFFUSION_PATH="$HOME/software/RFdiffusion"
-export PROTEINMPNN_PATH="$HOME/software/ProteinMPNN"
-export ALPHAFOLD_PATH="$HOME/software/alphafold3"
-export PROTEIN_DESIGN_OUTPUT_DIR="/tmp/protein-design"
-```
-
-添加到 `~/.bashrc` 或 `~/.zshrc` 可永久生效。
-
-**方案 B：配置文件**（持久化，推荐）
-
-```bash
-mkdir -p ~/.kimi-protein-design
-cat > ~/.kimi-protein-design/config.yaml << 'EOF'
-output_dir: /tmp/protein-design
-max_jobs: 4
-timeout: 3600
-rfdiffusion_path: /Users/YOURNAME/software/RFdiffusion
-proteinmpnn_path: /Users/YOURNAME/software/ProteinMPNN
-alphafold_path: /Users/YOURNAME/software/alphafold3
-rfdiffusion_conda_env: SE3nv
-proteinmpnn_conda_env: null
-alphafold_conda_env: null
-EOF
-```
-
-将 `/Users/YOURNAME` 替换为你的实际主目录路径。
-
-**Conda 环境**：如果每个工具安装在独立的 conda 环境中，在上述配置中设置环境名。插件会自动用 `conda run -n <env>` 包装命令。如果工具在当前环境中，保持为 `null` 即可。
-
-**Wrapper 脚本**：对于复杂环境设置（自定义 `XLA_FLAGS`、多 conda 激活、Docker 包装等），可在运行工具时通过 `wrapper_script` 参数提供 shell 脚本路径。Wrapper 会接收实际工具命令作为参数。详见 [Wrapper 脚本](#wrapper-脚本)。
-
-**方案 C：符号链接**（如果不想使用配置文件，最简单的方式）
-
-```bash
-ln -s ~/software/RFdiffusion ./RFdiffusion
-ln -s ~/software/ProteinMPNN ./ProteinMPNN
-ln -s ~/software/alphafold3 ./alphafold3
-```
-
-将这些符号链接放在 Kimi Code 启动 MCP 服务器的同一目录中（即插件根目录）。
-
-### 第 7 步：验证安装
-
-安装插件后（`/plugins install ...` + `/new`），运行：
-
-```
-/mcp
-```
-
-你应该能看到 `protein` 服务器已连接。然后测试：
-
-```
-Call get_tool_info
-Call health_check
-```
-
-`health_check` 会报告 RFdiffusion、ProteinMPNN 和 AlphaFold3 是否可检测到。
-
-
-## 卸载
-
-### `/plugins install` 实际安装的内容
-
-运行 `/plugins install` 时，Kimi Code 会将插件仓库下载到其内部插件目录（`~/.kimi-code/plugins/...`）并注册：
-
-| 组件 | 说明 | 位置 |
-|-----------|-----------|----------|
-| **清单** | `kimi.plugin.json` | 插件目录内 |
-| **Skills** | `skills/` 下的 7 个 Markdown 文件 | 插件目录内 |
-| **MCP Server** | `mcp_server/` 下的 Python 源码 | 插件目录内 |
-| **MCP 注册** | Stdio 服务器配置 | Kimi Code 内部状态 |
-| **会话启动** | 自动加载 skill 绑定 | Kimi Code 内部状态 |
-
-**重要**：插件**不会**安装 RFdiffusion、ProteinMPNN、AlphaFold3 或 PDBFixer。这些是你单独安装的外部工具。
-
-### 插件级卸载
-
-```
-/plugins remove kimi-protein-design
-```
-
-这会移除：
-- ✅ 插件源码（`~/.kimi-code/plugins/.../kimi-protein-design/`）
-- ✅ MCP 服务器注册（protein 服务器不再启动）
-- ✅ Skills 索引和会话启动绑定
-
-这**不会**移除：
-- ❌ `~/.kimi-protein-design/config.yaml`（你的路径配置）
-- ❌ `~/.kimi-code/hooks/` 中的 Hooks（如果你运行过 `install-hooks.py`）
-- ❌ `~/.kimi-code/config.toml` 中的 Hooks 条目
-- ❌ `/tmp/protein-design/` 中的输出文件
-- ❌ 外部工具（RFdiffusion、ProteinMPNN、AlphaFold3、数据库）
-
-### 完全清理（移除所有内容）
-
-要彻底清除所有痕迹：
-
-```bash
-# 1. 卸载插件（在 Kimi Code 中）
-# /plugins remove kimi-protein-design
-
-# 2. 删除插件配置
-rm -rf ~/.kimi-protein-design/
-
-# 3. 删除 hooks（如果已安装）
-rm -f ~/.kimi-code/hooks/protein-context-inject.py
-rm -f ~/.kimi-code/hooks/gpu-check-hook.py
-rm -f ~/.kimi-code/hooks/design-complete-notify.py
-rm -f ~/.kimi-code/hooks/background-notify.py
-
-# 4. 编辑 ~/.kimi-code/config.toml 并移除该插件的 [[hooks]] 部分
-
-# 5. 删除历史输出（可选）
-rm -rf /tmp/protein-design/
-
-# 6. 外部工具（可选，体积很大）
-rm -rf ~/software/RFdiffusion
-rm -rf ~/software/ProteinMPNN
-rm -rf ~/software/alphafold3
-rm -rf ~/public_databases
-```
-
-### 清理检查清单
-
-| 组件 | `remove` 命令 | 需要手动清理？ |
-|-----------|-----------------|----------------------|
-| 插件源码 | ✅ 自动 | 否 |
-| MCP 注册 | ✅ 自动 | 否 |
-| `~/.kimi-protein-design/config.yaml` | ❌ 否 | `rm -rf ~/.kimi-protein-design/` |
-| Hooks 脚本 | ❌ 否 | `rm ~/.kimi-code/hooks/*.py` |
-| Hooks config.toml 条目 | ❌ 否 | 编辑 `~/.kimi-code/config.toml` |
-| 输出文件 | ❌ 否 | `rm -rf /tmp/protein-design/` |
-| 外部工具 | ❌ 否 | `rm -rf ~/software/...` |
-
-
-## 流水线默认值
-
-默认情况下，每个阶段产生的设计数量如下：
-
-| 阶段 | 工具 | 默认输出 | 参数 |
-|------|------|---------|------|
-| 1 — 骨架生成 | RFdiffusion | **10** 个骨架 | `num_designs` |
-| 2 — 序列设计 | ProteinMPNN | 每个骨架 **8** 条序列 | `num_seq_per_target` |
-| 3 — 结构验证 | AlphaFold3 | **5** 个预测（1 个种子 × 5 个样本） | `num_seeds` × `num_samples` |
-
-**完整流水线默认**：10 个骨架 × 8 条序列 × 5 个预测 = 最多 **400** 个 AlphaFold3 结果。
-
-你可以通过自然语言调整这些数量，无需记忆参数名：
-
-```
-用户："生成 50 个骨架"
-→ num_designs = 50
-
-用户："每个骨架设计 16 条序列"
-→ num_seq_per_target = 16
-
-用户："用 3 个种子验证"
-→ num_seeds = 3
-
-用户："给我 20 个设计，每个 4 条序列，全部验证"
-→ num_designs = 20, num_seq_per_target = 4
-```
 
 ## 快速开始
 
 ### 示例 1：设计一个 150 个氨基酸的单体
 
 ```
-User: Generate a 150 amino acid protein backbone
-→ Plugin auto-runs RFdiffusion with contig [150-150]
+User: 生成一个 150 个氨基酸的蛋白质骨架
+→ 插件自动运行 RFdiffusion，contig 为 [150-150]
 ```
 
 ### 示例 2：为 PD-L1 设计结合物
 
 ```
-User: Design a binder targeting PD-L1
-→ Stage 0: PDBFixer preprocesses target.pdb
-→ Stage 1: RFdiffusion generates binder backbones
-→ Stage 2: ProteinMPNN designs binder sequences
-→ Stage 3: AlphaFold3 validates structures
-→ Stage 4: Filter by ipTM > 0.8 and pLDDT > 80
+User: 为 PD-L1 设计一个结合物
+→ Stage 0: PDBFixer 预处理 target.pdb
+→ Stage 1: RFdiffusion 生成结合物骨架
+→ Stage 2: ProteinMPNN 设计结合物序列
+→ Stage 3: AlphaFold3 验证结构
+→ Stage 4: 按 ipTM > 0.8 和 pLDDT > 80 过滤
 ```
 
-
-## 架构
-
-```
-kimi-protein-design/
-├── kimi.plugin.json              # Plugin manifest
-├── skills/                       # Workflow guidance
-│   ├── protein-design-context/   # Session-start context
-│   ├── structure-preprocessing/  # Stage 0: PDBFixer
-│   ├── structure-generation/     # Stage 1: RFdiffusion
-│   ├── sequence-design/          # Stage 2: ProteinMPNN
-│   ├── structure-validation/     # Stage 3: AlphaFold3
-│   ├── filtering-ranking/        # Stage 4: Filtering
-│   └── full-pipeline/            # End-to-end orchestration
-├── mcp_server/                   # MCP Server (stdio JSON-RPC)
-│   ├── server.py                 # Main entry
-│   ├── tools/                    # Tool implementations
-│   │   ├── job_manager.py        # Async task management
-│   │   ├── pdbfixer_tool.py      # PDB preprocessing
-│   │   ├── rfdiffusion.py        # Backbone generation
-│   │   ├── proteinmpnn.py        # Sequence design
-│   │   ├── alphafold.py          # Structure validation
-│   │   ├── format_converter.py   # FASTA ↔ JSON conversion
-│   │   ├── filtering.py          # Quality filtering
-│   │   └── system_info.py        # Environment checks
-│   ├── utils/                    # Utilities
-│   │   ├── config.py             # Configuration
-│   │   └── gpu_utils.py          # GPU detection
-│   └── hooks/                    # Recommended hooks
-│       ├── install-hooks.py      # One-click installer
-│       ├── protein-context-inject.py
-│       ├── gpu-check-hook.py
-│       ├── design-complete-notify.py
-│       └── background-notify.py
-└── README.md
-```
+流程默认值：10 个骨架 → 每个 8 条序列 → 每个 5 次预测。可通过自然语言调整（例如："生成 50 个骨架"、"用 3 个种子验证"）。
 
 
-## MCP 工具
+## 文档
 
-| 工具 | 说明 |
-|------|-------------|
-| `get_tool_info` | 列出所有工具及其参数 |
-| `health_check` | 检查 GPU、CUDA、conda、磁盘空间 |
-| `submit_job` | 提交异步计算任务 |
-| `query_job` | 按 task_id 轮询任务状态 |
-| `cancel_job` | 取消正在运行的任务 |
-| `run_pdbfixer` | 预处理 PDB/CIF（Stage 0 必需）。支持通过 `conda_env` 跨 conda 环境执行 |
-| `run_rfdiffusion` | 生成蛋白质骨架 |
-| `run_proteinmpnn` | 设计氨基酸序列 |
-| `run_alphafold3` | 预测并验证结构 |
-| `convert_format` | 将 FASTA 转换为 AlphaFold3 JSON。支持 `protein`/`proteinChain` 两种 schema，以及可选的 `receptor_pdb` 参数用于多链复合物 |
-| `run_filtering` | 按指标过滤和排序（支持 `metrics` 嵌套字典和顶层字段两种格式） |
-| `analyze_alphafold3_results` | 解析 AF3 输出目录，提取置信度指标（pLDDT、ipTM、pTM、每链 pLDDT、排名分数）无需重新运行 |
-| `check_batch_progress` | 同时检查多个任务 |
-
-
-## 配置
-
-环境变量：
-
-| 变量 | 默认值 | 说明 |
-|----------|---------|-------------|
-| `PROTEIN_DESIGN_OUTPUT_DIR` | `/tmp/protein-design` | 输出目录 |
-| `PROTEIN_DESIGN_MAX_JOBS` | `4` | 最大并发任务数 |
-| `PROTEIN_DESIGN_TIMEOUT` | `3600` | 任务超时时间（秒） |
-| `RFDIFFUSION_PATH` | auto-detect | RFdiffusion 安装路径 |
-| `PROTEINMPNN_PATH` | auto-detect | ProteinMPNN 安装路径 |
-| `ALPHAFOLD_PATH` | auto-detect | AlphaFold3 安装路径 |
-
-配置文件：`~/.kimi-protein-design/config.yaml`
-
-```yaml
-output_dir: /tmp/protein-design
-max_jobs: 4
-timeout: 3600
-rfdiffusion_path: /opt/RFdiffusion
-proteinmpnn_path: /opt/ProteinMPNN
-alphafold_path: /opt/alphafold3
-```
-
-
-## Hooks（强烈推荐）
-
-Kimi Code 0.6.0+ 支持 hooks，用于增强蛋白质设计工作流。
-
-### 安装 Hooks
-
-```bash
-python mcp_server/hooks/install-hooks.py
-```
-
-这会安装：
-- **UserPromptSubmit** — 自动将 GPU/工具状态注入模型上下文
-- **PreToolUse** — 如果 GPU/磁盘不足，阻止 submit_job
-- **PostToolUse** — 任务完成时桌面通知
-- **Notification** — 后台任务完成/失败时提醒
-
-然后重启 Kimi Code：`/new`
-
-### 手动 Hook 配置
-
-添加到 `~/.kimi-code/config.toml`：
-
-```toml
-[[hooks]]
-event = "UserPromptSubmit"
-matcher = "(?i)(protein|pdb|binder|alphafold|rfdiffusion|proteinmpnn|design|structure|sequence|residue|loop|scaffold)"
-command = "python ~/.kimi-code/hooks/protein-context-inject.py"
-timeout = 3
-
-[[hooks]]
-event = "PreToolUse"
-matcher = "mcp__.*__submit_job"
-command = "python ~/.kimi-code/hooks/gpu-check-hook.py"
-timeout = 5
-
-[[hooks]]
-event = "PostToolUse"
-matcher = "mcp__.*__query_job"
-command = "python ~/.kimi-code/hooks/design-complete-notify.py"
-timeout = 5
-
-[[hooks]]
-event = "Notification"
-matcher = "task\\.completed|task\\.failed|task\\.killed"
-command = "python ~/.kimi-code/hooks/background-notify.py"
-timeout = 5
-```
-
-
-## 使用 CronCreate 进行批量验证
-
-对于大规模筛选（>10 个设计），使用 CronCreate 代替阻塞式轮询：
-
-1. 提交所有 AlphaFold3 验证任务（异步）
-2. 创建定期检查：
-   ```
-   CronCreate(cron="*/10 * * * *", prompt="Check AF3 batch progress for task_ids [X,Y,Z]. Report completed count and pLDDT>80 pass rate.")
-   ```
-3. 会话被释放，可执行其他工作
-4. 完成后，取消定时器：
-   ```
-   CronDelete(id="<id>")
-   ```
+| 文档 | 说明 |
+|----------|-------------|
+| [安装指南](./docs/zh/guides/installation.md) | 分步工具安装和配置 |
+| [快速开始](./docs/zh/guides/quickstart.md) | 流程默认值和示例工作流 |
+| [流程架构](./docs/zh/guides/pipeline.md) | 5 阶段设计流程和项目结构 |
+| [API 参考](./docs/zh/api-reference/tools.md) | 所有 MCP 工具及其参数 |
+| [故障排除](./docs/zh/guides/troubleshooting.md) | 常见问题及解决方案 |
+| [变更记录](./docs/zh/release-notes/changelog.md) | 发布说明 |
 
 
 ## 质量阈值
@@ -512,93 +99,6 @@ timeout = 5
 | pLDDT | >70 | >80 | >90 |
 | ipTM | >0.6 | >0.8 | >0.9 |
 | pTM | >0.5 | >0.7 | >0.9 |
-
-
-## 故障排除
-
-| 问题 | 解决方案 |
-|-------|----------|
-| 插件未加载 | 安装后运行 `/new` |
-| `run_pdbfixer` 未找到 | `conda install -c conda-forge pdbfixer openmm`，或使用 `conda_env` 参数在另一环境中执行 |
-| RFdiffusion 未找到 | 设置 `RFDIFFUSION_PATH` 环境变量 |
-| GPU 显存不足 | 减小 `num_designs` 或 `diffuser_T` |
-| AlphaFold3 MSA 超时 | 默认运行完整 MSA。设置 `run_data_pipeline=false` 可跳过（更快，精度稍低） |
-| 工具在其他环境中未找到 | `check_all_tools` 现在会自动扫描常见 conda 环境 + editable install |
-| 验证结合物需要受体 | 使用 `convert_format` 的 `receptor_pdb` 参数生成多链 AF3 JSON |
-| Hooks 未生效 | 验证 `~/.kimi-code/config.toml` 语法，然后 `/new` |
-
-
-## 跨 Conda 环境执行
-
-如果你的工具安装在不同 conda 环境中（例如 PDBFixer 在 `BindCraft`，RFdiffusion 在 `protein-design`，AlphaFold3 在 `AF3`），无需全部安装到一个环境中：
-
-- **`run_pdbfixer`**：使用 `conda_env="BindCraft"` 在目标环境中运行 PDBFixer
-- **`run_rfdiffusion` / `run_proteinmpnn` / `run_alphafold3`**：使用 `conda_env` 或 `wrapper_script` 指定目标环境
-
-插件会自动检测跨常见 conda 环境和 editable install 的工具。
-
-
-## 多链复合物验证
-
-对于结合物/多肽设计验证，AlphaFold3 需要将受体和设计的肽段放在同一个 JSON 中。无需手动编写 JSON：
-
-```python
-# 自动生成包含受体 + 设计肽段的 AF3 JSON
-convert_format(
-    from_format="fasta",
-    to_format="alphafold3_json",
-    input_path="/path/to/proteinmpnn_out.fasta",
-    receptor_pdb="/path/to/receptor_fixed.pdb",
-    receptor_chain="A",
-    job_name="binder_validation"
-)
-```
-
-AlphaFold3 完成后，无需重新运行即可分析结果：
-
-```python
-analyze_alphafold3_results(output_dir="/path/to/af3_output", job_name="binder_validation")
-# 返回：每链 pLDDT、ipTM、pTM、排名分数、冲突状态、最佳结构
-```
-
-
-## Wrapper 脚本
-
-对于复杂的执行环境，`run_rfdiffusion`、`run_proteinmpnn`、`run_alphafold3` 均支持可选的 `wrapper_script` 参数。适用于以下场景：
-
-- 需要自定义环境变量（如旧 GPU 的 `XLA_FLAGS`）
-- 工具需要多次 conda 激活或 module load
-- 希望将执行包装在 Docker 或作业调度器中
-- 工具有自定义启动脚本（如 `run_af3.sh`）
-
-示例 wrapper 脚本（`run_af3.sh`）：
-
-```bash
-#!/bin/bash
-# 设置环境
-export XLA_FLAGS="--xla_gpu_cuda_data_dir=/usr/local/cuda"
-export model_dir="~/models"
-export db_dir="~/public_databases"
-
-# 剩余参数为实际工具命令
-exec "$@"
-```
-
-使用方式：
-
-```
-submit_job(tool="alphafold3", params={
-  "json_path": "/path/to/input.json",
-  "output_dir": "/path/to/output",
-  "wrapper_script": "/path/to/run_af3.sh"
-})
-```
-
-当提供 `wrapper_script` 时，它会覆盖 `conda_env`。插件实际执行：
-
-```bash
-bash /path/to/wrapper_script python run_alphafold.py --json_path=... ...
-```
 
 
 ## 许可证

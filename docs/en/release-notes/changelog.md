@@ -14,7 +14,7 @@ This page documents the changes in each release of the Kimi Protein Design plugi
 - Add `analyze_alphafold3_results` tool for parsing AlphaFold3 output metrics without re-running
 - Add editable-install detection in `check_all_tools` for pip-installed packages
 
-### Bug Fixes
+### Bug fixes
 
 - Address all plugin issues from first server run log analysis
 - Fix missing `import time` in `alphafold.py` causing `submit_job` to crash

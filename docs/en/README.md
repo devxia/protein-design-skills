@@ -2,7 +2,7 @@
 
 Welcome to the documentation for the Kimi Protein Design MCP plugin.
 
-## Getting Started
+## Getting started
 
 - [Installation Guide](guides/installation.md) — Install the plugin and external tools
 - [Quick Start](guides/quickstart.md) — Run your first design pipeline
@@ -12,10 +12,10 @@ Welcome to the documentation for the Kimi Protein Design MCP plugin.
 
 - [API Reference — Tools](api-reference/tools.md) — All MCP tools and parameters
 
-## Advanced Topics
+## Advanced topics
 
 - [Troubleshooting](guides/troubleshooting.md) — Common issues and solutions
 
-## Release Notes
+## Release notes
 
 - [Changelog](release-notes/changelog.md)

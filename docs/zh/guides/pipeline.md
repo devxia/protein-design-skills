@@ -49,4 +49,4 @@ kimi-protein-design/
 | 1 | 骨架生成 | RFdiffusion | 10 个骨架 |
 | 2 | 序列设计 | ProteinMPNN | 每个骨架 8 条序列 |
 | 3 | 结构验证 | AlphaFold3 | 每个设计 5 个预测 |
-| 4 | 过滤排序 | Filtering | 按质量分数排序 |
+| 4 | 过滤排序 | 质量过滤 | 按质量分数排序 |

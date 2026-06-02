@@ -24,5 +24,5 @@
 ### 文档
 
 - 重新排序 README 章节并将占位符所有者替换为 devxia
-- 在 Prerequisites Installation 步骤前添加醒目的 "already installed?" 提示
+- 在安装前置条件步骤前添加醒目的「已安装？」提示
 - 更新 README，说明 wrapper_script、schema 和 MSA 行为变更

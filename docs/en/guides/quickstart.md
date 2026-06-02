@@ -5,7 +5,7 @@ source: README.md
 
 # Quick Start
 
-## Pipeline Defaults
+## Pipeline defaults
 
 | Stage | Tool | Default Output | Parameter |
 |-------|------|---------------|-----------|
@@ -28,14 +28,14 @@ User: "Validate with 3 seeds"
 → num_seeds = 3
 ```
 
-## Example 1: Design a 150-aa Monomer
+## Example 1: Design a 150-aa monomer
 
 ```
 User: Generate a 150 amino acid protein backbone
 → Plugin auto-runs RFdiffusion with contig [150-150]
 ```
 
-## Example 2: Design a Binder for PD-L1
+## Example 2: Design a binder for PD-L1
 
 ```
 User: Design a binder targeting PD-L1
