@@ -21,6 +21,10 @@ A [Kimi Code](https://github.com/MoonshotAI/Kimi-Code) plugin for end-to-end pro
 
 ## Installation
 
+### Install Kimi Code
+
+This plugin runs on [Kimi Code](https://github.com/MoonshotAI/kimi-code). Install it first, then proceed below.
+
 ### Install the plugin
 
 ```

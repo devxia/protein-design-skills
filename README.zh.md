@@ -21,6 +21,10 @@
 
 ## 安装
 
+### 安装 Kimi Code
+
+本插件运行在 [Kimi Code](https://github.com/MoonshotAI/kimi-code) 上。请先安装 Kimi Code，再继续以下步骤。
+
 ### 安装插件
 
 ```

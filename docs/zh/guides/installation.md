@@ -7,6 +7,10 @@ source: README.zh.md
 
 > ⚠️ **重要：**本插件**不附带** RFdiffusion、ProteinMPNN、AlphaFold3 或 PDBFixer。这些都是大型机器学习模型（多 GB），必须单独安装。插件提供的是**编排层**，通过子进程调用这些工具。
 
+## 安装 Kimi Code
+
+本插件运行在 [Kimi Code](https://github.com/MoonshotAI/kimi-code) 上。请先安装 Kimi Code，再继续以下步骤。
+
 ## 安装插件
 
 ### 从 GitHub 安装（推荐）

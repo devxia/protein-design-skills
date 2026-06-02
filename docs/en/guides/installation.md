@@ -7,6 +7,10 @@ source: README.md
 
 > ⚠️ **Important**: This plugin does **NOT** install RFdiffusion, ProteinMPNN, AlphaFold3, or PDBFixer. These are large machine-learning models (multi-GB) that must be installed separately. The plugin provides the **orchestration layer** that calls these tools via subprocess.
 
+## Install Kimi Code
+
+This plugin runs on [Kimi Code](https://github.com/MoonshotAI/kimi-code). Install it first, then proceed below.
+
 ## Install the plugin
 
 ### From GitHub (recommended)
