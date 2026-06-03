@@ -2,6 +2,27 @@
 
 本页记录 Kimi Protein Design 插件每个版本的变更内容。
 
+## 2026-06-03
+
+### 修复
+
+- 修复 `pdbfixer_tool.py` 向 `run_in_conda_with_logs` 传递错误关键字参数 `env_name`（应为 `conda_env`）的问题
+- 修复 `proteinmpnn.py` 缺少 `str()` 包裹 `sampling_temp` 参数，导致传入数值时 `subprocess.run` 抛出 `TypeError`
+- 修复 `tool_installer.py` 检查不存在的键 `missing_db_reason`（应为 `note`），导致 AlphaFold3 数据库缺失提示永不触发
+- 修复 `pdbfixer_tool.py` 文件句柄泄漏：`open()` 直接传给 `PDBFile.writeFile()` 而没有使用 `with` 语句
+- 修复 `job_manager.py` 竞态条件：将 `job.future` 赋值移入锁内，`cancel_job()` 中在锁下读取任务状态
+- 修复 `progress_tracker.py` 允许重复调用 `start()` 导致后台线程泄漏
+- 修复 `tool_registry.py` 线程安全问题：为 `_ensure_tool_executors()` 懒加载添加锁
+- 修复 `tool_registry.py` `TOOL_SCHEMAS` 中缺少 `get_gpu_status`（该工具可执行但不可发现）
+- 修复 `filtering.py` 类型安全问题：新增 `_safe_float()` 辅助函数，避免字符串/None 指标值导致 `TypeError`
+- 修复 `format_converter.py` chain ID 超出 'Z' 后溢出（超过 26 条链时现在生成 AA、AB…）
+- 修复 `format_converter.py` `seed` 参数为非数字字符串时未处理 `ValueError`
+- 修复 `alphafold.py` 所有 `open()` 调用缺少 `encoding="utf-8"`
+- 修复 `server.py` 未校验 `params` 类型就直接调用 `.get()`，导致畸形 JSON-RPC 请求时 `AttributeError`
+- 修复 `design-complete-notify.py` 当 hook payload 中 `result` 为 `null` 时崩溃
+- 修复 `rfdiffusion.py` 当 `output_prefix` 不含目录部分时可能出现的 `Path("")` 问题
+- 清理 10+ 个文件中的未使用导入（`__future__.annotations`、`run_in_conda`、`run_in_conda_popen`、`field`、`tempfile`、`os`、`sys`、`json`、`JobManager`、`get_missing_tool_prompt`、`shutil`）
+
 ## 2025-06-01
 
 ### 新功能

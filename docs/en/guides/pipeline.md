@@ -21,6 +21,7 @@ kimi-protein-design/
 ├── mcp_server/                   # MCP Server (stdio JSON-RPC)
 │   ├── server.py                 # Main entry
 │   ├── tools/                    # Tool implementations
+│   │   ├── tool_registry.py      # Tool schemas and dispatch
 │   │   ├── job_manager.py        # Async task management
 │   │   ├── pdbfixer_tool.py      # PDB preprocessing
 │   │   ├── rfdiffusion.py        # Backbone generation
@@ -28,10 +29,13 @@ kimi-protein-design/
 │   │   ├── alphafold.py          # Structure validation
 │   │   ├── format_converter.py   # FASTA ↔ JSON conversion
 │   │   ├── filtering.py          # Quality filtering
+│   │   ├── tool_installer.py     # Tool path configuration
 │   │   └── system_info.py        # Environment checks
 │   ├── utils/                    # Utilities
 │   │   ├── config.py             # Configuration
-│   │   └── gpu_utils.py          # GPU detection
+│   │   ├── conda_utils.py        # Cross-conda execution
+│   │   ├── gpu_utils.py          # GPU detection
+│   │   └── progress_tracker.py   # File-based progress + ETA
 │   └── hooks/                    # Recommended hooks
 │       ├── install-hooks.py      # One-click installer
 │       ├── protein-context-inject.py

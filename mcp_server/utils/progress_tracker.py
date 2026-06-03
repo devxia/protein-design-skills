@@ -13,8 +13,6 @@ Historical runtimes are stored in ~/.kimi-protein-design/history.jsonl
 as newline-delimited JSON records.
 """
 
-from __future__ import annotations
-
 import glob
 import json
 import logging
@@ -189,6 +187,9 @@ class FileProgressTracker:
 
     def start(self) -> None:
         """Start the background monitoring thread."""
+        if self._thread is not None and self._thread.is_alive():
+            logger.warning("Progress tracker already started for %s", self.tool_name)
+            return
         self._thread = threading.Thread(target=self._poll_loop, daemon=True)
         self._thread.start()
         logger.info(

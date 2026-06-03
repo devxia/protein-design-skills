@@ -6,7 +6,6 @@ Supports macOS (osascript), Linux (notify-send), and Windows (powershell).
 """
 
 import json
-import os
 import platform
 import subprocess
 import sys
@@ -60,7 +59,9 @@ def main() -> int:
         data = {}
 
     # Check if this is a query_job response with completed status
-    result_text = data.get("result", {}).get("content", [{}])[0].get("text", "")
+    result = data.get("result") or {}
+    content = result.get("content", [{}]) if isinstance(result, dict) else [{}]
+    result_text = content[0].get("text", "") if content else ""
     try:
         result_json = json.loads(result_text)
     except Exception:

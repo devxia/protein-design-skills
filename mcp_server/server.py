@@ -97,6 +97,8 @@ async def _handle_request(request: dict[str, Any]) -> dict[str, Any]:
         )
 
     if method == "tools/call":
+        if not isinstance(params, dict):
+            return _make_generic_error(req_id, -32602, "Invalid params: expected object")
         tool_name = params.get("name")
         arguments = params.get("arguments", {})
 

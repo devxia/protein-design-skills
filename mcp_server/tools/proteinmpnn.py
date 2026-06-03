@@ -89,7 +89,7 @@ def run_proteinmpnn(params: dict[str, Any], progress_callback: callable) -> dict
         "--pdb_path", pdb_path,
         "--out_folder", output_folder,
         "--num_seq_per_target", str(params.get("num_seq_per_target", 8)),
-        "--sampling_temp", params.get("sampling_temp", "0.1"),
+        "--sampling_temp", str(params.get("sampling_temp", "0.1")),
         "--model_name", params.get("model_name", "v_48_020"),
         "--seed", str(params.get("seed", 37)),
     ])

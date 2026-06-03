@@ -21,6 +21,7 @@ kimi-protein-design/
 ├── mcp_server/                   # MCP 服务器（stdio JSON-RPC）
 │   ├── server.py                 # 主入口
 │   ├── tools/                    # 工具实现
+│   │   ├── tool_registry.py      # 工具 schema 与分发
 │   │   ├── job_manager.py        # 异步任务管理
 │   │   ├── pdbfixer_tool.py      # PDB 预处理
 │   │   ├── rfdiffusion.py        # 骨架生成
@@ -28,10 +29,13 @@ kimi-protein-design/
 │   │   ├── alphafold.py          # 结构验证
 │   │   ├── format_converter.py   # FASTA ↔ JSON 转换
 │   │   ├── filtering.py          # 质量过滤
+│   │   ├── tool_installer.py     # 工具路径配置
 │   │   └── system_info.py        # 环境检查
 │   ├── utils/                    # 工具类
 │   │   ├── config.py             # 配置
-│   │   └── gpu_utils.py          # GPU 检测
+│   │   ├── conda_utils.py        # 跨 conda 执行
+│   │   ├── gpu_utils.py          # GPU 检测
+│   │   └── progress_tracker.py   # 基于文件的进度与 ETA
 │   └── hooks/                    # 推荐 hooks
 │       ├── install-hooks.py      # 一键安装
 │       ├── protein-context-inject.py

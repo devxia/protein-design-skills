@@ -10,6 +10,10 @@
 
 检查蛋白质设计环境的健康状态：GPU、CUDA、conda、工具安装和磁盘空间。
 
+## `get_gpu_status`
+
+获取详细的 GPU 状态，包括可用性、显存和架构推荐。
+
 ## `submit_job`
 
 提交蛋白质设计工具的异步任务。返回 task_id，可通过 query_job 轮询结果。

@@ -8,7 +8,6 @@ in its context.
 Requires Kimi Code >= 0.6.0 (hook results are included in model context).
 """
 
-import json
 import subprocess
 import sys
 from typing import Any

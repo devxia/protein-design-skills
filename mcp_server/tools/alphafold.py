@@ -11,8 +11,6 @@ Key improvements:
   - Result aggregation across all seed/sample subdirectories
 """
 
-from __future__ import annotations
-
 import glob
 import json
 import logging
@@ -23,7 +21,7 @@ from pathlib import Path
 from typing import Any
 
 from mcp_server.utils.config import CONFIG
-from mcp_server.utils.conda_utils import run_in_conda, run_in_conda_with_logs
+from mcp_server.utils.conda_utils import run_in_conda_with_logs
 from mcp_server.utils.progress_tracker import track_progress, save_runtime_log
 from mcp_server.utils.gpu_utils import get_gpu_info
 
@@ -253,7 +251,7 @@ def _parse_confidence_metrics(output_dir: str, job_name: str) -> dict[str, Any]:
     summary_path = os.path.join(output_dir, f"{job_name}_summary_confidences.json")
     if os.path.exists(summary_path):
         try:
-            with open(summary_path, "r") as f:
+            with open(summary_path, "r", encoding="utf-8") as f:
                 summary = json.load(f)
             metrics["ptm"] = summary.get("ptm")
             metrics["iptm"] = summary.get("iptm")
@@ -269,7 +267,7 @@ def _parse_confidence_metrics(output_dir: str, job_name: str) -> dict[str, Any]:
     full_conf_path = os.path.join(output_dir, f"{job_name}_confidences.json")
     if os.path.exists(full_conf_path):
         try:
-            with open(full_conf_path, "r") as f:
+            with open(full_conf_path, "r", encoding="utf-8") as f:
                 full_conf = json.load(f)
             if "atom_plddts" in full_conf:
                 plddts = full_conf["atom_plddts"]
@@ -299,7 +297,7 @@ def _parse_confidence_metrics(output_dir: str, job_name: str) -> dict[str, Any]:
     ranking_path = os.path.join(output_dir, f"{job_name}_ranking_scores.csv")
     if os.path.exists(ranking_path):
         try:
-            with open(ranking_path, "r") as f:
+            with open(ranking_path, "r", encoding="utf-8") as f:
                 lines = f.readlines()
             samples = []
             for line in lines[1:]:
@@ -361,7 +359,7 @@ def _collect_all_results(output_dir: str) -> dict[str, Any]:
     best_score = -1.0
     for summary_path in summary_files:
         try:
-            with open(summary_path, "r") as f:
+            with open(summary_path, "r", encoding="utf-8") as f:
                 summary = json.load(f)
             metrics = {
                 "ptm": summary.get("ptm"),
@@ -374,7 +372,7 @@ def _collect_all_results(output_dir: str) -> dict[str, Any]:
             # Try to get pLDDT from corresponding confidences.json
             conf_path = summary_path.replace("_summary_confidences.json", "_confidences.json")
             if os.path.exists(conf_path):
-                with open(conf_path, "r") as f:
+                with open(conf_path, "r", encoding="utf-8") as f:
                     conf = json.load(f)
                 if "atom_plddts" in conf:
                     plddts = conf["atom_plddts"]

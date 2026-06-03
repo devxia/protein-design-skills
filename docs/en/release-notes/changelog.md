@@ -2,6 +2,27 @@
 
 This page documents the changes in each release of the Kimi Protein Design plugin.
 
+## 2026-06-03
+
+### Bug fixes
+
+- Fix `pdbfixer_tool.py` passing wrong keyword argument `env_name` instead of `conda_env` to `run_in_conda_with_logs`
+- Fix `proteinmpnn.py` missing `str()` around `sampling_temp` parameter, causing `TypeError` when numeric values are passed to `subprocess.run`
+- Fix `tool_installer.py` checking non-existent key `missing_db_reason` instead of `note`, so AlphaFold3 database-missing hint never triggered
+- Fix file handle leak in `pdbfixer_tool.py` where `open()` was passed directly to `PDBFile.writeFile()` without `with` statement
+- Fix race condition in `job_manager.py` by moving `job.future` assignment inside the lock and reading job state under lock in `cancel_job()`
+- Fix `progress_tracker.py` allowing duplicate `start()` calls which leaked background threads
+- Fix `tool_registry.py` thread-safety by adding a lock around `_ensure_tool_executors()` lazy-loading
+- Fix `tool_registry.py` missing `get_gpu_status` from `TOOL_SCHEMAS` (tool was executable but not discoverable)
+- Fix `filtering.py` type-safety by adding `_safe_float()` helper — previously string/None metric values caused `TypeError`
+- Fix `format_converter.py` chain ID overflow beyond 'Z' (now generates AA, AB, ... for >26 chains)
+- Fix `format_converter.py` unhandled `ValueError` when `seed` parameter is a non-numeric string
+- Fix `alphafold.py` missing `encoding="utf-8"` on all `open()` calls
+- Fix `server.py` not validating `params` type before calling `.get()`, causing `AttributeError` on malformed JSON-RPC requests
+- Fix `design-complete-notify.py` crash when `result` is `null` in hook payload
+- Fix `rfdiffusion.py` potential `Path("")` issue when `output_prefix` has no directory component
+- Remove unused imports across 10+ files (`__future__.annotations`, `run_in_conda`, `run_in_conda_popen`, `field`, `tempfile`, `os`, `sys`, `json`, `JobManager`, `get_missing_tool_prompt`, `shutil`)
+
 ## 2025-06-01
 
 ### Features

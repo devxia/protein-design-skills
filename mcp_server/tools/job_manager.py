@@ -127,7 +127,8 @@ class JobManager:
                 raise
 
         future = self._executor.submit(run_job)
-        job.future = future
+        with self._lock:
+            job.future = future
 
         logger.info("Submitted job %s for tool %s", task_id, tool_name)
         return {
@@ -213,26 +214,31 @@ class JobManager:
                 "message": f"Job already in terminal state: {job.status.value}",
             }
 
+        with self._lock:
+            status = job.status
+            process = job.process
+            future = job.future
+            params = job.params
+
         # Terminate subprocess if we have a handle
-        if job.process is not None:
+        if process is not None:
             try:
-                job.process.terminate()
+                process.terminate()
                 # Give it a few seconds to exit gracefully
                 import time as _time
                 _time.sleep(2)
-                if job.process.poll() is None:
-                    job.process.kill()
+                if process.poll() is None:
+                    process.kill()
             except Exception as exc:
                 logger.warning("Failed to terminate process for job %s: %s", task_id, exc)
 
-        if job.future and not job.future.done():
-            job.future.cancel()
+        if future and not future.done():
+            future.cancel()
 
         # Clean up partial outputs
         cleanup_msg = ""
-        output_dir = job.params.get("output_dir") or job.params.get("output_prefix")
+        output_dir = params.get("output_dir") or params.get("output_prefix")
         if output_dir:
-            import shutil
             import os as _os
             try:
                 # If output_prefix is a file prefix, get its directory

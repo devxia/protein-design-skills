@@ -7,7 +7,6 @@ Copies hook scripts to ~/.kimi-code/hooks/ and registers them in
 
 import os
 import shutil
-import sys
 from pathlib import Path
 
 HOOKS = [

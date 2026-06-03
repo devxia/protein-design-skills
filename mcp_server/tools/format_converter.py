@@ -11,12 +11,9 @@ AlphaFold3 JSON schema support:
   Auto-detects based on user preference or defaults to "protein".
 """
 
-from __future__ import annotations
-
 import json
 import logging
 import os
-import re
 from pathlib import Path
 from typing import Any
 
@@ -190,6 +187,11 @@ def sequence_to_alphafold3_json(
     source_fasta: str | None = None,
     additional_sequences: list[dict[str, Any]] | None = None,
 ) -> str:
+    def _make_chain_id(idx: int) -> str:
+        """Generate chain ID: A-Z, then AA, AB, ..."""
+        if idx < 26:
+            return chr(ord("A") + idx)
+        return chr(ord("A") + (idx % 26)) + chr(ord("A") + (idx // 26))
     """Convert a raw protein sequence (possibly multi-chain) to AlphaFold3 JSON.
 
     Args:
@@ -215,17 +217,23 @@ def sequence_to_alphafold3_json(
     sequences = []
     next_chain_idx = 0
 
+    def _make_chain_id(idx: int) -> str:
+        """Generate chain ID: A-Z, then AA, AB, ..."""
+        if idx < 26:
+            return chr(ord("A") + idx)
+        return chr(ord("A") + (idx % 26)) + chr(ord("A") + (idx // 26))
+
     # Prepend additional sequences first (e.g., receptor)
     if additional_sequences:
         for item in additional_sequences:
             seq = item["sequence"]
-            cid = item.get("chain_id", chr(ord("A") + next_chain_idx))
+            cid = item.get("chain_id", _make_chain_id(next_chain_idx))
             sequences.append(_build_af3_sequence(seq, cid, schema=schema))
-            next_chain_idx = max(next_chain_idx, ord(cid) - ord("A") + 1)
+            next_chain_idx = max(next_chain_idx, ord(cid[0]) - ord("A") + 1)
 
     # Add design sequences
     for chain_seq in chains:
-        chain_id = chr(ord("A") + next_chain_idx)
+        chain_id = _make_chain_id(next_chain_idx)
         sequences.append(_build_af3_sequence(chain_seq, chain_id, schema=schema))
         next_chain_idx += 1
 
@@ -392,7 +400,10 @@ def convert_format(params: dict[str, Any]) -> dict[str, Any]:
 
     if from_format == "fasta" and to_format == "alphafold3_json":
         job_name = params.get("job_name", "design")
-        seed = int(params.get("seed", 1))
+        try:
+            seed = int(params.get("seed", 1))
+        except (TypeError, ValueError):
+            seed = 1
         receptor_pdb = params.get("receptor_pdb")
         receptor_chain = params.get("receptor_chain")
         json_path = fasta_to_alphafold3_json(

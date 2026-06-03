@@ -5,9 +5,10 @@ Defines all available tools with their JSON Schema parameters and
 """
 
 import logging
+import threading
 from typing import Any, Callable
 
-from mcp_server.tools.job_manager import JOB_MANAGER, JobManager
+from mcp_server.tools.job_manager import JOB_MANAGER
 from mcp_server.tools.system_info import health_check, get_gpu_status
 from mcp_server.tools.pdbfixer_tool import run_pdbfixer
 from mcp_server.tools.tool_installer import (
@@ -15,7 +16,6 @@ from mcp_server.tools.tool_installer import (
     check_all_tools,
     configure_tool_path,
     configure_db_dir,
-    get_missing_tool_prompt,
 )
 
 logger = logging.getLogger(__name__)
@@ -34,6 +34,15 @@ TOOL_SCHEMAS: list[dict[str, Any]] = [
     {
         "name": "health_check",
         "description": "Check the health of the protein design environment: GPU, CUDA, conda, tool installations, and disk space.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {},
+            "required": [],
+        },
+    },
+    {
+        "name": "get_gpu_status",
+        "description": "Get detailed GPU status including availability, memory, and architecture recommendations.",
         "inputSchema": {
             "type": "object",
             "properties": {},
@@ -309,35 +318,39 @@ _TOOL_EXECUTORS: dict[str, Callable[[dict[str, Any], callable], dict[str, Any]]]
 }
 
 
+_tool_executors_lock = threading.Lock()
+
+
 def _ensure_tool_executors() -> None:
     """Lazy-load tool executors to avoid circular imports."""
     global _TOOL_EXECUTORS
-    if "run_rfdiffusion" in _TOOL_EXECUTORS:
-        return
+    with _tool_executors_lock:
+        if "run_rfdiffusion" in _TOOL_EXECUTORS:
+            return
 
-    try:
-        from mcp_server.tools.rfdiffusion import run_rfdiffusion
-        _TOOL_EXECUTORS["run_rfdiffusion"] = run_rfdiffusion
-    except ImportError as exc:
-        logger.warning("RFdiffusion tool not available: %s", exc)
+        try:
+            from mcp_server.tools.rfdiffusion import run_rfdiffusion
+            _TOOL_EXECUTORS["run_rfdiffusion"] = run_rfdiffusion
+        except ImportError as exc:
+            logger.warning("RFdiffusion tool not available: %s", exc)
 
-    try:
-        from mcp_server.tools.proteinmpnn import run_proteinmpnn
-        _TOOL_EXECUTORS["run_proteinmpnn"] = run_proteinmpnn
-    except ImportError as exc:
-        logger.warning("ProteinMPNN tool not available: %s", exc)
+        try:
+            from mcp_server.tools.proteinmpnn import run_proteinmpnn
+            _TOOL_EXECUTORS["run_proteinmpnn"] = run_proteinmpnn
+        except ImportError as exc:
+            logger.warning("ProteinMPNN tool not available: %s", exc)
 
-    try:
-        from mcp_server.tools.alphafold import run_alphafold3
-        _TOOL_EXECUTORS["run_alphafold3"] = run_alphafold3
-    except ImportError as exc:
-        logger.warning("AlphaFold3 tool not available: %s", exc)
+        try:
+            from mcp_server.tools.alphafold import run_alphafold3
+            _TOOL_EXECUTORS["run_alphafold3"] = run_alphafold3
+        except ImportError as exc:
+            logger.warning("AlphaFold3 tool not available: %s", exc)
 
-    try:
-        from mcp_server.tools.filtering import run_filtering
-        _TOOL_EXECUTORS["run_filtering"] = run_filtering
-    except ImportError as exc:
-        logger.warning("Filtering tool not available: %s", exc)
+        try:
+            from mcp_server.tools.filtering import run_filtering
+            _TOOL_EXECUTORS["run_filtering"] = run_filtering
+        except ImportError as exc:
+            logger.warning("Filtering tool not available: %s", exc)
 
 
 def get_tool_info() -> dict[str, Any]:

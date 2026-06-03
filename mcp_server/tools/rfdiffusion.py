@@ -17,7 +17,7 @@ from typing import Any
 
 from mcp_server.tools.pdbfixer_tool import preprocess_for_design
 from mcp_server.utils.config import CONFIG
-from mcp_server.utils.conda_utils import run_in_conda_popen, run_in_conda_with_logs
+from mcp_server.utils.conda_utils import run_in_conda_with_logs
 from mcp_server.utils.progress_tracker import track_progress, save_runtime_log
 
 logger = logging.getLogger(__name__)
@@ -73,7 +73,7 @@ def run_rfdiffusion(params: dict[str, Any], progress_callback: callable) -> dict
     input_pdb = params.get("input_pdb")
 
     # Ensure output directory exists
-    output_dir = os.path.dirname(output_prefix)
+    output_dir = os.path.dirname(output_prefix) or "."
     Path(output_dir).mkdir(parents=True, exist_ok=True)
 
     # Auto-preprocess input PDB unless explicitly skipped

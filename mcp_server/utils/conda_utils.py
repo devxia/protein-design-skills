@@ -10,8 +10,6 @@ Design principles:
   - Never activate/ deactivate shells; `conda run` is stateless
 """
 
-from __future__ import annotations
-
 import logging
 import shutil
 import subprocess
@@ -194,8 +192,6 @@ def run_in_conda_with_logs(
     """
     wrapped = build_conda_cmd(cmd, conda_env)
     logger.info("Executing with logs: %s", " ".join(wrapped))
-
-    import tempfile
 
     stdout_file = None
     stderr_file = None

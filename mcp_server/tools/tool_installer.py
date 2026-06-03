@@ -10,8 +10,6 @@ Users can then call configure_tool_path() to set paths interactively,
 which are persisted to ~/.kimi-protein-design/config.yaml.
 """
 
-from __future__ import annotations
-
 import logging
 import os
 from pathlib import Path
@@ -322,7 +320,7 @@ def check_all_tools() -> dict[str, Any]:
         if not status.get("installed", False):
             all_ready = False
             # Special flag for AlphaFold3: script exists but db missing
-            if tool == "alphafold3" and status.get("path") and status.get("missing_db_reason"):
+            if tool == "alphafold3" and status.get("path") and status.get("note"):
                 alphafold_script_found_but_no_db = True
 
     message = "All tools are ready!"

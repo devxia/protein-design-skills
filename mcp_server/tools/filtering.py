@@ -10,6 +10,16 @@ from typing import Any
 logger = logging.getLogger(__name__)
 
 
+def _safe_float(value: Any, default: float = 0.0) -> float:
+    """Safely convert a value to float, falling back to default on failure."""
+    if value is None:
+        return default
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return default
+
+
 def _compute_quality_score(design: dict[str, Any]) -> float:
     """Compute a composite quality score for ranking.
 
@@ -26,9 +36,9 @@ def _compute_quality_score(design: dict[str, Any]) -> float:
     """
     metrics = design.get("metrics", {})
 
-    plddt = metrics.get("mean_plddt", 0)
-    iptm = metrics.get("iptm", 0)
-    ptm = metrics.get("ptm", 0)
+    plddt = _safe_float(metrics.get("mean_plddt"), 0.0)
+    iptm = _safe_float(metrics.get("iptm"), 0.0)
+    ptm = _safe_float(metrics.get("ptm"), 0.0)
 
     # Normalize pLDDT to 0-1 scale
     plddt_norm = min(plddt / 100.0, 1.0)
@@ -79,33 +89,33 @@ def run_filtering(params: dict[str, Any], progress_callback: callable) -> dict[s
         reasons = []
 
         # pLDDT: try metrics.mean_plddt first, then top-level plddt
-        plddt = metrics.get("mean_plddt")
+        plddt = _safe_float(metrics.get("mean_plddt"))
         if plddt is None:
-            plddt = design.get("plddt")
+            plddt = _safe_float(design.get("plddt"))
         if plddt is not None and plddt < min_plddt:
             passed = False
             reasons.append(f"pLDDT {plddt:.1f} < {min_plddt}")
 
         # ipTM: try metrics.iptm first, then top-level iptm
-        iptm = metrics.get("iptm")
+        iptm = _safe_float(metrics.get("iptm"))
         if iptm is None:
-            iptm = design.get("iptm")
+            iptm = _safe_float(design.get("iptm"))
         if iptm is not None and iptm < min_iptm:
             passed = False
             reasons.append(f"ipTM {iptm:.3f} < {min_iptm}")
 
         # pTM: try metrics.ptm first, then top-level ptm
-        ptm = metrics.get("ptm")
+        ptm = _safe_float(metrics.get("ptm"))
         if ptm is None:
-            ptm = design.get("ptm")
+            ptm = _safe_float(design.get("ptm"))
         if ptm is not None and ptm < min_ptm:
             passed = False
             reasons.append(f"pTM {ptm:.3f} < {min_ptm}")
 
         # has_clash: try metrics.has_clash first, then top-level has_clash
-        has_clash = metrics.get("has_clash", False)
+        has_clash = bool(metrics.get("has_clash", False))
         if not has_clash:
-            has_clash = design.get("has_clash", False)
+            has_clash = bool(design.get("has_clash", False))
         if has_clash and not allow_clashes:
             passed = False
             reasons.append("has_clash=true")

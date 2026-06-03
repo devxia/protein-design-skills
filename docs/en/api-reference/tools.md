@@ -10,6 +10,10 @@ Get information about all available tools, their parameters, and usage.
 
 Check the health of the protein design environment: GPU, CUDA, conda, tool installations, and disk space.
 
+## `get_gpu_status`
+
+Get detailed GPU status including availability, memory, and architecture recommendations.
+
 ## `submit_job`
 
 Submit an async job for a protein design tool. Returns a task_id for polling via query_job.

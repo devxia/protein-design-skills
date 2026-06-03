@@ -89,7 +89,8 @@ else:
 
 # 6. Write output
 Path(output_pdb).parent.mkdir(parents=True, exist_ok=True)
-PDBFile.writeFile(fixer.topology, fixer.positions, open(output_pdb, "w"))
+with open(output_pdb, "w", encoding="utf-8") as f:
+    PDBFile.writeFile(fixer.topology, fixer.positions, f)
 log["output"] = output_pdb
 
 # Emit JSON result on stdout
@@ -150,13 +151,13 @@ def _run_pdbfixer_in_conda(
 
         run_in_conda_with_logs(
             ["python", script_path, input_pdb, output_pdb, keep_str, str(seed)],
-            env_name=conda_env,
+            conda_env=conda_env,
             stdout_log=stdout_log,
             stderr_log=stderr_log,
         )
 
         # Parse JSON result from stdout log
-        with open(stdout_log, "r") as f:
+        with open(stdout_log, "r", encoding="utf-8") as f:
             # The last non-empty line should be the JSON output
             lines = [ln.strip() for ln in f.readlines() if ln.strip()]
             if not lines:
@@ -304,7 +305,8 @@ def preprocess_for_design(
     Path(output_pdb).parent.mkdir(parents=True, exist_ok=True)
 
     # 8. Write preprocessed structure
-    PDBFile.writeFile(fixer.topology, fixer.positions, open(output_pdb, "w"))
+    with open(output_pdb, "w", encoding="utf-8") as f:
+        PDBFile.writeFile(fixer.topology, fixer.positions, f)
     log["output"] = output_pdb
 
     logger.info("Preprocessing complete: %s → %s", input_pdb, output_pdb)
