@@ -11,24 +11,35 @@ import subprocess
 import sys
 
 
+def _escape_applescript(s: str) -> str:
+    """Escape special characters for safe AppleScript string interpolation."""
+    return s.replace("\\", "\\\\").replace('"', '\\"')
+
+
+def _escape_powershell(s: str) -> str:
+    """Escape special characters for safe PowerShell string interpolation."""
+    return s.replace('"', '`"').replace("\\", "\\\\")
+
+
 def send_notification(title: str, message: str) -> None:
     """Send cross-platform desktop notification."""
     system = platform.system()
 
     if system == "Darwin":
-        # macOS
-        script = f'display notification "{message}" with title "{title}"'
+        safe_title = _escape_applescript(title)
+        safe_message = _escape_applescript(message)
+        script = f'display notification "{safe_message}" with title "{safe_title}"'
         subprocess.run(["osascript", "-e", script], capture_output=True, check=False)
     elif system == "Linux":
-        # Linux
         subprocess.run(
             ["notify-send", title, message],
             capture_output=True,
             check=False,
         )
     elif system == "Windows":
-        # Windows PowerShell
-        ps_script = f'Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.MessageBox]::Show("{message}", "{title}")'
+        safe_title = _escape_powershell(title)
+        safe_message = _escape_powershell(message)
+        ps_script = f'Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.MessageBox]::Show("{safe_message}", "{safe_title}")'
         subprocess.run(
             ["powershell", "-Command", ps_script],
             capture_output=True,
@@ -77,11 +88,11 @@ def main() -> int:
     title = f"✅ {tool_name} Complete"
     msg_parts = [f"Job {result_json.get('task_id', 'unknown')} finished."]
 
-    if metrics.get("plddt"):
+    if metrics.get("plddt") is not None:
         msg_parts.append(f"pLDDT: {metrics['plddt']:.1f}")
-    if metrics.get("iptm"):
+    if metrics.get("iptm") is not None:
         msg_parts.append(f"ipTM: {metrics['iptm']:.3f}")
-    if metrics.get("ptm"):
+    if metrics.get("ptm") is not None:
         msg_parts.append(f"pTM: {metrics['ptm']:.3f}")
 
     if result_json.get("output_path"):

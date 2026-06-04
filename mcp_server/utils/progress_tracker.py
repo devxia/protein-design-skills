@@ -17,6 +17,7 @@ import glob
 import json
 import logging
 import os
+import re
 import threading
 import time
 from pathlib import Path
@@ -244,11 +245,14 @@ class FileProgressTracker:
         try:
             stdout_log = os.path.join(self.output_dir, f"{self.tool_name}_stdout.log")
             if os.path.exists(stdout_log):
-                with open(stdout_log, "r", encoding="utf-8", errors="ignore") as f:
-                    content = f.read()
+                with open(stdout_log, "rb") as f:
+                    # Seek to the last 8KB to avoid reading entire large log files
+                    f.seek(0, 2)  # end of file
+                    fsize = f.tell()
+                    f.seek(max(0, fsize - 8192))
+                    content = f.read().decode("utf-8", errors="ignore")
                 # Check for common progress patterns
                 if "step" in content.lower():
-                    import re
                     steps = re.findall(r"[Ss]tep\s+(\d+)/(\d+)", content)
                     if steps:
                         last_step, total_steps = steps[-1]

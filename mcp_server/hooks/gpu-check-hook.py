@@ -80,7 +80,10 @@ def main() -> int:
             timeout=5,
             check=True,
         )
-        total_mb = float(result.stdout.strip().split("\n")[0].strip())
+        total_mb_str = result.stdout.strip().split("\n")[0].strip()
+        if not total_mb_str:
+            return 0
+        total_mb = float(total_mb_str)
         if total_mb < 16000:
             print(f"ℹ️  Low GPU memory detected ({int(total_mb)}MB). AlphaFold3 may be slow.", file=sys.stderr)
     except Exception:

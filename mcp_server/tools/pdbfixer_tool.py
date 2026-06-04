@@ -15,7 +15,7 @@ import logging
 import os
 import tempfile
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Callable, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -313,7 +313,7 @@ def preprocess_for_design(
     return log
 
 
-def run_pdbfixer(params: dict[str, Any], progress_callback: callable) -> dict[str, Any]:
+def run_pdbfixer(params: dict[str, Any], progress_callback: Callable[[int], None]) -> dict[str, Any]:
     """Execute PDBFixer preprocessing as an MCP tool.
 
     Supports both in-process execution (default) and cross-conda-environment

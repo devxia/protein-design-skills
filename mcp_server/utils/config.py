@@ -4,12 +4,18 @@ Reads settings from environment variables and optional config file
 (~/.kimi-protein-design/config.yaml).
 """
 
+import logging
 import os
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 
-import yaml
+try:
+    import yaml
+except ImportError:
+    yaml = None  # Graceful fallback when PyYAML is not installed
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -39,8 +45,8 @@ class ProteinDesignConfig:
     alphafold_conda_env: Optional[str] = None
 
     def __post_init__(self):
-        """Ensure output directory exists."""
-        Path(self.output_dir).mkdir(parents=True, exist_ok=True)
+        """Mark that output directory needs to be ensured before use."""
+        self._output_dir_ensured = False
 
 
 def load_config() -> ProteinDesignConfig:
@@ -96,18 +102,20 @@ def load_config() -> ProteinDesignConfig:
     # Override from config file (lowest priority after defaults)
     config_path = Path.home() / ".kimi-protein-design" / "config.yaml"
     if config_path.exists():
-        try:
-            with open(config_path, "r", encoding="utf-8") as f:
-                file_config = yaml.safe_load(f) or {}
+        if yaml is None:
+            logger.warning("PyYAML not installed; cannot read config file %s", config_path)
+        else:
+            try:
+                with open(config_path, "r", encoding="utf-8") as f:
+                    file_config = yaml.safe_load(f) or {}
 
-            for key, value in file_config.items():
-                if hasattr(config, key) and value is not None:
-                    setattr(config, key, value)
-        except Exception:
-            # If config file is malformed, fall back to defaults/env
-            pass
+                for key, value in file_config.items():
+                    if hasattr(config, key) and value is not None:
+                        setattr(config, key, value)
+            except Exception as exc:
+                logger.warning("Failed to parse config file %s: %s", config_path, exc)
 
-    # Re-ensure output directory after potential overrides
+    # Ensure output directory exists (lazy: only when config is actually used)
     Path(config.output_dir).mkdir(parents=True, exist_ok=True)
 
     return config

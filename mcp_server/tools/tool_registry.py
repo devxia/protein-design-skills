@@ -1,7 +1,7 @@
 """Tool registry for the protein design MCP server.
 
 Defines all available tools with their JSON Schema parameters and
- dispatches tool calls to the appropriate implementation.
+dispatches tool calls to the appropriate implementation.
 """
 
 import logging
@@ -313,7 +313,7 @@ TOOL_SCHEMAS: list[dict[str, Any]] = [
 # Map tool names to their execution functions
 # Note: rfdiffusion, proteinmpnn, alphafold3, filtering are imported later
 # to avoid circular dependencies during module loading.
-_TOOL_EXECUTORS: dict[str, Callable[[dict[str, Any], callable], dict[str, Any]]] = {
+_TOOL_EXECUTORS: dict[str, Callable[[dict[str, Any], Callable[[int], None]], dict[str, Any]]] = {
     "run_pdbfixer": run_pdbfixer,
 }
 
@@ -394,10 +394,16 @@ def execute_tool(name: str, arguments: dict[str, Any]) -> dict[str, Any]:
         return JOB_MANAGER.submit_job(tool, params, executor)
 
     if name == "query_job":
-        return JOB_MANAGER.query_job(arguments["task_id"])
+        task_id = arguments.get("task_id")
+        if not task_id:
+            return {"error": "Missing required parameter: task_id"}
+        return JOB_MANAGER.query_job(task_id)
 
     if name == "cancel_job":
-        return JOB_MANAGER.cancel_job(arguments["task_id"])
+        task_id = arguments.get("task_id")
+        if not task_id:
+            return {"error": "Missing required parameter: task_id"}
+        return JOB_MANAGER.cancel_job(task_id)
 
     if name == "check_batch_progress":
         results = []
@@ -406,20 +412,30 @@ def execute_tool(name: str, arguments: dict[str, Any]) -> dict[str, Any]:
         return {"batch_results": results, "total": len(results)}
 
     if name == "check_tool_status":
-        return check_tool_status(arguments["tool_name"])
+        tool_name = arguments.get("tool_name")
+        if not tool_name:
+            return {"error": "Missing required parameter: tool_name"}
+        return check_tool_status(tool_name)
 
     if name == "check_all_tools":
         return check_all_tools()
 
     if name == "configure_tool_path":
+        tool_name = arguments.get("tool_name")
+        path = arguments.get("path")
+        if not tool_name or not path:
+            return {"error": "Missing required parameters: tool_name and/or path"}
         return configure_tool_path(
-            arguments["tool_name"],
-            arguments["path"],
+            tool_name,
+            path,
             conda_env=arguments.get("conda_env"),
         )
 
     if name == "configure_db_dir":
-        return configure_db_dir(arguments["path"])
+        path = arguments.get("path")
+        if not path:
+            return {"error": "Missing required parameter: path"}
+        return configure_db_dir(path)
 
     if name == "convert_format":
         from mcp_server.tools.format_converter import convert_format

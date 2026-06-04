@@ -10,7 +10,7 @@ import os
 import subprocess
 import time
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 from mcp_server.utils.config import CONFIG
 from mcp_server.utils.conda_utils import run_in_conda_with_logs
@@ -50,7 +50,7 @@ def _find_proteinmpnn_script() -> str:
     )
 
 
-def run_proteinmpnn(params: dict[str, Any], progress_callback: callable) -> dict[str, Any]:
+def run_proteinmpnn(params: dict[str, Any], progress_callback: Callable[[int], None]) -> dict[str, Any]:
     """Execute ProteinMPNN sequence design.
 
     Args:

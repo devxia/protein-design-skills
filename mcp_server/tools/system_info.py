@@ -130,7 +130,9 @@ def health_check() -> dict[str, Any]:
     # Overall status
     if not result["gpu"]["available"]:
         result["status"] = "degraded"
-        result["warnings"] = ["No GPU detected. Protein design tools will run slowly or fail."]
+        result.setdefault("warnings", []).append(
+            "No GPU detected. Protein design tools will run slowly or fail."
+        )
 
     return result
 

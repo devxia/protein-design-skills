@@ -2,6 +2,25 @@
 
 This page documents the changes in each release of the Kimi Protein Design plugin.
 
+## 2026-06-04
+
+### Bug fixes
+
+- Fix `filtering.py` `_safe_float()` always returning `0.0` for `None` input, making fallback branches dead code — designs with missing metrics were incorrectly rejected instead of being skipped
+- Fix `format_converter.py` duplicate `_make_chain_id()` definition and misplaced docstring in `sequence_to_alphafold3_json()`
+- Fix command injection risk in `background-notify.py` and `design-complete-notify.py` — unescaped string interpolation into AppleScript and PowerShell commands
+- Fix `design-complete-notify.py` falsy-zero check — `metrics.get("plddt")` skipped valid zero values instead of using `is not None`
+- Fix `tool_registry.py` missing `KeyError` handling for `query_job`, `cancel_job`, `check_tool_status`, `configure_tool_path`, `configure_db_dir` — missing parameters caused unhandled `KeyError` instead of proper error responses
+- Fix `alphafold.py` redundant `if wrapper_script` / `else` branch with identical code paths in `run_alphafold3()`
+- Fix `server.py` deprecated `asyncio.get_event_loop()` → `asyncio.get_running_loop()` and add `UnicodeDecodeError` handling for stdin decoding
+- Fix `progress_tracker.py` reading entire log file on every poll — now reads only last 8 KB; move `import re` to module level
+- Fix `config.py` silent exception swallowing on malformed YAML — now logs warning; add graceful fallback when PyYAML not installed
+- Fix `gpu-check-hook.py` potential `IndexError` on empty nvidia-smi stdout
+- Fix `tool_installer.py` unprotected `import yaml` — now handles missing PyYAML gracefully
+- Fix `system_info.py` overwriting warnings list when both missing-tools and no-GPU conditions trigger
+- Fix incorrect `callable` type annotations in 6 files (should be `Callable[[int], None]`)
+- Update `.gitignore` with common Python project entries (`.venv`, `.egg-info`, `.env`, `*.log`, etc.)
+
 ## 2026-06-03
 
 ### Bug fixes

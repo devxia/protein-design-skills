@@ -2,6 +2,25 @@
 
 本页记录 Kimi Protein Design 插件每个版本的变更内容。
 
+## 2026-06-04
+
+### 修复
+
+- 修复 `filtering.py` `_safe_float()` 对 `None` 输入始终返回 `0.0`，导致回退分支为死代码——缺少指标的设计被错误拒绝而非跳过
+- 修复 `format_converter.py` `sequence_to_alphafold3_json()` 中重复定义 `_make_chain_id()` 和文档字符串错位的问题
+- 修复 `background-notify.py` 和 `design-complete-notify.py` 中的命令注入风险——未转义的字符串直接插入 AppleScript 和 PowerShell 命令
+- 修复 `design-complete-notify.py` 零值误判——`metrics.get("plddt")` 跳过了有效的零值，改为使用 `is not None`
+- 修复 `tool_registry.py` 中 `query_job`、`cancel_job`、`check_tool_status`、`configure_tool_path`、`configure_db_dir` 缺少 `KeyError` 处理——缺少参数时抛出未处理的 `KeyError` 而非返回错误响应
+- 修复 `alphafold.py` `run_alphafold3()` 中 `if wrapper_script` / `else` 分支代码完全相同的问题
+- 修复 `server.py` 已弃用的 `asyncio.get_event_loop()` → `asyncio.get_running_loop()`，并为 stdin 解码添加 `UnicodeDecodeError` 处理
+- 修复 `progress_tracker.py` 每次轮询读取整个日志文件——现仅读取最后 8 KB；将 `import re` 移至模块级
+- 修复 `config.py` 对格式错误的 YAML 静默吞掉异常——现记录警告；添加 PyYAML 缺失时的优雅降级
+- 修复 `gpu-check-hook.py` nvidia-smi 输出为空时的潜在 `IndexError`
+- 修复 `tool_installer.py` 未保护的 `import yaml`——现处理 PyYAML 缺失的情况
+- 修复 `system_info.py` 当同时触发缺少工具和无 GPU 条件时覆盖警告列表的问题
+- 修复 6 个文件中错误的 `callable` 类型注解（应为 `Callable[[int], None]`）
+- 更新 `.gitignore`，添加常见 Python 项目条目（`.venv`、`.egg-info`、`.env`、`*.log` 等）
+
 ## 2026-06-03
 
 ### 修复

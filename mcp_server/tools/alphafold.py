@@ -18,7 +18,7 @@ import os
 import subprocess
 import time
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 from mcp_server.utils.config import CONFIG
 from mcp_server.utils.conda_utils import run_in_conda_with_logs
@@ -395,7 +395,7 @@ def _collect_all_results(output_dir: str) -> dict[str, Any]:
     return result
 
 
-def run_alphafold3(params: dict[str, Any], progress_callback: callable) -> dict[str, Any]:
+def run_alphafold3(params: dict[str, Any], progress_callback: Callable[[int], None]) -> dict[str, Any]:
     """Execute AlphaFold3 structure prediction.
 
     Args:
@@ -507,25 +507,14 @@ def run_alphafold3(params: dict[str, Any], progress_callback: callable) -> dict[
             with_msa=user_wants_msa,
         )
 
-        if wrapper_script:
-            # Wrapper script handles its own env; just run it with file logs
-            process = run_in_conda_with_logs(
-                cmd,
-                conda_env=conda_env,
-                stdout_log=stdout_log,
-                stderr_log=stderr_log,
-                cwd=os.path.dirname(script) if script else ".",
-                timeout=CONFIG.timeout,
-            )
-        else:
-            process = run_in_conda_with_logs(
-                cmd,
-                conda_env=conda_env,
-                stdout_log=stdout_log,
-                stderr_log=stderr_log,
-                cwd=os.path.dirname(script) if script else ".",
-                timeout=CONFIG.timeout,
-            )
+        process = run_in_conda_with_logs(
+            cmd,
+            conda_env=conda_env,
+            stdout_log=stdout_log,
+            stderr_log=stderr_log,
+            cwd=os.path.dirname(script) or ".",
+            timeout=CONFIG.timeout,
+        )
 
         tracker.stop()
 
@@ -588,7 +577,7 @@ def run_alphafold3(params: dict[str, Any], progress_callback: callable) -> dict[
 
 
 def analyze_alphafold3_results(
-    params: dict[str, Any], progress_callback: callable
+    params: dict[str, Any], progress_callback: Callable[[int], None]
 ) -> dict[str, Any]:
     """Analyze AlphaFold3 prediction results from an output directory.
 

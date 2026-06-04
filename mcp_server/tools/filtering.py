@@ -5,13 +5,17 @@ a composite quality score.
 """
 
 import logging
-from typing import Any
+from typing import Any, Callable
 
 logger = logging.getLogger(__name__)
 
 
-def _safe_float(value: Any, default: float = 0.0) -> float:
-    """Safely convert a value to float, falling back to default on failure."""
+def _safe_float(value: Any, default: float | None = None) -> float | None:
+    """Safely convert a value to float, falling back to default on failure.
+
+    Returns None (or the caller-supplied default) when the input cannot be
+    converted, so that callers can distinguish "missing" from "zero".
+    """
     if value is None:
         return default
     try:
@@ -51,7 +55,7 @@ def _compute_quality_score(design: dict[str, Any]) -> float:
     return round(score, 4)
 
 
-def run_filtering(params: dict[str, Any], progress_callback: callable) -> dict[str, Any]:
+def run_filtering(params: dict[str, Any], progress_callback: Callable[[int], None]) -> dict[str, Any]:
     """Filter and rank protein designs by quality metrics.
 
     Args:
@@ -95,6 +99,8 @@ def run_filtering(params: dict[str, Any], progress_callback: callable) -> dict[s
         if plddt is not None and plddt < min_plddt:
             passed = False
             reasons.append(f"pLDDT {plddt:.1f} < {min_plddt}")
+        elif plddt is None:
+            logger.debug("pLDDT missing for design, skipping threshold check")
 
         # ipTM: try metrics.iptm first, then top-level iptm
         iptm = _safe_float(metrics.get("iptm"))
@@ -103,6 +109,8 @@ def run_filtering(params: dict[str, Any], progress_callback: callable) -> dict[s
         if iptm is not None and iptm < min_iptm:
             passed = False
             reasons.append(f"ipTM {iptm:.3f} < {min_iptm}")
+        elif iptm is None:
+            logger.debug("ipTM missing for design, skipping threshold check")
 
         # pTM: try metrics.ptm first, then top-level ptm
         ptm = _safe_float(metrics.get("ptm"))
@@ -111,6 +119,8 @@ def run_filtering(params: dict[str, Any], progress_callback: callable) -> dict[s
         if ptm is not None and ptm < min_ptm:
             passed = False
             reasons.append(f"pTM {ptm:.3f} < {min_ptm}")
+        elif ptm is None:
+            logger.debug("pTM missing for design, skipping threshold check")
 
         # has_clash: try metrics.has_clash first, then top-level has_clash
         has_clash = bool(metrics.get("has_clash", False))

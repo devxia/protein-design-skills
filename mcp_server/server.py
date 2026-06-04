@@ -154,7 +154,7 @@ async def main() -> None:
     """Main event loop: read JSON-RPC requests from stdin, write responses to stdout."""
     logger.info("%s MCP Server v%s starting...", SERVER_NAME, SERVER_VERSION)
 
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
     reader = asyncio.StreamReader()
     protocol = asyncio.StreamReaderProtocol(reader)
     await loop.connect_read_pipe(lambda: protocol, sys.stdin)
@@ -168,7 +168,11 @@ async def main() -> None:
         if not line:
             break
 
-        text = line.decode("utf-8").strip()
+        try:
+            text = line.decode("utf-8").strip()
+        except UnicodeDecodeError:
+            logger.warning("Received non-UTF-8 data on stdin, skipping line")
+            continue
         if not text:
             continue
 

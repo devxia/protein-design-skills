@@ -225,8 +225,7 @@ class JobManager:
             try:
                 process.terminate()
                 # Give it a few seconds to exit gracefully
-                import time as _time
-                _time.sleep(2)
+                time.sleep(2)
                 if process.poll() is None:
                     process.kill()
             except Exception as exc:
@@ -239,20 +238,19 @@ class JobManager:
         cleanup_msg = ""
         output_dir = params.get("output_dir") or params.get("output_prefix")
         if output_dir:
-            import os as _os
             try:
                 # If output_prefix is a file prefix, get its directory
-                if _os.path.isfile(output_dir) or "." in _os.path.basename(output_dir):
-                    cleanup_dir = _os.path.dirname(output_dir) or "."
+                if os.path.isfile(output_dir) or "." in os.path.basename(output_dir):
+                    cleanup_dir = os.path.dirname(output_dir) or "."
                 else:
                     cleanup_dir = output_dir
 
                 # Remove known incomplete markers/files
                 removed = 0
-                for root, _dirs, files in _os.walk(cleanup_dir):
+                for root, _dirs, files in os.walk(cleanup_dir):
                     for f in files:
                         if f.endswith((".tmp", ".incomplete", "_partial.pdb")):
-                            _os.remove(_os.path.join(root, f))
+                            os.remove(os.path.join(root, f))
                             removed += 1
                 if removed:
                     cleanup_msg = f" Cleaned up {removed} partial files."

@@ -13,7 +13,7 @@ import os
 import subprocess
 import time
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 from mcp_server.tools.pdbfixer_tool import preprocess_for_design
 from mcp_server.utils.config import CONFIG
@@ -55,7 +55,7 @@ def _find_rfdiffusion_script() -> str:
     )
 
 
-def run_rfdiffusion(params: dict[str, Any], progress_callback: callable) -> dict[str, Any]:
+def run_rfdiffusion(params: dict[str, Any], progress_callback: Callable[[int], None]) -> dict[str, Any]:
     """Execute RFdiffusion backbone generation.
 
     Args:

@@ -187,11 +187,6 @@ def sequence_to_alphafold3_json(
     source_fasta: str | None = None,
     additional_sequences: list[dict[str, Any]] | None = None,
 ) -> str:
-    def _make_chain_id(idx: int) -> str:
-        """Generate chain ID: A-Z, then AA, AB, ..."""
-        if idx < 26:
-            return chr(ord("A") + idx)
-        return chr(ord("A") + (idx % 26)) + chr(ord("A") + (idx // 26))
     """Convert a raw protein sequence (possibly multi-chain) to AlphaFold3 JSON.
 
     Args:
@@ -208,6 +203,13 @@ def sequence_to_alphafold3_json(
     Returns:
         Path to the generated JSON file.
     """
+
+    def _make_chain_id(idx: int) -> str:
+        """Generate chain ID: A-Z, then AA, AB, ..."""
+        if idx < 26:
+            return chr(ord("A") + idx)
+        return chr(ord("A") + (idx % 26)) + chr(ord("A") + (idx // 26))
+
     # Split by "/" for multi-chain
     chains = [c.strip() for c in sequence.split("/") if c.strip()]
     if not chains:
@@ -216,12 +218,6 @@ def sequence_to_alphafold3_json(
     # Build AlphaFold3 JSON
     sequences = []
     next_chain_idx = 0
-
-    def _make_chain_id(idx: int) -> str:
-        """Generate chain ID: A-Z, then AA, AB, ..."""
-        if idx < 26:
-            return chr(ord("A") + idx)
-        return chr(ord("A") + (idx % 26)) + chr(ord("A") + (idx // 26))
 
     # Prepend additional sequences first (e.g., receptor)
     if additional_sequences:

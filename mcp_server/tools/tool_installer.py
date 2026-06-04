@@ -15,7 +15,10 @@ import os
 from pathlib import Path
 from typing import Any
 
-import yaml
+try:
+    import yaml
+except ImportError:
+    yaml = None  # Graceful fallback when PyYAML is not installed
 
 from mcp_server.utils.config import CONFIG
 
@@ -400,6 +403,10 @@ def configure_tool_path(tool_name: str, path: str, conda_env: str | None = None)
     config_path = Path.home() / ".kimi-protein-design" / "config.yaml"
     config_data: dict[str, Any] = {}
 
+    if yaml is None:
+        logger.warning("PyYAML not installed; cannot persist config to %s", config_path)
+        return {"error": "PyYAML is required to configure tool paths. Install with: pip install pyyaml"}
+
     if config_path.exists():
         try:
             with open(config_path, "r", encoding="utf-8") as f:
@@ -456,7 +463,7 @@ def configure_db_dir(path: str) -> dict[str, Any]:
         }
 
     # Validate it looks like AF3 databases (warn but allow flat-file layouts)
-    from mcp_server.tools.alphafold import _looks_like_af3_databases, check_af3_database_status
+    from mcp_server.tools.alphafold import check_af3_database_status
     db_status = check_af3_database_status(abs_path)
     if not db_status.get("detected"):
         return {
@@ -469,6 +476,10 @@ def configure_db_dir(path: str) -> dict[str, Any]:
     # Persist to config file
     config_path = Path.home() / ".kimi-protein-design" / "config.yaml"
     config_data: dict[str, Any] = {}
+
+    if yaml is None:
+        logger.warning("PyYAML not installed; cannot persist config to %s", config_path)
+        return {"error": "PyYAML is required to configure database paths. Install with: pip install pyyaml"}
 
     if config_path.exists():
         try:
