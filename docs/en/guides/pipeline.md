@@ -8,8 +8,8 @@ source: README.md
 ## Project structure
 
 ```
-kimi-protein-design/
-├── kimi.plugin.json              # Plugin manifest
+protein-design-mcp/
+├── kimi.plugin.json              # Plugin manifest (Kimi Code)
 ├── skills/                       # Workflow guidance
 │   ├── protein-design-context/   # Session-start context
 │   ├── structure-preprocessing/  # Stage 0: PDBFixer

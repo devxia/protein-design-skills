@@ -9,7 +9,8 @@ The progress is the maximum of the two signals, so that:
   - If files lag behind (e.g., I/O bottleneck), time-based progress prevents
     the UI from appearing stuck.
 
-Historical runtimes are stored in ~/.kimi-protein-design/history.jsonl
+Historical runtimes are stored in ~/.protein-design/history.jsonl
+(new path; ~/.kimi-protein-design/history.jsonl is checked as fallback)
 as newline-delimited JSON records.
 """
 
@@ -25,7 +26,8 @@ from typing import Any, Callable
 
 logger = logging.getLogger(__name__)
 
-HISTORY_PATH = Path.home() / ".kimi-protein-design" / "history.jsonl"
+HISTORY_PATH = Path.home() / ".protein-design" / "history.jsonl"
+LEGACY_HISTORY_PATH = Path.home() / ".kimi-protein-design" / "history.jsonl"
 
 # Default runtime estimates (seconds per item) when no history exists.
 # These are conservative over-estimates.
@@ -49,10 +51,12 @@ DEFAULT_ESTIMATES: dict[str, dict[str, float]] = {
 def _load_history(tool_name: str) -> list[dict[str, Any]]:
     """Load historical runtime records for a tool."""
     records = []
-    if not HISTORY_PATH.exists():
+    # Check new path first, fall back to legacy
+    history_path = HISTORY_PATH if HISTORY_PATH.exists() else LEGACY_HISTORY_PATH
+    if not history_path.exists():
         return records
     try:
-        with open(HISTORY_PATH, "r", encoding="utf-8") as f:
+        with open(history_path, "r", encoding="utf-8") as f:
             for line in f:
                 line = line.strip()
                 if not line:

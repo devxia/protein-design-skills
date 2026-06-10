@@ -7,28 +7,60 @@ source: README.md
 
 > ⚠️ **Important**: This plugin does **NOT** install RFdiffusion, ProteinMPNN, AlphaFold3, or PDBFixer. These are large machine-learning models (multi-GB) that must be installed separately. The plugin provides the **orchestration layer** that calls these tools via subprocess.
 
-## Install Kimi Code
+## Choose your agent
 
-This plugin runs on [Kimi Code](https://github.com/MoonshotAI/kimi-code). Install it first, then proceed below.
+This plugin works with any MCP-compatible coding agent:
+
+| Agent | Setup |
+|-------|-------|
+| **Claude Code** | Use `.mcp.json` (included) or `~/.claude/settings.json` |
+| **Codex CLI** | Add MCP server config to `~/.codex/settings.json` |
+| **Kimi Code** | Use `kimi.plugin.json` (included) — `/plugins install` |
 
 ## Install the plugin
 
-### From GitHub (recommended)
+### Claude Code / Codex CLI
 
-```
-/plugins install https://github.com/devxia/kimi-protein-design
-```
-
-### From local directory
-
-```
-/plugins install /path/to/kimi-protein-design
+```bash
+git clone https://github.com/devxia/protein-design-mcp.git
+cd protein-design-mcp
+pip install -r requirements.txt
 ```
 
-### Activate
+The included `.mcp.json` configures the MCP server automatically when the agent starts in this directory.
 
-After installation, start a **new session**:
+For global availability, add to `~/.claude/settings.json`:
 
+```json
+{
+  "mcpServers": {
+    "protein-design-mcp": {
+      "command": "python",
+      "args": ["-m", "mcp_server.server"],
+      "cwd": "/path/to/protein-design-mcp",
+      "env": {
+        "PYTHONPATH": "/path/to/protein-design-mcp",
+        "PROTEIN_DESIGN_OUTPUT_DIR": "/tmp/protein-design",
+        "PROTEIN_DESIGN_MAX_JOBS": "4"
+      }
+    }
+  }
+}
+```
+
+### Kimi Code
+
+From GitHub:
+```
+/plugins install https://github.com/devxia/protein-design-mcp
+```
+
+From local directory:
+```
+/plugins install /path/to/protein-design-mcp
+```
+
+Start a **new session** after installation:
 ```
 /new
 ```
@@ -37,7 +69,6 @@ After installation, start a **new session**:
 
 ## System requirements
 
-- Kimi Code >= 0.6.0
 - Python >= 3.9
 - CUDA-capable GPU with >= 16GB VRAM (recommended)
 - Conda (miniconda or anaconda)
@@ -118,7 +149,7 @@ export PROTEIN_DESIGN_OUTPUT_DIR="/tmp/protein-design"
 **Method B: Config File (Recommended)**
 
 ```yaml
-# ~/.kimi-protein-design/config.yaml
+# ~/.protein-design/config.yaml
 output_dir: /tmp/protein-design
 max_jobs: 4
 timeout: 3600
@@ -130,6 +161,8 @@ proteinmpnn_conda_env: null
 alphafold_conda_env: null
 ```
 
+> **Legacy path**: `~/.kimi-protein-design/config.yaml` is also supported for backward compatibility.
+
 **Method C: Symlinks**
 
 ```bash
@@ -140,11 +173,7 @@ ln -s ~/software/alphafold3 ./alphafold3
 
 ## Verify installation
 
-```
-/mcp
-```
-
-You should see `protein` server connected. Then test:
+Check that the MCP server is connected (method varies by agent), then test:
 
 ```
 Call get_tool_info

@@ -1,7 +1,7 @@
 """Configuration management for the protein design MCP server.
 
 Reads settings from environment variables and optional config file
-(~/.kimi-protein-design/config.yaml).
+(~/.protein-design/config.yaml, with fallback to ~/.kimi-protein-design/).
 """
 
 import logging
@@ -99,8 +99,12 @@ def load_config() -> ProteinDesignConfig:
     if env_af_conda := os.environ.get("ALPHAFOLD_CONDA_ENV"):
         config.alphafold_conda_env = env_af_conda
 
-    # Override from config file (lowest priority after defaults)
-    config_path = Path.home() / ".kimi-protein-design" / "config.yaml"
+    # Override from config file (lowest priority after defaults).
+    # Check new path first, fall back to legacy path for backward compatibility.
+    config_path = Path.home() / ".protein-design" / "config.yaml"
+    legacy_config_path = Path.home() / ".kimi-protein-design" / "config.yaml"
+    if not config_path.exists() and legacy_config_path.exists():
+        config_path = legacy_config_path
     if config_path.exists():
         if yaml is None:
             logger.warning("PyYAML not installed; cannot read config file %s", config_path)

@@ -1,8 +1,8 @@
-# 🧬 Kimi Protein Design
+# 🧬 Protein Design MCP
 
 > [English](./README.md) | 中文
 
-一个用于端到端蛋白质设计工作流的 [Kimi Code](https://github.com/MoonshotAI/Kimi-Code) 插件。通过自然语言对话，即可生成蛋白质骨架、设计序列、验证结构并排序结果。
+一个用于端到端蛋白质设计工作流的通用插件，支持多种编程智能体（Claude Code、Codex CLI、Kimi Code 等）。通过自然语言对话，即可生成蛋白质骨架、设计序列、验证结构并排序结果。
 
 ## 功能特性
 
@@ -12,7 +12,7 @@
 - **Stage 3 — 结构验证**：AlphaFold3 用于置信度评分（pLDDT、ipTM、pTM）
 - **Stage 4 — 过滤与排序**：自动质量过滤及综合评分
 - **异步任务管理**：提交长时间运行的任务并轮询结果
-- **批量验证**：CronCreate 支持大规模 AlphaFold3 筛选
+- **批量验证**：支持大规模 AlphaFold3 筛选的定时调度
 - **Hooks (0.6.0+)**：上下文注入、GPU 安全检查及桌面通知
 
 
@@ -21,20 +21,53 @@
 
 ## 安装
 
-### 安装 Kimi Code
+### 前置条件
 
-本插件运行在 [Kimi Code](https://github.com/MoonshotAI/kimi-code) 上。请先安装 Kimi Code，再继续以下步骤。
+本插件可与任何支持 MCP 的编程智能体配合使用（Claude Code、Codex CLI、Kimi Code 等）。
 
-### 安装插件
+### 方式一：Claude Code
+
+```bash
+# 克隆插件
+git clone https://github.com/devxia/protein-design-mcp.git
+cd protein-design-mcp
+
+# 安装依赖
+pip install -r requirements.txt
+
+# 项目根目录的 .mcp.json 会自动配置 MCP 服务器。
+```
+
+### 方式二：Kimi Code
 
 ```
-/plugins install https://github.com/devxia/kimi-protein-design
+/plugins install https://github.com/devxia/protein-design-mcp
 /new
+```
+
+### 方式三：其他 MCP 智能体
+
+将以下内容添加到智能体的 MCP 配置中：
+
+```json
+{
+  "mcpServers": {
+    "protein-design-mcp": {
+      "command": "python",
+      "args": ["-m", "mcp_server.server"],
+      "cwd": "/path/to/protein-design-mcp",
+      "env": {
+        "PYTHONPATH": "/path/to/protein-design-mcp",
+        "PROTEIN_DESIGN_OUTPUT_DIR": "/tmp/protein-design",
+        "PROTEIN_DESIGN_MAX_JOBS": "4"
+      }
+    }
+  }
+}
 ```
 
 ### 环境要求
 
-- Kimi Code >= 0.6.0
 - Python >= 3.9
 - 显存 >= 16GB 的 CUDA 显卡（推荐）
 - Conda（miniconda 或 anaconda）
@@ -55,7 +88,7 @@
 
 **偏好手动配置？** 你可以通过以下方式设置路径：
 - 环境变量（`RFDIFFUSION_PATH`、`PROTEINMPNN_PATH`、`ALPHAFOLD_PATH`）
-- 配置文件（`~/.kimi-protein-design/config.yaml`）
+- 配置文件（`~/.protein-design/config.yaml`）
 - 插件根目录中的符号链接
 
 > 📚 详见 [docs/zh/guides/installation.md](./docs/zh/guides/installation.md) 中的详细配置说明。

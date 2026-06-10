@@ -16,7 +16,7 @@ source: README.zh.md
 | AlphaFold3 MSA 超时 | 默认运行完整 MSA。设置 `run_data_pipeline=false` 可跳过（更快，精度稍低） |
 | 工具在其他环境中未找到 | `check_all_tools` 现在会自动扫描常见 conda 环境 + editable install |
 | 验证结合物需要受体 | 使用 `convert_format` 的 `receptor_pdb` 参数生成多链 AF3 JSON |
-| Hooks 未生效 | 验证 `~/.kimi-code/config.toml` 语法，然后 `/new` |
+| Hooks 未生效 | 验证智能体的 hook 配置语法，然后重启会话 |
 
 ## 跨 Conda 环境执行
 

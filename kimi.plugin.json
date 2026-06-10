@@ -1,5 +1,5 @@
 {
-  "name": "kimi-protein-design",
+  "name": "protein-design-mcp",
   "version": "0.1.0",
   "description": "Protein design pipeline: RFdiffusion backbone generation, ProteinMPNN sequence design, AlphaFold3 structure validation",
   "keywords": ["protein", "protein-design", "alphafold", "proteinmpnn", "rfdiffusion", "bioinformatics", "mcp"],
@@ -7,9 +7,9 @@
   "sessionStart": {
     "skill": "protein-design-context"
   },
-  "skillInstructions": "Prioritize using MCP tools to invoke protein design software. All compute tasks must use submit_job for async execution and query_job for polling. Always call get_tool_info before invoking any tool. Never manually construct command lines when MCP tools are available. For long-running batch validation tasks, use CronCreate to schedule periodic progress checks rather than blocking the session with continuous polling.",
+  "skillInstructions": "Prioritize using MCP tools to invoke protein design software. All compute tasks must use submit_job for async execution and query_job for polling. Always call get_tool_info before invoking any tool. Never manually construct command lines when MCP tools are available. For long-running batch validation tasks, use scheduling features (CronCreate or equivalent) to check progress periodically rather than blocking the session with continuous polling.",
   "mcpServers": {
-    "protein": {
+    "protein-design": {
       "command": "python",
       "args": ["-m", "mcp_server.server"],
       "cwd": "./",
@@ -21,7 +21,7 @@
     }
   },
   "interface": {
-    "displayName": "Kimi Protein Design",
+    "displayName": "Protein Design",
     "shortDescription": "Protein design pipeline integration",
     "developerName": "Protein Design Team"
   }

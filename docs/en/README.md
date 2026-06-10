@@ -1,6 +1,6 @@
-# Kimi Protein Design Documentation
+# Protein Design MCP Documentation
 
-Welcome to the documentation for the Kimi Protein Design MCP plugin.
+Welcome to the documentation for the Protein Design MCP plugin.
 
 ## Getting started
 

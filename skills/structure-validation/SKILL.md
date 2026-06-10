@@ -94,7 +94,7 @@ AlphaFold3 requires **genetic databases** (~2.6TB) for MSA search. The plugin ha
 ```
 User: My AlphaFold3 databases are at /data/public_databases
 → call configure_db_dir(path="/data/public_databases")
-→ Saved to ~/.kimi-protein-design/config.yaml
+→ Saved to ~/.protein-design/config.yaml
 ```
 
 **To check database status:**
@@ -176,11 +176,11 @@ Return: mmCIF + confidence JSON → Stage 4 (filtering)
 
 ## Batch Validation Optimization
 
-For >10 designs, use CronCreate instead of blocking polling:
+For >10 designs, use scheduling (CronCreate or equivalent) instead of blocking polling:
 
 1. Submit all AlphaFold3 jobs (get task_ids)
-2. `CronCreate(cron="*/10 * * * *", prompt="Check AF3 batch progress for [task_ids], report completed and pLDDT>80 count")`
-3. When all done, `CronDelete` the timer
+2. `scheduling (CronCreate or equivalent)(cron="*/10 * * * *", prompt="Check AF3 batch progress for [task_ids], report completed and pLDDT>80 count")`
+3. When all done, `stop the scheduled check` the timer
 
 ## Tips
 

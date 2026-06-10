@@ -1,6 +1,6 @@
 # Docs Maintenance Guide
 
-This file tells AI agents how to maintain the `docs/` directory for the `kimi-protein-design` project.
+This file tells AI agents how to maintain the `docs/` directory for the `protein-design-mcp` project.
 
 ## Directory Structure
 
@@ -82,10 +82,10 @@ When non-changelog pages change in either locale, sync the mirror in the same ch
 | conda env | conda environment |
 | pip | package installer |
 | GitHub | platform name |
-| Kimi Code | product name |
+| coding agent | product category |
 | MCP | Model Context Protocol |
 | Hooks | plugin hook system |
-| CronCreate | Kimi Code scheduler feature |
+| CronCreate | scheduling feature (varies by agent) |
 | Bash | tool name |
 | GPU | Graphics Processing Unit |
 | CUDA | NVIDIA compute platform |

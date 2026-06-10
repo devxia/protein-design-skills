@@ -7,7 +7,8 @@ structured message with:
   - How to configure the path
 
 Users can then call configure_tool_path() to set paths interactively,
-which are persisted to ~/.kimi-protein-design/config.yaml.
+which are persisted to ~/.protein-design/config.yaml
+(legacy ~/.kimi-protein-design/ also supported).
 """
 
 import logging
@@ -400,7 +401,11 @@ def configure_tool_path(tool_name: str, path: str, conda_env: str | None = None)
             }
 
     # Persist to config file
-    config_path = Path.home() / ".kimi-protein-design" / "config.yaml"
+    config_path = Path.home() / ".protein-design" / "config.yaml"
+    legacy_cfg = Path.home() / ".kimi-protein-design" / "config.yaml"
+    # Migrate legacy config if it exists and new one doesn't
+    if not config_path.exists() and legacy_cfg.exists():
+        config_path = legacy_cfg
     config_data: dict[str, Any] = {}
 
     if yaml is None:
@@ -474,7 +479,11 @@ def configure_db_dir(path: str) -> dict[str, Any]:
         }
 
     # Persist to config file
-    config_path = Path.home() / ".kimi-protein-design" / "config.yaml"
+    config_path = Path.home() / ".protein-design" / "config.yaml"
+    legacy_cfg = Path.home() / ".kimi-protein-design" / "config.yaml"
+    # Migrate legacy config if it exists and new one doesn't
+    if not config_path.exists() and legacy_cfg.exists():
+        config_path = legacy_cfg
     config_data: dict[str, Any] = {}
 
     if yaml is None:

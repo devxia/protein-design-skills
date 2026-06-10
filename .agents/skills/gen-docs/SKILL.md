@@ -1,6 +1,6 @@
 # gen-docs
 
-Generate and maintain human-facing product documentation for the `kimi-protein-design` MCP plugin.
+Generate and maintain human-facing product documentation for the `protein-design-mcp` MCP plugin.
 
 ## When To Use
 

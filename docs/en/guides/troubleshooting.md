@@ -16,7 +16,7 @@ source: README.md
 | AlphaFold3 MSA timeout | Default runs full MSA. Set `run_data_pipeline=false` to skip (faster, less accurate) |
 | Tool not found in other env | `check_all_tools` now auto-scans common conda envs + editable installs |
 | Binder validation needs receptor | Use `convert_format` with `receptor_pdb` to generate multi-chain AF3 JSON |
-| Hooks not working | Verify `~/.kimi-code/config.toml` syntax, then `/new` |
+| Hooks not working | Verify agent hook config syntax, then restart the session |
 
 ## Cross-Conda environment execution
 

@@ -1,8 +1,8 @@
-# 🧬 Kimi Protein Design
+# 🧬 Protein Design MCP
 
 > **English** | [中文](./README.zh.md)
 
-A [Kimi Code](https://github.com/MoonshotAI/Kimi-Code) plugin for end-to-end protein design workflows. Generate protein backbones, design sequences, validate structures, and rank results — all through natural language conversation.
+An agent-agnostic protein design plugin for coding agents (Claude Code, Codex CLI, Kimi Code, etc.). Orchestrates RFdiffusion, ProteinMPNN, AlphaFold3, and PDBFixer for end-to-end protein design workflows. Generate protein backbones, design sequences, validate structures, and rank results — all through natural language conversation.
 
 ## Features
 
@@ -12,7 +12,7 @@ A [Kimi Code](https://github.com/MoonshotAI/Kimi-Code) plugin for end-to-end pro
 - **Stage 3 — Structure Validation**: AlphaFold3 for confidence scoring (pLDDT, ipTM, pTM)
 - **Stage 4 — Filtering & Ranking**: Automated quality filtering and composite scoring
 - **Async Job Management**: Submit long-running jobs and poll for results
-- **Batch Validation**: CronCreate support for large-scale AlphaFold3 screening
+- **Batch Validation**: Scheduling support for large-scale AlphaFold3 screening
 - **Hooks (0.6.0+)**: Context injection, GPU safety checks, and desktop notifications
 
 
@@ -21,20 +21,54 @@ A [Kimi Code](https://github.com/MoonshotAI/Kimi-Code) plugin for end-to-end pro
 
 ## Installation
 
-### Install Kimi Code
+### Prerequisites
 
-This plugin runs on [Kimi Code](https://github.com/MoonshotAI/kimi-code). Install it first, then proceed below.
+This plugin works with any MCP-compatible coding agent (Claude Code, Codex CLI, Kimi Code, etc.).
 
-### Install the plugin
+### Option 1: Claude Code
+
+```bash
+# Clone the plugin
+git clone https://github.com/devxia/protein-design-mcp.git
+cd protein-design-mcp
+
+# Install dependencies
+pip install -r requirements.txt
+
+# The .mcp.json at the project root configures the MCP server automatically.
+# Or add to ~/.claude/settings.json manually.
+```
+
+### Option 2: Kimi Code
 
 ```
-/plugins install https://github.com/devxia/kimi-protein-design
+/plugins install https://github.com/devxia/protein-design-mcp
 /new
+```
+
+### Option 3: Other MCP agents
+
+Add to your agent's MCP configuration (format varies by agent):
+
+```json
+{
+  "mcpServers": {
+    "protein-design-mcp": {
+      "command": "python",
+      "args": ["-m", "mcp_server.server"],
+      "cwd": "/path/to/protein-design-mcp",
+      "env": {
+        "PYTHONPATH": "/path/to/protein-design-mcp",
+        "PROTEIN_DESIGN_OUTPUT_DIR": "/tmp/protein-design",
+        "PROTEIN_DESIGN_MAX_JOBS": "4"
+      }
+    }
+  }
+}
 ```
 
 ### System requirements
 
-- Kimi Code >= 0.6.0
 - Python >= 3.9
 - CUDA-capable GPU with >= 16GB VRAM (recommended)
 - Conda (miniconda or anaconda)
@@ -55,7 +89,7 @@ The plugin auto-detects common install locations and asks you to confirm. You ca
 
 **Prefer manual configuration?** You can set paths via:
 - Environment variables (`RFDIFFUSION_PATH`, `PROTEINMPNN_PATH`, `ALPHAFOLD_PATH`)
-- Config file (`~/.kimi-protein-design/config.yaml`)
+- Config file (`~/.protein-design/config.yaml`)
 - Symlinks in the plugin root directory
 
 > 📚 See [docs/en/guides/installation.md](./docs/en/guides/installation.md) for detailed configuration options.

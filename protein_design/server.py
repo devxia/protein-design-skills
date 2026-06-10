@@ -1,4 +1,4 @@
-"""MCP Server main entry point for Kimi Protein Design.
+"""MCP Server main entry point for Protein Design.
 
 Implements a stdio-based JSON-RPC 2.0 server. Supports:
   - initialize
@@ -25,7 +25,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-SERVER_NAME = "kimi-protein-design"
+SERVER_NAME = "protein-design-mcp"
 SERVER_VERSION = "0.1.0"
 
 

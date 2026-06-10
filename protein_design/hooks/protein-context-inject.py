@@ -5,7 +5,8 @@ When the user's message contains protein design keywords, this hook
 returns a formatted environment status string that the model receives
 in its context.
 
-Requires Kimi Code >= 0.6.0 (hook results are included in model context).
+Works with any coding agent that supports hook context injection (Claude Code,
+Kimi Code >= 0.6.0, Codex CLI).
 """
 
 import subprocess

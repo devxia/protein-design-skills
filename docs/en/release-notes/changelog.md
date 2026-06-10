@@ -1,6 +1,6 @@
 # Changelog
 
-This page documents the changes in each release of the Kimi Protein Design plugin.
+This page documents the changes in each release of the Protein Design MCP plugin.
 
 ## 2026-06-04
 
@@ -46,7 +46,7 @@ This page documents the changes in each release of the Kimi Protein Design plugi
 
 ### Features
 
-- Initial commit of kimi-protein-design plugin with 5-stage protein design pipeline
+- Initial commit of protein-design-mcp plugin with 5-stage protein design pipeline
 - Add conda environment support for RFdiffusion, ProteinMPNN, and AlphaFold3
 - Add file-based progress tracking with historical ETA estimation
 - Add cross-conda-environment support for PDBFixer via `conda_env` parameter

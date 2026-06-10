@@ -1,4 +1,4 @@
-"""MCP Server for Kimi Protein Design plugin.
+"""MCP Server for Protein Design plugin.
 
 Provides protein design tools via stdio JSON-RPC 2.0.
 """

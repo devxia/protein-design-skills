@@ -7,28 +7,60 @@ source: README.zh.md
 
 > ⚠️ **重要：**本插件**不附带** RFdiffusion、ProteinMPNN、AlphaFold3 或 PDBFixer。这些都是大型机器学习模型（多 GB），必须单独安装。插件提供的是**编排层**，通过子进程调用这些工具。
 
-## 安装 Kimi Code
+## 选择你的智能体
 
-本插件运行在 [Kimi Code](https://github.com/MoonshotAI/kimi-code) 上。请先安装 Kimi Code，再继续以下步骤。
+本插件可与任何支持 MCP 的编程智能体配合使用：
+
+| 智能体 | 配置方式 |
+|--------|----------|
+| **Claude Code** | 使用 `.mcp.json`（已提供）或 `~/.claude/settings.json` |
+| **Codex CLI** | 添加 MCP 服务器配置到 `~/.codex/settings.json` |
+| **Kimi Code** | 使用 `kimi.plugin.json`（已提供）— `/plugins install` |
 
 ## 安装插件
 
-### 从 GitHub 安装（推荐）
+### Claude Code / Codex CLI
 
-```
-/plugins install https://github.com/devxia/kimi-protein-design
-```
-
-### 从本地目录安装
-
-```
-/plugins install /path/to/kimi-protein-design
+```bash
+git clone https://github.com/devxia/protein-design-mcp.git
+cd protein-design-mcp
+pip install -r requirements.txt
 ```
 
-### 激活
+项目根目录的 `.mcp.json` 会在智能体启动时自动配置 MCP 服务器。
+
+如需全局可用，添加到 `~/.claude/settings.json`：
+
+```json
+{
+  "mcpServers": {
+    "protein-design-mcp": {
+      "command": "python",
+      "args": ["-m", "mcp_server.server"],
+      "cwd": "/path/to/protein-design-mcp",
+      "env": {
+        "PYTHONPATH": "/path/to/protein-design-mcp",
+        "PROTEIN_DESIGN_OUTPUT_DIR": "/tmp/protein-design",
+        "PROTEIN_DESIGN_MAX_JOBS": "4"
+      }
+    }
+  }
+}
+```
+
+### Kimi Code
+
+从 GitHub 安装：
+```
+/plugins install https://github.com/devxia/protein-design-mcp
+```
+
+从本地目录安装：
+```
+/plugins install /path/to/protein-design-mcp
+```
 
 安装后，启动**新会话**：
-
 ```
 /new
 ```
@@ -37,7 +69,6 @@ source: README.zh.md
 
 ## 系统要求
 
-- Kimi Code >= 0.6.0
 - Python >= 3.9
 - CUDA GPU，显存 >= 16GB（推荐）
 - Conda（miniconda 或 anaconda）
@@ -118,7 +149,7 @@ export PROTEIN_DESIGN_OUTPUT_DIR="/tmp/protein-design"
 **方法 B：配置文件（推荐）**
 
 ```yaml
-# ~/.kimi-protein-design/config.yaml
+# ~/.protein-design/config.yaml
 output_dir: /tmp/protein-design
 max_jobs: 4
 timeout: 3600
@@ -130,6 +161,8 @@ proteinmpnn_conda_env: null
 alphafold_conda_env: null
 ```
 
+> **旧路径兼容**：`~/.kimi-protein-design/config.yaml` 也受支持。
+
 **方法 C：符号链接**
 
 ```bash
@@ -140,11 +173,7 @@ ln -s ~/software/alphafold3 ./alphafold3
 
 ## 验证安装
 
-```
-/mcp
-```
-
-应显示 `protein` 服务器已连接。然后测试：
+确认 MCP 服务器已连接（验证方式因智能体而异），然后测试：
 
 ```
 Call get_tool_info

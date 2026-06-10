@@ -8,8 +8,8 @@ source: README.zh.md
 ## 项目结构
 
 ```
-kimi-protein-design/
-├── kimi.plugin.json              # 插件清单
+protein-design-mcp/
+├── kimi.plugin.json              # 插件清单（Kimi Code）
 ├── skills/                       # 工作流指导
 │   ├── protein-design-context/   # 会话启动上下文
 │   ├── structure-preprocessing/  # Stage 0: PDBFixer

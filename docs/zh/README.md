@@ -1,6 +1,6 @@
-# Kimi Protein Design 文档
+# Protein Design MCP 文档
 
-欢迎使用 Kimi Protein Design MCP 插件文档。
+欢迎使用 Protein Design MCP 插件文档。
 
 ## 入门
 

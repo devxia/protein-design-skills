@@ -1,6 +1,6 @@
 # 变更记录
 
-本页记录 Kimi Protein Design 插件每个版本的变更内容。
+本页记录 Protein Design 插件每个版本的变更内容。
 
 ## 2026-06-04
 

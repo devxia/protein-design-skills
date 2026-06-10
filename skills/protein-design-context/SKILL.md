@@ -5,7 +5,7 @@ description: Session-start context for protein design workflows
 
 # Protein Design Pipeline Context
 
-You are assisting with **protein design** using the Kimi Protein Design plugin. This plugin provides an integrated pipeline from backbone generation to structure validation.
+You are assisting with **protein design** using the Protein Design MCP plugin. This plugin provides an integrated pipeline from backbone generation to structure validation.
 
 ## Standard Workflow Stages
 
@@ -77,7 +77,7 @@ User: Design a protein for me
 ```
 User: RFdiffusion is at ~/software/RFdiffusion
 → call configure_tool_path(tool_name="rfdiffusion", path="~/software/RFdiffusion")
-→ Saved to ~/.kimi-protein-design/config.yaml
+→ Saved to ~/.protein-design/config.yaml
 ```
 
 ### Step 4: Verify
@@ -102,14 +102,14 @@ call check_all_tools
 | 30 seconds – 5 minutes | Every 15 seconds |
 | 5+ minutes | Every 60 seconds |
 
-## Batch Validation with CronCreate (Recommended for >10 designs)
+## Batch Validation with scheduling (CronCreate or equivalent) (Recommended for >10 designs)
 
-For large AlphaFold3 batch validations, use `CronCreate` instead of blocking polling:
+For large AlphaFold3 batch validations, use `scheduling (CronCreate or equivalent)` instead of blocking polling:
 
 1. Submit all AlphaFold3 jobs (get multiple `task_id`s)
-2. `CronCreate(cron="*/10 * * * *", prompt="Check AlphaFold3 batch progress for task_ids [X, Y, Z], report completed count and designs passing pLDDT>80, ipTM>0.75")`
+2. `scheduling (CronCreate or equivalent)(cron="*/10 * * * *", prompt="Check AlphaFold3 batch progress for task_ids [X, Y, Z], report completed count and designs passing pLDDT>80, ipTM>0.75")`
 3. Session is freed for other work
-4. When complete, `CronDelete` to stop the timer
+4. When complete, `stop the scheduled check` to stop the timer
 
 ## Quality Thresholds
 
@@ -133,5 +133,5 @@ Default: `/tmp/protein-design/<timestamp>/`
 
 ## Installation Reminder
 
-- Plugin changes require `/new` to start a fresh session
-- Hooks (context injection, GPU check, notifications) are recommended but user-configured
+- Plugin changes require restarting the session
+

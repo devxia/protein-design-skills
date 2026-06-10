@@ -90,7 +90,7 @@ Insert new version blocks at the top of `docs/en/release-notes/changelog.md`, af
 ```markdown
 # Changelog
 
-This page documents the changes in each release of the Kimi Protein Design plugin.
+This page documents the changes in each release of the Protein Design MCP plugin.
 ```
 
 Rules:

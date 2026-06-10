@@ -125,14 +125,14 @@ Selects best designs by quality thresholds.
 }}
 ```
 
-## Batch Validation with CronCreate (0.6.0+)
+## Batch Validation with scheduling (CronCreate or equivalent) (0.6.0+)
 
 When validating many designs (>10), avoid blocking the session with continuous polling:
 
 1. Submit all AlphaFold3 jobs (async, get multiple task_ids)
-2. `CronCreate(cron="*/10 * * * *", prompt="Check AlphaFold3 batch progress for task_ids [X,Y,Z,...]. Report: total completed, count with pLDDT>80 and ipTM>0.75, list any failures.")`
-3. Session is freed — user can do other work
-4. When batch is complete, `CronDelete` to stop the timer
+2. `scheduling (CronCreate or equivalent)(cron="*/10 * * * *", prompt="Check AlphaFold3 batch progress for task_ids [X,Y,Z,...]. Report: total completed, count with pLDDT>80 and ipTM>0.75, list any failures.")`
+3. Session is freed for other work
+4. When batch is complete, `stop the scheduled check` to stop the timer
 
 ## Mid-Pipeline Intervention
 
@@ -159,6 +159,6 @@ Single-stage failures do not affect completed stages. Results are preserved in t
 
 ## Installation & Session Notes
 
-- Plugin changes require `/new` to start a fresh session
-- Hooks (UserPromptSubmit context injection, PreToolUse GPU check, PostToolUse notifications) are recommended for best experience
-- Install hooks via: `python mcp_server/hooks/install-hooks.py`
+- Plugin changes require restarting the session
+- Hooks (context injection, GPU check, notifications) are recommended for best experience — run `python mcp_server/hooks/install-hooks.py`
+
