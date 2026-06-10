@@ -17,6 +17,20 @@ You are assisting with **protein design** using the Protein Design MCP plugin. T
 | **Stage 3** — Structure Validation | `run_alphafold3` | Predict and validate 3D structures |
 | **Stage 4** — Filtering & Ranking | `run_filtering` | Filter by confidence metrics and rank designs |
 
+## Alternative Pipelines
+
+The plugin supports multiple design pipelines depending on user needs:
+
+| Pipeline | Stage 1 | Stage 2 | Stage 3 | Use Case |
+|----------|---------|---------|---------|----------|
+| **Standard** | RFdiffusion | ProteinMPNN | AlphaFold3 (full MSA) | Best accuracy |
+| **Fast Screening** | RFdiffusion | ProteinMPNN | ESMFold (no MSA) | Speed > accuracy |
+| **Balanced** | RFdiffusion | ProteinMPNN | AlphaFold3 (no-MSA) | Medium speed |
+| **Chroma** | Chroma (joint) | — | AlphaFold3 | All-atom generation |
+| **Ligand** | RFdiffusion | LigandMPNN | AlphaFold3 | Ligand-aware design |
+
+**Skills available:** `structure-generation`, `sequence-design`, `structure-validation`, `filtering-ranking`, `fast-screening`, `chroma-backbone`, `ligandmpnn-design`, `design-patterns`, `full-pipeline`
+
 ## Available MCP Tools
 
 ### Workflow Tools
@@ -94,6 +108,23 @@ call check_all_tools
 4. **Never** manually construct CLI commands when MCP tools are available
 5. **If a tool call returns a missing-tool error**, guide the user through the First-Time Setup Guide above instead of failing silently
 
+## Reducing MCP Dependency with Hooks
+
+The plugin provides hooks that inject context automatically, reducing the need for explicit tool discovery calls:
+
+| Hook | Trigger | What it does |
+|------|---------|-------------|
+| `protein-context-inject` | On protein-related prompts | Injects environment status (GPU, tools, output dir) |
+| `tool-recommender` | On protein-related prompts | Detects design type and recommends tools/parameters |
+| `pipeline-orchestrator` | After tool completion | Suggests next pipeline stage automatically |
+| `error-recovery` | On tool failure | Provides context-aware recovery suggestions |
+| `gpu-check-hook` | Before submit_job | Blocks if GPU unavailable |
+| `design-complete-notify` | After query_job | Desktop notification on completion |
+
+**Install hooks:** `python protein_design/hooks/install-hooks.py`
+
+When hooks are active, the agent receives design recommendations automatically without needing `get_tool_info` calls.
+
 ## Polling Strategy
 
 | Elapsed Time | Poll Interval |
@@ -110,6 +141,21 @@ For large AlphaFold3 batch validations, use `scheduling (CronCreate or equivalen
 2. `scheduling (CronCreate or equivalent)(cron="*/10 * * * *", prompt="Check AlphaFold3 batch progress for task_ids [X, Y, Z], report completed count and designs passing pLDDT>80, ipTM>0.75")`
 3. Session is freed for other work
 4. When complete, `stop the scheduled check` to stop the timer
+
+## Quick Design Patterns
+
+For common scenarios, use these ready-to-use patterns (see `design-patterns` skill for details):
+
+| Pattern | Description | Key Params |
+|---------|-------------|------------|
+| De Novo Monomer | 150-residue protein from scratch | `contig=[150-150]`, `num_designs=50` |
+| PD-L1 Binder | Protein binder for target | `contig=[B1-150/0 100-100]`, `hotspot_res=[...]` |
+| Motif Scaffolding | Scaffold around conserved motif | `contig=[10-40/A163-181/10-40]` |
+| Symmetric Oligomer | C4 tetramer | `contig=[100]`, `symmetry=c4` |
+| Cyclic Peptide Binder | Cyclic peptide for target | `cyclic=true`, `contig=[B1-100/0 12-18]` |
+| Partial Diffusion | Redesign loop region | `partial_T=10`, `contig=[A1-50/0 10-20/A71-150]` |
+| Fast Screening | 400 sequences in 2 hours | ESMFold instead of AlphaFold3 |
+| Enzyme Active Site | Scaffold small catalytic motif | `ckpt_override_path=ActiveSite_ckpt.pt` |
 
 ## Quality Thresholds
 
