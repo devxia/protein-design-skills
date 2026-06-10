@@ -18,6 +18,7 @@ from pathlib import Path
 HOOKS = [
     ("protein-context-inject.py", "UserPromptSubmit"),
     ("tool-recommender.py", "UserPromptSubmit"),
+    ("parameter-generator.py", "UserPromptSubmit"),
     ("gpu-check-hook.py", "PreToolUse"),
     ("design-complete-notify.py", "PostToolUse"),
     ("error-recovery.py", "PostToolUse"),
