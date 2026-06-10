@@ -5,7 +5,7 @@ import shutil
 import subprocess
 from typing import Any
 
-from mcp_server.utils.gpu_utils import get_gpu_info, check_gpu_available
+from protein_design.utils.gpu_utils import get_gpu_info, check_gpu_available
 
 logger = logging.getLogger(__name__)
 
@@ -78,7 +78,7 @@ def health_check() -> dict[str, Any]:
 
     # Check protein design tools
     try:
-        from mcp_server.tools.tool_installer import check_all_tools
+        from protein_design.tools.tool_installer import check_all_tools
         tool_status = check_all_tools()
         result["protein_tools"] = tool_status
         if not tool_status.get("all_ready", False):

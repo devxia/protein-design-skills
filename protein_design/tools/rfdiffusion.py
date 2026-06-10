@@ -15,10 +15,10 @@ import time
 from pathlib import Path
 from typing import Any, Callable
 
-from mcp_server.tools.pdbfixer_tool import preprocess_for_design
-from mcp_server.utils.config import CONFIG
-from mcp_server.utils.conda_utils import run_in_conda_with_logs
-from mcp_server.utils.progress_tracker import track_progress, save_runtime_log
+from protein_design.tools.pdbfixer_tool import preprocess_for_design
+from protein_design.utils.config import CONFIG
+from protein_design.utils.conda_utils import run_in_conda_with_logs
+from protein_design.utils.progress_tracker import track_progress, save_runtime_log
 
 logger = logging.getLogger(__name__)
 
@@ -127,7 +127,7 @@ def run_rfdiffusion(params: dict[str, Any], progress_callback: Callable[[int], N
     try:
         script = _find_rfdiffusion_script()
     except FileNotFoundError:
-        from mcp_server.tools.tool_installer import get_missing_tool_prompt
+        from protein_design.tools.tool_installer import get_missing_tool_prompt
         return get_missing_tool_prompt("rfdiffusion")
 
     # Support wrapper scripts that set up the environment

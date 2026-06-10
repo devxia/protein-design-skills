@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project overview
 
-Protein Design MCP is an agent-agnostic (Model Context Protocol) plugin for end-to-end protein design. It orchestrates external ML tools (RFdiffusion, ProteinMPNN, AlphaFold3, PDBFixer) via subprocess through a 5-stage pipeline:
+Protein Design Skills is an agent-agnostic plugin for end-to-end protein design. It orchestrates external ML tools (RFdiffusion, ProteinMPNN, AlphaFold3, PDBFixer) via subprocess through a 5-stage pipeline:
 
 | Stage | Tool | Purpose |
 |-------|------|---------|
@@ -22,13 +22,13 @@ The plugin does **not** bundle the ML tools — they must be installed separatel
 
 ```bash
 # Run the MCP server directly (stdio JSON-RPC)
-python -m mcp_server.server
+python -m protein_design.server
 
 # Install hooks (auto-detects Claude Code, Kimi Code, Codex CLI)
-python mcp_server/hooks/install-hooks.py
+python protein_design/hooks/install-hooks.py
 
 # Install hooks for a specific agent only
-python mcp_server/hooks/install-hooks.py claude
+python protein_design/hooks/install-hooks.py claude
 
 # Run tests
 python -m pytest tests/
@@ -45,12 +45,12 @@ Add to `~/.claude/settings.json` or the project's `.mcp.json` (provided):
 ```json
 {
   "mcpServers": {
-    "protein-design-mcp": {
+    "protein-design-skills": {
       "command": "python",
-      "args": ["-m", "mcp_server.server"],
-      "cwd": "/path/to/protein-design-mcp",
+      "args": ["-m", "protein_design.server"],
+      "cwd": "/path/to/protein-design-skills",
       "env": {
-        "PYTHONPATH": "/path/to/protein-design-mcp",
+        "PYTHONPATH": "/path/to/protein-design-skills",
         "PROTEIN_DESIGN_OUTPUT_DIR": "/tmp/protein-design",
         "PROTEIN_DESIGN_MAX_JOBS": "4"
       }
@@ -70,10 +70,10 @@ Add to `~/.codex/settings.json`:
 ```json
 {
   "mcpServers": {
-    "protein-design-mcp": {
+    "protein-design-skills": {
       "command": "python",
-      "args": ["-m", "mcp_server.server"],
-      "cwd": "/path/to/protein-design-mcp"
+      "args": ["-m", "protein_design.server"],
+      "cwd": "/path/to/protein-design-skills"
     }
   }
 }
@@ -83,9 +83,9 @@ Add to `~/.codex/settings.json`:
 
 ### Three-layer plugin structure
 
-1. **MCP Server** (`mcp_server/`) — stdio JSON-RPC 2.0 server that exposes tools for each pipeline stage. This is standard MCP — any MCP-compatible agent can launch it.
+1. **MCP Server** (`protein_design/`) — stdio JSON-RPC 2.0 server that exposes tools for each pipeline stage. This is standard MCP — any MCP-compatible agent can launch it.
 2. **Skills** (`skills/`) — Markdown files providing workflow guidance to the LLM. One skill per pipeline stage + `full-pipeline` for orchestration + `protein-design-context` for session-start injection.
-3. **Hooks** (`mcp_server/hooks/`) — Agent hook scripts for context injection on protein-related prompts, GPU safety checks before tool use, and desktop notifications on job completion. `install-hooks.py` supports multiple agents.
+3. **Hooks** (`protein_design/hooks/`) — Agent hook scripts for context injection on protein-related prompts, GPU safety checks before tool use, and desktop notifications on job completion. `install-hooks.py` supports multiple agents.
 
 ### MCP server internals
 

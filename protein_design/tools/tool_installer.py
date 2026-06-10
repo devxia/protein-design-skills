@@ -21,7 +21,7 @@ try:
 except ImportError:
     yaml = None  # Graceful fallback when PyYAML is not installed
 
-from mcp_server.utils.config import CONFIG
+from protein_design.utils.config import CONFIG
 
 logger = logging.getLogger(__name__)
 
@@ -258,7 +258,7 @@ def check_tool_status(tool_name: str) -> dict[str, Any]:
         return result
 
     # Script-based tools: try configured/current env first
-    from mcp_server.tools import rfdiffusion, proteinmpnn, alphafold
+    from protein_design.tools import rfdiffusion, proteinmpnn, alphafold
 
     finders = {
         "rfdiffusion": rfdiffusion._find_rfdiffusion_script,
@@ -292,7 +292,7 @@ def check_tool_status(tool_name: str) -> dict[str, Any]:
 
     # AlphaFold3: also check genetic databases
     if tool_name == "alphafold3":
-        from mcp_server.tools.alphafold import check_af3_database_status
+        from protein_design.tools.alphafold import check_af3_database_status
         db_status = check_af3_database_status()
         result["database"] = db_status
         # If script is found but databases are missing, warn but don't block
@@ -391,7 +391,7 @@ def configure_tool_path(tool_name: str, path: str, conda_env: str | None = None)
     # Optionally validate conda environment
     conda_status = None
     if conda_env:
-        from mcp_server.utils.conda_utils import check_conda_env
+        from protein_design.utils.conda_utils import check_conda_env
         conda_status = check_conda_env(conda_env)
         if not conda_status.get("exists"):
             return {
@@ -468,7 +468,7 @@ def configure_db_dir(path: str) -> dict[str, Any]:
         }
 
     # Validate it looks like AF3 databases (warn but allow flat-file layouts)
-    from mcp_server.tools.alphafold import check_af3_database_status
+    from protein_design.tools.alphafold import check_af3_database_status
     db_status = check_af3_database_status(abs_path)
     if not db_status.get("detected"):
         return {

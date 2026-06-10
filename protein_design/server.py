@@ -1,9 +1,7 @@
-"""MCP Server main entry point for Protein Design.
+"""Protein Design plugin server.
 
-Implements a stdio-based JSON-RPC 2.0 server. Supports:
-  - initialize
-  - tools/list
-  - tools/call
+Implements a stdio-based JSON-RPC 2.0 MCP server for protein design tools.
+Supports: initialize, tools/list, tools/call.
 
 Uses asyncio for non-blocking I/O while running compute-heavy tool calls
 in a thread pool via job_manager.
@@ -15,7 +13,7 @@ import logging
 import sys
 from typing import Any
 
-from mcp_server.tools.tool_registry import get_tool_info, execute_tool
+from protein_design.tools.tool_registry import get_tool_info, execute_tool
 
 # Configure logging to stderr so stdout stays clean for JSON-RPC
 logging.basicConfig(
@@ -25,7 +23,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-SERVER_NAME = "protein-design-mcp"
+SERVER_NAME = "protein-design-skills"
 SERVER_VERSION = "0.1.0"
 
 

@@ -20,10 +20,10 @@ import time
 from pathlib import Path
 from typing import Any, Callable
 
-from mcp_server.utils.config import CONFIG
-from mcp_server.utils.conda_utils import run_in_conda_with_logs
-from mcp_server.utils.progress_tracker import track_progress, save_runtime_log
-from mcp_server.utils.gpu_utils import get_gpu_info
+from protein_design.utils.config import CONFIG
+from protein_design.utils.conda_utils import run_in_conda_with_logs
+from protein_design.utils.progress_tracker import track_progress, save_runtime_log
+from protein_design.utils.gpu_utils import get_gpu_info
 
 logger = logging.getLogger(__name__)
 
@@ -419,7 +419,7 @@ def run_alphafold3(params: dict[str, Any], progress_callback: Callable[[int], No
     try:
         script = _find_alphafold_script()
     except FileNotFoundError:
-        from mcp_server.tools.tool_installer import get_missing_tool_prompt
+        from protein_design.tools.tool_installer import get_missing_tool_prompt
         return get_missing_tool_prompt("alphafold3")
 
     # Determine conda environment: param > config > none

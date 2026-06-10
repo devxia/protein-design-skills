@@ -8,7 +8,7 @@ source: README.zh.md
 ## 项目结构
 
 ```
-protein-design-mcp/
+protein-design-skills/
 ├── kimi.plugin.json              # 插件清单（Kimi Code）
 ├── skills/                       # 工作流指导
 │   ├── protein-design-context/   # 会话启动上下文
@@ -18,7 +18,7 @@ protein-design-mcp/
 │   ├── structure-validation/     # Stage 3: AlphaFold3
 │   ├── filtering-ranking/        # Stage 4: 过滤排序
 │   └── full-pipeline/            # 端到端编排
-├── mcp_server/                   # MCP 服务器（stdio JSON-RPC）
+├── protein_design/                   # MCP 服务器（stdio JSON-RPC）
 │   ├── server.py                 # 主入口
 │   ├── tools/                    # 工具实现
 │   │   ├── tool_registry.py      # 工具 schema 与分发

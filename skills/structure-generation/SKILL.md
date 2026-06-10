@@ -1,6 +1,6 @@
 ---
 name: structure-generation
-description: Protein backbone generation with RFdiffusion (Stage 1)
+description: Protein backbone generation with RFdiffusion (Stage 1) — all modes including advanced features
 ---
 
 # Stage 1: Structure Generation (RFdiffusion)
@@ -11,10 +11,26 @@ description: Protein backbone generation with RFdiffusion (Stage 1)
 - User requests binder design: "design a binder for X"
 - User requests motif scaffolding: "scaffold around this motif"
 - User requests symmetric oligomer: "design a trimer"
+- User requests partial redesign: "redesign this loop", "mutate this region"
+- User requests cyclic peptide: "design a cyclic peptide"
+- User requests secondary structure specification: "design with helix here"
 
 ## RFdiffusion Overview
 
 RFdiffusion generates protein backbone structures (poly-Glycine, only N/CA/C/O atoms) using a diffusion model. The contig parameter is the single most important argument — it defines what to generate and what to keep.
+
+## Model Checkpoints (Auto-selected)
+
+| Checkpoint | Auto-selected When | Purpose |
+|------------|-------------------|---------|
+| `Base_ckpt.pt` | Default (no special flags) | Unconditional, motif scaffolding |
+| `Complex_base_ckpt.pt` | `ppi.hotspot_res` set | Binder design (PPI) |
+| `Complex_Fold_base_ckpt.pt` | `scaffoldguided=True` | Scaffold-guided + complex |
+| `InpaintSeq_ckpt.pt` | `inpaint_seq` or `provide_seq` or `inpaint_str` set | Inpainting |
+| `ActiveSite_ckpt.pt` | Manual override only | Very small motif scaffolding |
+| `Base_epoch8_ckpt.pt` | Manual override only | Alternative base model (symmetric motifs) |
+
+You can override with `ckpt_override_path` if needed.
 
 ## Contig Syntax (Core!)
 
@@ -48,7 +64,7 @@ RFdiffusion generates protein backbone structures (poly-Glycine, only N/CA/C/O a
 }
 ```
 
-## Parameters
+## Basic Parameters
 
 | Parameter | Required | Default | Description |
 |-----------|----------|---------|-------------|
@@ -57,11 +73,28 @@ RFdiffusion generates protein backbone structures (poly-Glycine, only N/CA/C/O a
 | `num_designs` | ❌ | 10 | Number of backbones to generate |
 | `input_pdb` | ❌ | null | Required for motif/binder/partial |
 | `hotspot_res` | ❌ | null | Hotspot residues (binder design) |
-| `symmetry` | ❌ | null | `c2`, `d2`, `tetrahedral`, etc. |
-| `diffuser_T` | ❌ | 50 | Diffusion steps (lower=faster) |
+| `symmetry` | ❌ | null | `c2`, `d2`, `tetrahedral`, `octahedral`, `icosahedral` |
+| `diffuser_T` | ❌ | 50 | Diffusion timesteps (lower=faster) |
 | `ckpt_override_path` | ❌ | null | Custom model checkpoint |
 | `skip_preprocessing` | ❌ | false | Skip auto PDBFixer |
 | `keep_chains` | ❌ | null | Chains to keep in preprocessing |
+
+## Advanced Parameters
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `partial_T` | int | Partial diffusion: noise for N steps then denoise (e.g., 10) |
+| `provide_seq` | str | Keep sequence fixed during partial diffusion (e.g., "[172-205]") |
+| `inpaint_seq` | str | Mask sequence identity of residues (e.g., "[A163-168/A170-171]") |
+| `inpaint_str` | str | Mask 3D structure while keeping sequence (e.g., "[B165-178]") |
+| `inpaint_str_helix` | str | Specify masked residues as helix |
+| `inpaint_str_strand` | str | Specify masked residues as strand |
+| `inpaint_str_loop` | str | Specify masked residues as loop |
+| `scaffoldguided` | bool | Enable fold conditioning (secondary structure + block adjacency) |
+| `scaffold_dir` | str | Directory with scaffold ss/adj files |
+| `cyclic` | bool | Design macrocyclic peptides |
+| `cyc_chains` | str | Chain(s) to cyclize (default: 'a') |
+| `potentials` | list | Guiding potentials for design constraints |
 
 ## Common Design Patterns
 
@@ -97,7 +130,131 @@ RFdiffusion generates protein backbone structures (poly-Glycine, only N/CA/C/O a
   "contig": "[A1-50/0 10-20/A71-150]",
   "output_prefix": "outputs/partial",
   "input_pdb": "inputs/structure.pdb",
-  "num_designs": 5
+  "num_designs": 5,
+  "diffuser_T": 25
+}
+```
+
+## Advanced Design Patterns
+
+### Partial Diffusion with Fixed Sequence
+Keep some sequence fixed while diffusing structure:
+```json
+{
+  "contig": "[A1-50/0 10-20/A71-150]",
+  "input_pdb": "inputs/structure.pdb",
+  "partial_T": 10,
+  "provide_seq": "[172-205]",
+  "output_prefix": "outputs/partial_seq",
+  "num_designs": 10
+}
+```
+
+### Sequence Inpainting (Mask Sequence Identity)
+Redesign sequence of specific residues while keeping structure:
+```json
+{
+  "contig": "[A1-150]",
+  "input_pdb": "inputs/structure.pdb",
+  "inpaint_seq": "[A30-40/A60-70]",
+  "output_prefix": "outputs/inpaint_seq",
+  "num_designs": 20
+}
+```
+
+### Structure Inpainting (Redesign Structure of Region)
+Redesign structure while keeping sequence identity:
+```json
+{
+  "contig": "[A1-150]",
+  "input_pdb": "inputs/structure.pdb",
+  "inpaint_str": "[B165-178]",
+  "output_prefix": "outputs/inpaint_str",
+  "num_designs": 20
+}
+```
+
+### Secondary Structure Specification
+Specify helix/strand/loop for masked regions:
+```json
+{
+  "contig": "[A1-50/0 20-30/A81-150]",
+  "input_pdb": "inputs/structure.pdb",
+  "inpaint_str_helix": "[A51-60]",
+  "inpaint_str_strand": "[A61-70]",
+  "output_prefix": "outputs/ss_spec",
+  "num_designs": 10
+}
+```
+
+### Fold Conditioning (Scaffold-Guided)
+Use secondary structure and block adjacency to guide design:
+```json
+{
+  "contig": "[150-150]",
+  "scaffoldguided": true,
+  "scaffold_dir": "path/to/scaffold/files",
+  "output_prefix": "outputs/scaffoldguided",
+  "num_designs": 20
+}
+```
+
+### Macrocyclic Peptide Design
+```json
+{
+  "contig": "[12-18]",
+  "cyclic": true,
+  "cyc_chains": "a",
+  "output_prefix": "outputs/cyclic",
+  "num_designs": 50
+}
+```
+
+### Macrocyclic Binder Design
+```json
+{
+  "contig": "[B1-50/0 12-18]",
+  "input_pdb": "inputs/target.pdb",
+  "hotspot_res": ["A30", "A33"],
+  "cyclic": true,
+  "cyc_chains": "b",
+  "output_prefix": "outputs/cyclic_binder",
+  "num_designs": 50
+}
+```
+
+### Potentials-Guided Design
+Use auxiliary potentials to guide diffusion:
+```json
+{
+  "contig": "[100-100]",
+  "potentials": ["type:monomer_ROG,weight:1.0"],
+  "output_prefix": "outputs/potential",
+  "num_designs": 20
+}
+```
+
+### Symmetric Oligomers
+```json
+{
+  "contig": "[100]",
+  "symmetry": "c4",
+  "output_prefix": "outputs/c4",
+  "num_designs": 20
+}
+```
+
+**Supported symmetries:** `c2`, `c3`, `c4`, `c5`, `c6`, `d2`, `d3`, `d4`, `tetrahedral`, `octahedral`, `icosahedral`
+
+### Enzyme Active Site Scaffolding
+For very small motifs, use the ActiveSite checkpoint:
+```json
+{
+  "contig": "[10-20/A50-55/10-20]",
+  "input_pdb": "inputs/enzyme.pdb",
+  "ckpt_override_path": "models/ActiveSite_ckpt.pt",
+  "output_prefix": "outputs/enzyme",
+  "num_designs": 50
 }
 ```
 
@@ -140,3 +297,8 @@ Return PDB list → Stage 2 (ProteinMPNN)
 - `model`, `diffuser`, `preprocess` configs are auto-loaded from checkpoint
 - For binder design, always provide `input_pdb` with target structure
 - For motif scaffolding, residue numbers in contig must match input PDB exactly
+- Lower `diffuser_T` (25) for partial diffusion (faster, more conservative)
+- `partial_T` adds noise for N steps then denoises — good for generating diversity around a structure
+- `inpaint_seq` masks sequence identity but keeps 3D structure — use for redesigning sequence of a region
+- `inpaint_str` masks 3D structure but keeps sequence — use for redesigning structure while preserving sequence
+- Cyclic peptides: contig length range should match desired peptide length (e.g., `[12-18]`)

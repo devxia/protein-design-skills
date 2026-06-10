@@ -1,4 +1,4 @@
-"""Tool registry for the protein design MCP server.
+"""Tool registry for the protein design plugin.
 
 Defines all available tools with their JSON Schema parameters and
 dispatches tool calls to the appropriate implementation.
@@ -8,10 +8,10 @@ import logging
 import threading
 from typing import Any, Callable
 
-from mcp_server.tools.job_manager import JOB_MANAGER
-from mcp_server.tools.system_info import health_check, get_gpu_status
-from mcp_server.tools.pdbfixer_tool import run_pdbfixer
-from mcp_server.tools.tool_installer import (
+from protein_design.tools.job_manager import JOB_MANAGER
+from protein_design.tools.system_info import health_check, get_gpu_status
+from protein_design.tools.pdbfixer_tool import run_pdbfixer
+from protein_design.tools.tool_installer import (
     check_tool_status,
     check_all_tools,
     configure_tool_path,
@@ -329,25 +329,25 @@ def _ensure_tool_executors() -> None:
             return
 
         try:
-            from mcp_server.tools.rfdiffusion import run_rfdiffusion
+            from protein_design.tools.rfdiffusion import run_rfdiffusion
             _TOOL_EXECUTORS["run_rfdiffusion"] = run_rfdiffusion
         except ImportError as exc:
             logger.warning("RFdiffusion tool not available: %s", exc)
 
         try:
-            from mcp_server.tools.proteinmpnn import run_proteinmpnn
+            from protein_design.tools.proteinmpnn import run_proteinmpnn
             _TOOL_EXECUTORS["run_proteinmpnn"] = run_proteinmpnn
         except ImportError as exc:
             logger.warning("ProteinMPNN tool not available: %s", exc)
 
         try:
-            from mcp_server.tools.alphafold import run_alphafold3
+            from protein_design.tools.alphafold import run_alphafold3
             _TOOL_EXECUTORS["run_alphafold3"] = run_alphafold3
         except ImportError as exc:
             logger.warning("AlphaFold3 tool not available: %s", exc)
 
         try:
-            from mcp_server.tools.filtering import run_filtering
+            from protein_design.tools.filtering import run_filtering
             _TOOL_EXECUTORS["run_filtering"] = run_filtering
         except ImportError as exc:
             logger.warning("Filtering tool not available: %s", exc)
@@ -438,11 +438,11 @@ def execute_tool(name: str, arguments: dict[str, Any]) -> dict[str, Any]:
         return configure_db_dir(path)
 
     if name == "convert_format":
-        from mcp_server.tools.format_converter import convert_format
+        from protein_design.tools.format_converter import convert_format
         return convert_format(arguments)
 
     if name == "analyze_alphafold3_results":
-        from mcp_server.tools.alphafold import analyze_alphafold3_results
+        from protein_design.tools.alphafold import analyze_alphafold3_results
         return analyze_alphafold3_results(arguments, lambda p: None)
 
     # Direct tool execution (non-async)

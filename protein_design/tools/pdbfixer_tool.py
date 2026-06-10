@@ -20,7 +20,7 @@ from typing import Any, Callable, Optional
 logger = logging.getLogger(__name__)
 
 # Self-contained PDBFixer script template for execution in external conda envs.
-# Must NOT import anything from mcp_server — only pdbfixer + stdlib.
+# Must NOT import anything from protein_design — only pdbfixer + stdlib.
 _PDBFIXER_SCRIPT_TEMPLATE = r'''import json
 import os
 import sys
@@ -105,7 +105,7 @@ def _import_pdbfixer() -> tuple[Any, Any]:
         from openmm.app import PDBFile
         return PDBFixer, PDBFile
     except ImportError:
-        from mcp_server.tools.tool_installer import get_missing_tool_prompt
+        from protein_design.tools.tool_installer import get_missing_tool_prompt
         raise RuntimeError(get_missing_tool_prompt("pdbfixer"))
 
 
@@ -140,7 +140,7 @@ def _run_pdbfixer_in_conda(
     keep_str = ",".join(keep_chains) if keep_chains else "__none__"
 
     try:
-        from mcp_server.utils.conda_utils import run_in_conda_with_logs
+        from protein_design.utils.conda_utils import run_in_conda_with_logs
 
         stdout_log = os.path.join(
             os.path.dirname(output_pdb), "pdbfixer_stdout.log"

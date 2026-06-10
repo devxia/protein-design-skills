@@ -29,19 +29,19 @@
 
 ```bash
 # 克隆插件
-git clone https://github.com/devxia/protein-design-mcp.git
-cd protein-design-mcp
+git clone https://github.com/devxia/protein-design-skills.git
+cd protein-design-skills
 
 # 安装依赖
 pip install -r requirements.txt
 
-# 项目根目录的 .mcp.json 会自动配置 MCP 服务器。
+# 项目根目录的 plugin.json 会自动配置 MCP 服务器。
 ```
 
 ### 方式二：Kimi Code
 
 ```
-/plugins install https://github.com/devxia/protein-design-mcp
+/plugins install https://github.com/devxia/protein-design-skills
 /new
 ```
 
@@ -52,12 +52,12 @@ pip install -r requirements.txt
 ```json
 {
   "mcpServers": {
-    "protein-design-mcp": {
+    "protein-design-skills": {
       "command": "python",
-      "args": ["-m", "mcp_server.server"],
-      "cwd": "/path/to/protein-design-mcp",
+      "args": ["-m", "protein_design.server"],
+      "cwd": "/path/to/protein-design-skills",
       "env": {
-        "PYTHONPATH": "/path/to/protein-design-mcp",
+        "PYTHONPATH": "/path/to/protein-design-skills",
         "PROTEIN_DESIGN_OUTPUT_DIR": "/tmp/protein-design",
         "PROTEIN_DESIGN_MAX_JOBS": "4"
       }

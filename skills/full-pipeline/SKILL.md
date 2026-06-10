@@ -10,6 +10,8 @@ description: End-to-end protein design pipeline orchestration
 - User says "design a protein", "full pipeline", "end to end"
 - User describes a design goal: "binder for PD-L1", "150-aa monomer", "scaffold around this motif"
 - User provides a target and wants a complete binder design
+- User requests fast screening: "quick screen", "rapid validation"
+- User requests specific workflow: "use ESMFold", "skip MSA", "fast pipeline"
 
 ## Pipeline Overview
 
@@ -20,6 +22,23 @@ Stage 0 (PDBFixer) → Stage 1 (RFdiffusion) → Stage 2 (ProteinMPNN)
                                               ↓
 Stage 4 (Filtering) ← Stage 3 (AlphaFold3) ←┘
 ```
+
+### Alternative Pipelines
+
+Depending on user needs, different Stage 3 tools can be used:
+
+| Pipeline | Stage 3 Tool | Speed | Accuracy | Use Case |
+|----------|-------------|-------|----------|----------|
+| **Standard** | AlphaFold3 (full MSA) | Slow | High | Final validation |
+| **Fast Screening** | ESMFold (no MSA) | Fast | Moderate | Initial screening |
+| **Balanced** | AlphaFold3 (no-MSA) | Medium | Good | Quick validation |
+| **ColabFold** | ColabFold (MMseqs2) | Medium | Good | Local deployment |
+
+Choose pipeline based on user's priorities:
+- "I need the best accuracy" → Standard pipeline
+- "I need fast results" → Fast screening pipeline (ESMFold)
+- "I don't have databases" → AlphaFold3 no-MSA or ESMFold
+- "I have many designs to check" → Two-stage: ESMFold screen → AlphaFold3 validate top 20
 
 ## Stage Details
 
@@ -125,6 +144,45 @@ Selects best designs by quality thresholds.
 }}
 ```
 
+## Alternative: Fast Screening Pipeline
+
+For screening many designs quickly (e.g., 400 sequences), use the two-stage approach:
+
+### Stage 3a: Rapid Screen with ESMFold (No MSA)
+```bash
+# ESMFold predicts ~5-30 seconds per sequence
+# No databases needed
+```
+
+### Stage 3b: Validate Top Candidates with AlphaFold3
+After ESMFold screening, take the top 20 designs and validate with full AlphaFold3:
+
+```json
+{"tool": "run_alphafold3", "params": {
+  "json_path": "top_design.json",
+  "output_dir": "outputs/af3_top",
+  "db_dir": "/path/to/public_databases",
+  "num_seeds": 1,
+  "num_samples": 5
+}}
+```
+
+**Time savings:** 400 designs × 30 min (AF3) = 200 hours
+vs. 400 designs × 10 sec (ESMFold) + 20 designs × 30 min (AF3) = ~1.5 hours
+
+### Stage 3 Alternative: AlphaFold3 No-MSA Mode
+Skip MSA for faster inference (moderate accuracy):
+
+```json
+{"tool": "run_alphafold3", "params": {
+  "json_path": "design.json",
+  "output_dir": "outputs/af3_fast",
+  "run_data_pipeline": false,
+  "num_seeds": 1,
+  "num_samples": 1
+}}
+```
+
 ## Batch Validation with scheduling (CronCreate or equivalent) (0.6.0+)
 
 When validating many designs (>10), avoid blocking the session with continuous polling:
@@ -160,5 +218,5 @@ Single-stage failures do not affect completed stages. Results are preserved in t
 ## Installation & Session Notes
 
 - Plugin changes require restarting the session
-- Hooks (context injection, GPU check, notifications) are recommended for best experience — run `python mcp_server/hooks/install-hooks.py`
+- Hooks (context injection, GPU check, notifications) are recommended for best experience — run `python protein_design/hooks/install-hooks.py`
 

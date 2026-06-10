@@ -13,7 +13,7 @@ This plugin works with any MCP-compatible coding agent:
 
 | Agent | Setup |
 |-------|-------|
-| **Claude Code** | Use `.mcp.json` (included) or `~/.claude/settings.json` |
+| **Claude Code** | Use `plugin.json` (included) or `~/.claude/settings.json` |
 | **Codex CLI** | Add MCP server config to `~/.codex/settings.json` |
 | **Kimi Code** | Use `kimi.plugin.json` (included) — `/plugins install` |
 
@@ -22,24 +22,24 @@ This plugin works with any MCP-compatible coding agent:
 ### Claude Code / Codex CLI
 
 ```bash
-git clone https://github.com/devxia/protein-design-mcp.git
-cd protein-design-mcp
+git clone https://github.com/devxia/protein-design-skills.git
+cd protein-design-skills
 pip install -r requirements.txt
 ```
 
-The included `.mcp.json` configures the MCP server automatically when the agent starts in this directory.
+The included `plugin.json` configures the MCP server automatically when the agent starts in this directory.
 
 For global availability, add to `~/.claude/settings.json`:
 
 ```json
 {
   "mcpServers": {
-    "protein-design-mcp": {
+    "protein-design-skills": {
       "command": "python",
-      "args": ["-m", "mcp_server.server"],
-      "cwd": "/path/to/protein-design-mcp",
+      "args": ["-m", "protein_design.server"],
+      "cwd": "/path/to/protein-design-skills",
       "env": {
-        "PYTHONPATH": "/path/to/protein-design-mcp",
+        "PYTHONPATH": "/path/to/protein-design-skills",
         "PROTEIN_DESIGN_OUTPUT_DIR": "/tmp/protein-design",
         "PROTEIN_DESIGN_MAX_JOBS": "4"
       }
@@ -52,12 +52,12 @@ For global availability, add to `~/.claude/settings.json`:
 
 From GitHub:
 ```
-/plugins install https://github.com/devxia/protein-design-mcp
+/plugins install https://github.com/devxia/protein-design-skills
 ```
 
 From local directory:
 ```
-/plugins install /path/to/protein-design-mcp
+/plugins install /path/to/protein-design-skills
 ```
 
 Start a **new session** after installation:

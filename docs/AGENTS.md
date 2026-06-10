@@ -1,6 +1,6 @@
 # Docs Maintenance Guide
 
-This file tells AI agents how to maintain the `docs/` directory for the `protein-design-mcp` project.
+This file tells AI agents how to maintain the `docs/` directory for the `protein-design-skills` project.
 
 ## Directory Structure
 

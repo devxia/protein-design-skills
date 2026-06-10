@@ -17,16 +17,18 @@ from pathlib import Path
 
 HOOKS = [
     ("protein-context-inject.py", "UserPromptSubmit"),
+    ("tool-recommender.py", "UserPromptSubmit"),
     ("gpu-check-hook.py", "PreToolUse"),
     ("design-complete-notify.py", "PostToolUse"),
+    ("error-recovery.py", "PostToolUse"),
     ("background-notify.py", "Notification"),
 ]
 
 MATCHERS = {
-    "UserPromptSubmit": "(?i)(protein|pdb|binder|alphafold|rfdiffusion|proteinmpnn|design|structure|sequence|residue|loop|scaffold)",
+    "UserPromptSubmit": "(?i)(protein|pdb|binder|alphafold|rfdiffusion|proteinmpnn|design|structure|sequence|residue|loop|scaffold|diffusion|mpnn|fold|validation|filter|rank)",
     "PreToolUse": "mcp__.*__submit_job",
-    "PostToolUse": "mcp__.*__query_job",
-    "Notification": r"task\\.completed|task\\.failed|task\\.killed",
+    "PostToolUse": "mcp__.*__query_job|mcp__.*__execute_tool",
+    "Notification": r"task\\.(completed|failed|killed|timeout)",
 }
 
 # ── Agent-specific hook configs ──────────────────────────────────────────

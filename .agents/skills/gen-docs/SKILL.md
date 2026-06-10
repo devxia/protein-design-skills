@@ -1,11 +1,11 @@
 # gen-docs
 
-Generate and maintain human-facing product documentation for the `protein-design-mcp` MCP plugin.
+Generate and maintain human-facing product documentation for the `protein-design-skills` MCP plugin.
 
 ## When To Use
 
-- After adding, removing, or modifying tools in `mcp_server/tools/`
-- After changing tool parameters (JSON Schema) in `mcp_server/tools/tool_registry.py`
+- After adding, removing, or modifying tools in `protein_design/tools/`
+- After changing tool parameters (JSON Schema) in `protein_design/tools/tool_registry.py`
 - After updating `README.md` or `README.zh.md` and wanting to sync changes into structured docs
 - When setting up docs for the first time on a new project
 
@@ -37,7 +37,7 @@ docs/
 
 ### Step 1: Generate API Reference (`docs/{lang}/api-reference/tools.md`)
 
-Source of truth: `mcp_server/tools/tool_registry.py` → `TOOL_SCHEMAS`
+Source of truth: `protein_design/tools/tool_registry.py` → `TOOL_SCHEMAS`
 
 For each tool schema in `TOOL_SCHEMAS`, extract:
 - `name`: Tool name
@@ -115,7 +115,7 @@ This file tells future AI agents how to maintain docs:
 
 ## Stop Signals
 
-- `mcp_server/tools/tool_registry.py` does not exist or `TOOL_SCHEMAS` is empty
+- `protein_design/tools/tool_registry.py` does not exist or `TOOL_SCHEMAS` is empty
 - `README.md` does not exist
 - Generated docs would lose content compared to existing docs (ask user before overwriting)
 

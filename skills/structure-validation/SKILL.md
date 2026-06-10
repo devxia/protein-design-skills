@@ -1,15 +1,19 @@
 ---
 name: structure-validation
-description: Structure prediction and validation with AlphaFold3 (Stage 3)
+description: Structure prediction and validation with AlphaFold3 and alternatives (Stage 3)
 ---
 
-# Stage 3: Structure Validation (AlphaFold3)
+# Stage 3: Structure Validation (AlphaFold3 + Alternatives)
 
 ## When to Trigger
 
 - User says "validate this design", "predict structure", "run AlphaFold"
 - Follow-up to ProteinMPNN: "check if the sequence folds correctly"
 - User wants confidence metrics (pLDDT, pTM, ipTM) for a sequence
+- User requests multimer prediction: "predict complex structure"
+- User requests ligand prediction: "predict with ligand"
+- User requests embedding extraction: "get embeddings"
+- User requests fast/no-MSA prediction
 
 ## AlphaFold3 Overview
 
@@ -37,13 +41,52 @@ AlphaFold3 accepts a JSON file. For protein-only designs:
 }
 ```
 
-**Multi-chain example:**
+### Multi-Chain Complex
 ```json
 {
   "name": "binder_complex",
   "sequences": [
     {"protein": {"id": "A", "sequence": "TARGETSEQ...", "modifications": []}},
     {"protein": {"id": "B", "sequence": "BINDERSEQ...", "modifications": []}}
+  ],
+  "dialect": "alphafold3",
+  "version": 4
+}
+```
+
+### With Ligand
+```json
+{
+  "name": "protein_ligand",
+  "sequences": [
+    {"protein": {"id": "A", "sequence": "MKTLLILTGL...", "modifications": []}},
+    {"ligand": {"id": "B", "ccdCodes": ["ATP"]}}
+  ],
+  "dialect": "alphafold3",
+  "version": 4
+}
+```
+
+### With DNA
+```json
+{
+  "name": "protein_dna",
+  "sequences": [
+    {"protein": {"id": "A", "sequence": "MKTLLILTGL...", "modifications": []}},
+    {"dna": {"id": "B", "sequence": "GCTAGC"}}
+  ],
+  "dialect": "alphafold3",
+  "version": 4
+}
+```
+
+### With RNA
+```json
+{
+  "name": "protein_rna",
+  "sequences": [
+    {"protein": {"id": "A", "sequence": "MKTLLILTGL...", "modifications": []}},
+    {"rna": {"id": "B", "sequence": "GCUAGC"}}
   ],
   "dialect": "alphafold3",
   "version": 4
@@ -77,6 +120,8 @@ AlphaFold3 accepts a JSON file. For protein-only designs:
 | `num_seeds` | ❌ | 1 | Number of random seeds |
 | `num_samples` | ❌ | 5 | Samples per seed |
 | `run_data_pipeline` | ❌ | true | Run MSA search (slow, CPU-only) |
+| `save_embeddings` | ❌ | false | Save structure embeddings |
+| `save_distogram` | ❌ | false | Save distogram predictions |
 
 ## Database Setup
 
@@ -90,7 +135,7 @@ AlphaFold3 requires **genetic databases** (~2.6TB) for MSA search. The plugin ha
 | No databases found + `run_data_pipeline=true` | Logs warning, MSA may fail |
 | No databases found + `run_data_pipeline=false` | Skips MSA, runs inference only |
 
-**To configure databases in Kimi:**
+**To configure databases:**
 ```
 User: My AlphaFold3 databases are at /data/public_databases
 → call configure_db_dir(path="/data/public_databases")
@@ -120,6 +165,25 @@ ProteinMPNN outputs FASTA; AlphaFold3 needs JSON. Use `convert_format`:
 }
 ```
 
+### Multi-Chain Conversion (Binder + Target)
+
+For binder-target complexes, provide the receptor PDB:
+
+```json
+{
+  "tool": "convert_format",
+  "params": {
+    "from_format": "fasta",
+    "to_format": "alphafold3_json",
+    "input_path": "seqs/binder.fa",
+    "job_name": "binder_complex",
+    "seed": 1,
+    "receptor_pdb": "target_fixed.pdb",
+    "receptor_chain": "A"
+  }
+}
+```
+
 ## Output Format
 
 ```
@@ -143,20 +207,109 @@ my_design/
 | **ranking_score** | [-100, 1.5] | Higher is better | — | — |
 | **has_clash** | bool | false | false | false |
 
-## Metric Interpretations
+### Metric Interpretations
 
 - **pLDDT**: Per-atom confidence. High values = well-defined structure.
 - **pTM**: Overall topology confidence. >0.7 indicates correct fold likely.
 - **ipTM**: Interface confidence (critical for binder design). >0.8 = strong interface.
 - **has_clash**: True if severe atomic clashes detected. Reject these designs.
 
+### Per-Chain Metrics
+
+For multi-chain complexes, AlphaFold3 outputs per-chain pLDDT and pTM:
+- `chain_ptm`: Per-chain topology confidence
+- `chain_iptm`: Per-chain interface confidence
+- `per_chain_plddt`: Average pLDDT per chain
+
+## Advanced Features
+
+### Embedding Extraction
+
+Save structure embeddings for downstream analysis:
+
+```json
+{
+  "tool": "run_alphafold3",
+  "params": {
+    "json_path": "inputs/design.json",
+    "output_dir": "outputs/af3",
+    "save_embeddings": true
+  }
+}
+```
+
+Embeddings are saved as NPZ arrays and can be used for:
+- Clustering designs by structural similarity
+- Training downstream classifiers
+- Transfer learning
+
+### Distogram Saving
+
+Save predicted distance distributions:
+
+```json
+{
+  "tool": "run_alphafold3",
+  "params": {
+    "json_path": "inputs/design.json",
+    "output_dir": "outputs/af3",
+    "save_distogram": true
+  }
+}
+```
+
+### No-MSA Fast Inference
+
+Skip MSA for rapid screening (less accurate):
+
+```json
+{
+  "tool": "run_alphafold3",
+  "params": {
+    "json_path": "inputs/design.json",
+    "output_dir": "outputs/af3_fast",
+    "run_data_pipeline": false,
+    "num_seeds": 1,
+    "num_samples": 1
+  }
+}
+```
+
+Useful for:
+- Initial screening of many designs
+- When databases are not available
+- Proteins similar to training data
+
+## Result Analysis
+
+### Analyze Without Re-running
+
+Parse existing AlphaFold3 output:
+
+```json
+{
+  "tool": "analyze_alphafold3_results",
+  "params": {
+    "output_dir": "outputs/af3/design_0",
+    "job_name": "design_0"
+  }
+}
+```
+
+Returns:
+- pLDDT, pTM, ipTM
+- Per-chain metrics
+- Ranking scores
+- Clash status
+- Best structure path
+
 ## Typical Runtime
 
-| Protein Size | With MSA | MSA Precomputed |
-|-------------|----------|-----------------|
-| <200 aa | 5–30 min | 2–10 min |
-| 200–500 aa | 30–90 min | 10–30 min |
-| >500 aa | 1–3 hours | 30–60 min |
+| Protein Size | With MSA | MSA Precomputed | No-MSA |
+|-------------|----------|-----------------|--------|
+| <200 aa | 5–30 min | 2–10 min | 1–5 min |
+| 200–500 aa | 30–90 min | 10–30 min | 5–15 min |
+| >500 aa | 1–3 hours | 30–60 min | 15–30 min |
 
 ## Workflow
 
@@ -182,9 +335,31 @@ For >10 designs, use scheduling (CronCreate or equivalent) instead of blocking p
 2. `scheduling (CronCreate or equivalent)(cron="*/10 * * * *", prompt="Check AF3 batch progress for [task_ids], report completed and pLDDT>80 count")`
 3. When all done, `stop the scheduled check` the timer
 
+## Alternative Validation Tools
+
+### ESMFold (Fast, No MSA)
+- Single-sequence prediction using ESM-2 embeddings
+- 5-30 seconds per protein
+- Good for initial screening
+- See `fast-screening` skill for details
+
+### ColabFold (Faster MSA)
+- Uses MMseqs2 instead of jackhmmer/HHblits
+- ~100GB database vs ~2.6TB
+- Good speed/accuracy tradeoff
+- See `fast-screening` skill for details
+
+### Boltz-2 (Structure + Affinity)
+- Predicts structures AND binding affinity
+- Useful for ligand-binding designs
+- See `fast-screening` skill for details
+
 ## Tips
 
 - Skip MSA (`run_data_pipeline=false`) if re-running with precomputed data
 - For binder validation, ipTM is the most important metric
 - pLDDT > 80 and ipTM > 0.8 is a good initial filter
 - Always check `has_clash` — clashes indicate physically impossible structures
+- Use `save_embeddings` for downstream clustering/analysis
+- For multimer complexes, check per-chain pLDDT for all chains
+- `analyze_alphafold3_results` can parse outputs without re-running
