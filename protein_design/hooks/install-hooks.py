@@ -21,6 +21,7 @@ HOOKS = [
     ("gpu-check-hook.py", "PreToolUse"),
     ("design-complete-notify.py", "PostToolUse"),
     ("error-recovery.py", "PostToolUse"),
+    ("pipeline-orchestrator.py", "PostToolUse"),
     ("background-notify.py", "Notification"),
 ]
 
