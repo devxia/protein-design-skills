@@ -22,6 +22,7 @@ HOOKS = [
     ("design-complete-notify.py", "PostToolUse"),
     ("error-recovery.py", "PostToolUse"),
     ("pipeline-orchestrator.py", "PostToolUse"),
+    ("progress-reporter.py", "Notification"),
     ("background-notify.py", "Notification"),
 ]
 

@@ -7,13 +7,16 @@ An agent-agnostic protein design plugin for coding agents (Claude Code, Codex CL
 ## Features
 
 - **Stage 0 — Structure Preprocessing**: Automatic PDB repair with PDBFixer
-- **Stage 1 — Backbone Generation**: RFdiffusion for monomers, binders, motif scaffolding, and symmetric oligomers
-- **Stage 2 — Sequence Design**: ProteinMPNN for amino acid sequence assignment
+- **Stage 1 — Backbone Generation**: RFdiffusion for monomers, binders, motif scaffolding, symmetric oligomers, partial diffusion, inpainting, cyclic peptides, and more
+- **Stage 2 — Sequence Design**: ProteinMPNN for amino acid sequence assignment (with advanced features: fixed positions, symmetry, bias, scoring)
 - **Stage 3 — Structure Validation**: AlphaFold3 for confidence scoring (pLDDT, ipTM, pTM)
 - **Stage 4 — Filtering & Ranking**: Automated quality filtering and composite scoring
 - **Async Job Management**: Submit long-running jobs and poll for results
 - **Batch Validation**: Scheduling support for large-scale AlphaFold3 screening
-- **Hooks (0.6.0+)**: Context injection, GPU safety checks, and desktop notifications
+- **Alternative Pipelines**: ESMFold fast screening, Chroma joint generation, LigandMPNN ligand-aware design, DiffPepBuilder peptide design, ESM-IF1 inverse folding
+- **Design Patterns**: 10 ready-to-use templates for common scenarios
+- **Hooks (0.6.0+)**: Context injection, tool recommendation, pipeline orchestration, error recovery, GPU safety checks, progress reporting, and desktop notifications
+- **Skills (16+)**: Workflow guidance for every pipeline stage, troubleshooting, protein analysis, and batch management
 
 
 > **Note:** This plugin does not bundle RFdiffusion, ProteinMPNN, AlphaFold3, or PDBFixer. These are large machine-learning models (multi-GB) that must be installed separately. The plugin provides the orchestration layer (MCP Server + Skills) that calls these tools via subprocess.
@@ -118,6 +121,20 @@ User: Design a binder targeting PD-L1
 Pipeline defaults: 10 backbones → 8 sequences each → 5 predictions each. Adjust through natural language (e.g., "Generate 50 backbones", "Validate with 3 seeds").
 
 
+## Alternative Pipelines
+
+The plugin supports multiple design workflows:
+
+| Pipeline | Stage 1 | Stage 2 | Stage 3 | Best For |
+|----------|---------|---------|---------|----------|
+| **Standard** | RFdiffusion | ProteinMPNN | AlphaFold3 (full MSA) | Best accuracy |
+| **Fast Screening** | RFdiffusion | ProteinMPNN | ESMFold (no MSA) | Speed > accuracy |
+| **Balanced** | RFdiffusion | ProteinMPNN | AlphaFold3 (no-MSA) | Medium speed |
+| **Chroma** | Chroma (joint) | — | AlphaFold3 | All-atom generation |
+| **Ligand** | RFdiffusion | LigandMPNN | AlphaFold3 | Ligand-aware design |
+| **Peptide** | DiffPepBuilder | — | AlphaFold3 | Short peptide binders (8-30aa) |
+| **Ensemble** | RFdiffusion | ProteinMPNN + ESM-IF1 | AlphaFold3 | Maximum diversity |
+
 ## Documentation
 
 | Document | Description |
@@ -128,6 +145,7 @@ Pipeline defaults: 10 backbones → 8 sequences each → 5 predictions each. Adj
 | [API Reference](./docs/en/api-reference/tools.md) | All MCP tools and their parameters |
 | [Troubleshooting](./docs/en/guides/troubleshooting.md) | Common issues and solutions |
 | [Changelog](./docs/en/release-notes/changelog.md) | Release notes |
+| [Skills](./skills/) | 16+ workflow skills for all pipeline stages |
 
 
 ## Quality thresholds
@@ -150,3 +168,7 @@ MIT
 - ProteinMPNN — [Dauparas et al., 2022](https://www.science.org/doi/10.1126/science.add2187)
 - AlphaFold3 — [Abramson et al., 2024](https://www.nature.com/articles/s41586-024-07487-w)
 - PDBFixer — OpenMM project
+- Chroma — [Generate Biomedicines](https://github.com/generatebio/chroma)
+- LigandMPNN — [Dauparas et al.](https://github.com/dauparas/LigandMPNN)
+- ESM-IF1 — [Meta AI](https://github.com/facebookresearch/esm)
+- DiffPepBuilder — [Wang et al.](https://github.com/YuzheWangPKU/DiffPepBuilder)
