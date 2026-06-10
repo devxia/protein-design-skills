@@ -2,6 +2,9 @@
 
 Takes backbone PDB structures (from RFdiffusion or user-provided) and
 generates amino acid sequences using the ProteinMPNN model.
+
+Supports: direct PDB input, JSONL batch workflow, fixed positions, tied positions
+(symmetry), AA bias, PSSM bias, scoring mode, and CA-only models.
 """
 
 import glob
@@ -62,13 +65,17 @@ def run_proteinmpnn(params: dict[str, Any], progress_callback: Callable[[int], N
     """
     progress_callback(5)
 
-    pdb_path = params["pdb_path"]
     output_folder = params["output_folder"]
-
-    if not os.path.exists(pdb_path):
-        raise FileNotFoundError(f"Input PDB not found: {pdb_path}")
-
     Path(output_folder).mkdir(parents=True, exist_ok=True)
+
+    # Determine input mode: pdb_path (single) or jsonl_path (batch/multi-chain)
+    pdb_path = params.get("pdb_path")
+    jsonl_path = params.get("jsonl_path")
+
+    if pdb_path and not os.path.exists(pdb_path):
+        raise FileNotFoundError(f"Input PDB not found: {pdb_path}")
+    if jsonl_path and not os.path.exists(jsonl_path):
+        raise FileNotFoundError(f"Input JSONL not found: {jsonl_path}")
 
     try:
         script = _find_proteinmpnn_script()
@@ -85,8 +92,13 @@ def run_proteinmpnn(params: dict[str, Any], progress_callback: Callable[[int], N
     else:
         cmd = ["python", script]
 
+    # Input mode
+    if jsonl_path:
+        cmd.extend(["--jsonl_path", jsonl_path])
+    elif pdb_path:
+        cmd.extend(["--pdb_path", pdb_path])
+
     cmd.extend([
-        "--pdb_path", pdb_path,
         "--out_folder", output_folder,
         "--num_seq_per_target", str(params.get("num_seq_per_target", 8)),
         "--sampling_temp", str(params.get("sampling_temp", "0.1")),
@@ -94,11 +106,30 @@ def run_proteinmpnn(params: dict[str, Any], progress_callback: Callable[[int], N
         "--seed", str(params.get("seed", 37)),
     ])
 
+    # Chain assignments (for jsonl mode)
+    if params.get("chain_id_jsonl"):
+        cmd.extend(["--chain_id_jsonl", params["chain_id_jsonl"]])
+
     if params.get("pdb_path_chains"):
         cmd.extend(["--pdb_path_chains", params["pdb_path_chains"]])
 
     if params.get("fixed_positions_jsonl"):
         cmd.extend(["--fixed_positions_jsonl", params["fixed_positions_jsonl"]])
+
+    if params.get("tied_positions_jsonl"):
+        cmd.extend(["--tied_positions_jsonl", params["tied_positions_jsonl"]])
+
+    if params.get("bias_AA_jsonl"):
+        cmd.extend(["--bias_AA_jsonl", params["bias_AA_jsonl"]])
+
+    if params.get("bias_by_res_jsonl"):
+        cmd.extend(["--bias_by_res_jsonl", params["bias_by_res_jsonl"]])
+
+    if params.get("pssm_jsonl"):
+        cmd.extend(["--pssm_jsonl", params["pssm_jsonl"]])
+
+    if "pssm_multi" in params and params["pssm_multi"] is not None:
+        cmd.extend(["--pssm_multi", str(params["pssm_multi"])])
 
     if params.get("use_soluble_model"):
         cmd.append("--use_soluble_model")
@@ -114,6 +145,18 @@ def run_proteinmpnn(params: dict[str, Any], progress_callback: Callable[[int], N
 
     if params.get("save_probs"):
         cmd.extend(["--save_probs", str(int(params["save_probs"]))])
+
+    if params.get("score_only"):
+        cmd.extend(["--score_only", str(int(params["score_only"]))])
+
+    if params.get("path_to_fasta"):
+        cmd.extend(["--path_to_fasta", params["path_to_fasta"]])
+
+    if params.get("ca_only"):
+        cmd.append("--ca_only")
+
+    if "batch_size" in params and params["batch_size"] is not None:
+        cmd.extend(["--batch_size", str(params["batch_size"])])
 
     if params.get("path_to_model_weights"):
         cmd.extend(["--path_to_model_weights", params["path_to_model_weights"]])
@@ -167,7 +210,11 @@ def run_proteinmpnn(params: dict[str, Any], progress_callback: Callable[[int], N
             tool_name="proteinmpnn",
             num_items=params.get("num_seq_per_target", 8),
             duration_seconds=duration,
-            metadata={"model_name": params.get("model_name", "v_48_020")},
+            metadata={
+                "model_name": params.get("model_name", "v_48_020"),
+                "mode": "jsonl" if jsonl_path else "pdb",
+                "score_only": params.get("score_only", False),
+            },
         )
 
     except subprocess.TimeoutExpired:

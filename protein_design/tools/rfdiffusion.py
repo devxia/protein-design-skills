@@ -1,7 +1,9 @@
 """RFdiffusion tool implementation for protein backbone generation.
 
 Supports: unconditional monomers, motif scaffolding, binder design,
-partial diffusion, and symmetric oligomers.
+partial diffusion, symmetric oligomers, sequence/structure inpainting,
+secondary structure specification, fold conditioning, cyclic peptides,
+and potentials-guided design.
 
 Input PDBs are automatically preprocessed with PDBFixer unless
 skip_preprocessing=True.
@@ -123,6 +125,49 @@ def run_rfdiffusion(params: dict[str, Any], progress_callback: Callable[[int], N
 
     if params.get("ckpt_override_path"):
         overrides.append(f"inference.ckpt_override_path={params['ckpt_override_path']}")
+
+    # Advanced: partial diffusion
+    if "partial_T" in params and params["partial_T"] is not None:
+        overrides.append(f"diffuser.partial_T={params['partial_T']}")
+
+    # Advanced: provide fixed sequence during partial diffusion
+    if params.get("provide_seq"):
+        overrides.append(f"contigmap.provide_seq={params['provide_seq']}")
+
+    # Advanced: sequence inpainting (mask sequence identity)
+    if params.get("inpaint_seq"):
+        overrides.append(f"contigmap.inpaint_seq={params['inpaint_seq']}")
+
+    # Advanced: structure inpainting (mask 3D structure)
+    if params.get("inpaint_str"):
+        overrides.append(f"contigmap.inpaint_str={params['inpaint_str']}")
+
+    # Advanced: secondary structure specification for masked regions
+    if params.get("inpaint_str_helix"):
+        overrides.append(f"contigmap.inpaint_str_helix={params['inpaint_str_helix']}")
+    if params.get("inpaint_str_strand"):
+        overrides.append(f"contigmap.inpaint_str_strand={params['inpaint_str_strand']}")
+    if params.get("inpaint_str_loop"):
+        overrides.append(f"contigmap.inpaint_str_loop={params['inpaint_str_loop']}")
+
+    # Advanced: fold conditioning / scaffold-guided
+    if params.get("scaffoldguided"):
+        overrides.append("scaffoldguided.scaffoldguided=True")
+        if params.get("scaffold_dir"):
+            overrides.append(f"scaffoldguided.scaffold_dir={params['scaffold_dir']}")
+
+    # Advanced: macrocyclic peptide design
+    if params.get("cyclic"):
+        overrides.append("inference.cyclic=True")
+        if params.get("cyc_chains"):
+            overrides.append(f"inference.cyc_chains={params['cyc_chains']}")
+
+    # Advanced: guiding potentials
+    if params.get("potentials"):
+        potentials = params["potentials"]
+        if isinstance(potentials, list):
+            potentials = ",".join(str(p) for p in potentials)
+        overrides.append(f"potentials.guiding_potentials=[{potentials}]")
 
     try:
         script = _find_rfdiffusion_script()
