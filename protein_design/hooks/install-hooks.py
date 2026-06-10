@@ -16,6 +16,7 @@ import sys
 from pathlib import Path
 
 HOOKS = [
+    ("session-health-check.py", "UserPromptSubmit"),
     ("protein-context-inject.py", "UserPromptSubmit"),
     ("tool-recommender.py", "UserPromptSubmit"),
     ("parameter-generator.py", "UserPromptSubmit"),
