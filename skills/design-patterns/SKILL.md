@@ -245,6 +245,131 @@ These are pre-configured design patterns with sensible defaults for common prote
 
 **Tip:** Use ActiveSite_ckpt.pt for motifs < 10 residues. Standard Base_ckpt.pt works poorly.
 
+## Advanced Patterns
+
+### Pattern 11: Antibody CDR Design
+
+**Goal:** Design complementarity-determining regions (CDRs) for an antibody targeting a specific antigen.
+
+```json
+{"tool": "run_pdbfixer", "params": {
+  "input_pdb": "antibody_antigen_complex.pdb",
+  "output_pdb": "outputs/ab_fixed.pdb",
+  "keep_chains": ["H", "L", "A"]
+}}
+```
+
+```json
+{"tool": "run_rfdiffusion", "params": {
+  "input_pdb": "outputs/ab_fixed.pdb",
+  "contig": "[H95-100/0 10-20/H101-110]",
+  "output_prefix": "outputs/cdr_design/design",
+  "num_designs": 50,
+  "diffuser_T": 25,
+  "partial_T": 10
+}}
+```
+
+→ ProteinMPNN: `pdb_path_chains="H L"`, `fixed_positions_jsonl` for framework residues
+→ AlphaFold3: validate with antigen present
+→ Filtering: `min_iptm=0.75`, `min_plddt=75`
+
+**Tip:** Use partial diffusion with low diffuser_T for conservative CDR redesign
+
+### Pattern 12: Membrane Protein Design
+
+**Goal:** Design a transmembrane protein with specified topology.
+
+```json
+{"tool": "run_rfdiffusion", "params": {
+  "contig": "[200-250]",
+  "output_prefix": "outputs/membrane/design",
+  "num_designs": 50,
+  "diffuser_T": 50
+}}
+```
+
+→ ProteinMPNN: `use_soluble_model=false`, consider `omit_AAs` for charged residues
+→ AlphaFold3: standard validation
+→ Filtering: `min_plddt=70`, check per-residue pLDDT in TM regions
+
+**Tip:** Use LigandMPNN's `per_residue_label_membrane_mpnn` model for membrane-specific design
+
+### Pattern 13: Multi-Domain Protein
+
+**Goal:** Design a protein with multiple independent domains connected by linkers.
+
+```json
+{"tool": "run_rfdiffusion", "params": {
+  "contig": "[50-60/0 10-15/50-60]",
+  "output_prefix": "outputs/multidomain/design",
+  "num_designs": 30,
+  "diffuser_T": 50
+}}
+```
+
+→ ProteinMPNN: `num_seq_per_target=8`, `sampling_temp="0.1"`
+→ AlphaFold3: validate full structure
+→ Filtering: `min_plddt=75`, `min_ptm=0.6`
+
+**Tip:** Each domain should independently fold; check per-domain pLDDT
+
+### Pattern 14: Protein-Ligand Interface Design
+
+**Goal:** Design a protein that binds a specific small molecule.
+
+```json
+{"tool": "run_pdbfixer", "params": {
+  "input_pdb": "protein_with_ligand.pdb",
+  "output_pdb": "outputs/protein_ligand_fixed.pdb",
+  "keep_chains": ["A"]
+}}
+```
+
+```json
+{"tool": "run_rfdiffusion", "params": {
+  "input_pdb": "outputs/protein_ligand_fixed.pdb",
+  "contig": "[A1-50/0 20-30/A71-150]",
+  "output_prefix": "outputs/ligand_interface/design",
+  "num_designs": 50,
+  "diffuser_T": 25
+}}
+```
+
+→ LigandMPNN: `model_type=ligand_mpnn`, `ligand_mpnn_use_atom_context=1`
+→ AlphaFold3: include ligand in JSON input
+→ Filtering: `min_plddt=75`
+
+**Tip:** LigandMPNN considers bound ligand context during sequence design
+
+### Pattern 15: Protein-DNA Interface Design
+
+**Goal:** Design a protein that recognizes and binds a specific DNA sequence.
+
+```json
+{"tool": "run_pdbfixer", "params": {
+  "input_pdb": "transcription_factor_dna.pdb",
+  "output_pdb": "outputs/tf_dna_fixed.pdb",
+  "keep_chains": ["A", "B", "C"]
+}}
+```
+
+```json
+{"tool": "run_rfdiffusion", "params": {
+  "input_pdb": "outputs/tf_dna_fixed.pdb",
+  "contig": "[A1-30/0 10-20/A31-100]",
+  "output_prefix": "outputs/dna_interface/design",
+  "num_designs": 50,
+  "diffuser_T": 25
+}}
+```
+
+→ ProteinMPNN: `pdb_path_chains="A"` (fix DNA chains)
+→ AlphaFold3: include DNA in JSON input
+→ Filtering: `min_iptm=0.7`
+
+**Tip:** AlphaFold3 can predict protein-DNA complexes
+
 ## How to Use Patterns
 
 1. **Pick a pattern** based on your design goal
