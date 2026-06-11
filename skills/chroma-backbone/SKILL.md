@@ -5,6 +5,10 @@ description: Alternative backbone generation with Chroma — joint structure + s
 
 # Alternative Stage 1: Chroma Backbone Generation
 
+> **Quick Entry**: Stage 1 alternative | All-atom generation (backbone + sidechains) | Natural language prompting | Composable conditioners | Joint structure+sequence
+>
+> **Upstream**: `structure-preprocessing` (optional) | **Downstream**: `sequence-design` (ProteinMPNN refinement, optional) → `structure-validation` (AlphaFold3/Boltz-1)
+
 ## When to Trigger
 
 - User says "use Chroma", "Chroma instead of RFdiffusion"

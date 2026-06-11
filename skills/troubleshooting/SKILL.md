@@ -34,7 +34,7 @@ If still failing → adjust parameters → retry
 **Symptom**: `ImportError: No module named pdbfixer`
 **Solutions**:
 1. Install: `conda install -c conda-forge pdbfixer openmm`
-2. Or use `conda_env` param to run in another env: `"conda_env": "myenv"`
+2. Or use `conda run -n myenv python scripts/run_pdbfixer.py ...` to run in another env
 3. Verify: `python -c "from pdbfixer import PDBFixer; print('OK')"`
 
 ### Error: "Non-standard residues"
@@ -59,7 +59,7 @@ If still failing → adjust parameters → retry
 **Symptom**: `FileNotFoundError: RFdiffusion run_inference.py not found`
 **Solutions**:
 1. Set env var: `export RFDIFFUSION_PATH=/path/to/RFdiffusion`
-2. Or configure: `configure_tool_path(tool_name="rfdiffusion", path="/path/to/RFdiffusion")`
+2. Or set in config: add `paths.rfdiffusion: /path/to/RFdiffusion` in `~/.protein-design/config.yaml`
 3. Verify: `ls $RFDIFFUSION_PATH/scripts/run_inference.py`
 
 ### Error: "GPU out of memory"
@@ -98,7 +98,7 @@ If still failing → adjust parameters → retry
 **Symptom**: `FileNotFoundError: protein_mpnn_run.py not found`
 **Solutions**:
 1. Set env var: `export PROTEINMPNN_PATH=/path/to/ProteinMPNN`
-2. Or configure: `configure_tool_path(tool_name="proteinmpnn", path="/path/to/ProteinMPNN")`
+2. Or set in config: add `paths.proteinmpnn: /path/to/ProteinMPNN` in `~/.protein-design/config.yaml`
 
 ### Error: "Chain ID mismatch"
 **Symptom**: `Chain B not found in input PDB`
@@ -126,13 +126,13 @@ If still failing → adjust parameters → retry
 **Symptom**: `FileNotFoundError: run_alphafold.py not found`
 **Solutions**:
 1. Set env var: `export ALPHAFOLD_PATH=/path/to/alphafold3`
-2. Or configure: `configure_tool_path(tool_name="alphafold3", path="/path/to/alphafold3")`
+2. Or set in config: add `paths.alphafold: /path/to/alphafold3` in `~/.protein-design/config.yaml`
 
 ### Error: "MSA timeout"
 **Symptom**: Process hangs for hours at "Running MSA"
 **Solutions**:
-1. Skip MSA: `"run_data_pipeline": false` (faster, less accurate)
-2. Check databases are configured: `configure_db_dir(path="~/public_databases")`
+1. Skip MSA: add `--run-data-pipeline false` (faster, less accurate)
+2. Check database dir is configured: `database_dir: ~/public_databases` in `~/.protein-design/config.yaml`
 3. Verify `~/public_databases` exists and contains bfd/, uniref90/, etc.
 4. Check disk space: need ~100GB free for MSA temp files
 
@@ -140,7 +140,7 @@ If still failing → adjust parameters → retry
 **Symptom**: `Database directory not found` or `bfd/ does not exist`
 **Solutions**:
 1. Download databases (~2.6TB): follow AlphaFold3 docs
-2. Configure path: `configure_db_dir(path="/path/to/public_databases")`
+2. Configure path: add `database_dir: /path/to/public_databases` in `~/.protein-design/config.yaml`
 3. Common locations: `~/public_databases`, `~/databases`, `/opt/databases`
 
 ### Error: "JSON format error"
@@ -182,7 +182,7 @@ If still failing → adjust parameters → retry
 
 ### Error: "Missing metrics in designs"
 **Symptom**: `KeyError: 'mean_plddt'`
-**Solution**: Ensure design dicts have the expected keys. Use `analyze_alphafold3_results` to get properly formatted metrics.
+**Solution**: Ensure design dicts have the expected keys. Re-run `python scripts/run_filtering.py --results-dir outputs/af3/` to get properly formatted metrics.
 
 ---
 
@@ -235,7 +235,7 @@ If still failing → adjust parameters → retry
 - Use ESMFold for initial screening
 
 ### Batch Processing Tips
-- Submit all jobs first, then poll batch with `check_batch_progress`
+- Submit all jobs first, then poll batch with `python scripts/job_manager.py list`
 - For >10 designs, use scheduling instead of blocking poll
 - ESMFold screening → AlphaFold3 validation top 20 saves hours
 
@@ -246,7 +246,7 @@ If still failing → adjust parameters → retry
 If none of the above solutions work:
 
 1. Check the tool's stderr log: `<output_dir>/<tool>_stderr.log`
-2. Run `health_check` to verify environment
-3. Run `check_all_tools` to verify installations
+2. Run `python protein_design/hooks/session-health-check.py` to verify environment
+3. Run the same script with `--help` to verify tool path resolution
 4. Try with minimal parameters to isolate the issue
 5. Check the tool's GitHub issues for similar problems

@@ -14,55 +14,50 @@ description: Efficient batch job submission and management for large-scale prote
 
 ## Overview
 
-Individual `submit_job` + `query_job` polling is fine for 1-3 designs. For large-scale screening (10-100+ designs), use batch submission patterns to minimize MCP overhead and avoid blocking the session.
+Individual script runs are fine for 1-3 designs. For large-scale screening (10-100+ designs), use batch submission patterns to avoid blocking the session.
+
+The plugin provides `scripts/job_manager.py` for background execution and `scripts/summarize_outputs.py` for filesystem-based batch progress tracking.
 
 ## Pattern 1: Submit All, Poll Batch
 
-### Step 1: Submit all jobs (get task_ids)
+### Step 1: Submit all jobs via `scripts/job_manager.py`
 
-```python
+```bash
 # Submit all AlphaFold3 jobs at once
-task_ids = []
-for design_json in glob("outputs/seqs/*_af3_input.json"):
-    result = submit_job(
-        tool="alphafold3",
-        params={
-            "json_path": design_json,
-            "output_dir": f"outputs/af3/{os.path.basename(design_json)}",
-            "run_data_pipeline": False,  # Fast screening
-        }
-    )
-    task_ids.append(result["task_id"])
-
-print(f"Submitted {len(task_ids)} jobs")
+for design_json in outputs/seqs/*_af3_input.json; do
+  python scripts/job_manager.py submit \
+    --name "af3_$(basename "$design_json" .json)" \
+    -- python scripts/run_alphafold3.py \
+      --json "$design_json" \
+      --output-dir "outputs/af3/$(basename "$design_json" .json)" \
+      --run-data-pipeline false
+done
 ```
 
-### Step 2: Poll all at once with `check_batch_progress`
+### Step 2: Poll all jobs with `scripts/job_manager.py list`
 
-```python
+```bash
 # Check all jobs in one call
-batch = check_batch_progress(task_ids=task_ids)
+python scripts/job_manager.py list
 
-completed = sum(1 for r in batch["batch_results"] if r["status"] == "completed")
-failed = sum(1 for r in batch["batch_results"] if r["status"] == "failed")
-running = sum(1 for r in batch["batch_results"] if r["status"] == "running")
-
-print(f"Completed: {completed}, Failed: {failed}, Running: {running}")
+# Example output:
+# job_abc123  running  af3_design_0
+# job_def456  completed  af3_design_1
+# job_ghi789  failed   af3_design_2
 ```
 
 ### Step 3: Repeat until all done
 
-```python
-import time
-
-while True:
-    batch = check_batch_progress(task_ids=task_ids)
-    statuses = [r["status"] for r in batch["batch_results"]]
-    
-    if all(s in ("completed", "failed") for s in statuses):
-        break
-    
-    time.sleep(60)  # Poll every minute
+```bash
+#!/bin/bash
+while true; do
+  python scripts/job_manager.py list
+  remaining=$(python scripts/job_manager.py list | grep -c "running\|pending" || true)
+  if [ "$remaining" -eq 0 ]; then
+    break
+  fi
+  sleep 60  # Poll every minute
+done
 ```
 
 ## Pattern 2: Scheduled Batch Monitoring (0.6.0+)
@@ -71,27 +66,35 @@ For very large batches (>20 designs), use scheduling instead of blocking poll:
 
 ### Submit all jobs
 
-```python
-task_ids = []
-for i, design in enumerate(designs):
-    result = submit_job(tool="alphafold3", params={...})
-    task_ids.append(result["task_id"])
+```bash
+for i in $(seq 1 50); do
+  python scripts/job_manager.py submit \
+    --name "af3_design_${i}" \
+    -- python scripts/run_alphafold3.py \
+      --json "inputs/design_${i}.json" \
+      --output-dir "outputs/af3/design_${i}" \
+      --run-data-pipeline false
+done
 ```
 
 ### Set up scheduled monitoring
 
+```bash
+# Schedule a summary every 10 minutes (example cron expression)
+# Using Claude Code CronCreate or your system cron
+*/10 * * * * cd /path/to/protein-design-skills && \
+  python scripts/summarize_outputs.py --results-dir outputs/af3/ --expected 50
 ```
-scheduling (CronCreate or equivalent)(
-    cron="*/10 * * * *",
-    prompt="Check AlphaFold3 batch progress for task_ids [X, Y, Z, ...]. Report: total completed, count with pLDDT>80 and ipTM>0.75, list any failures."
-)
+
+Or from inside Claude Code, use `/schedule` or `CronCreate` to run:
+
+```
+python scripts/summarize_outputs.py --results-dir outputs/af3/ --expected 50 --json
 ```
 
 ### When all complete, stop the schedule
 
-```
-stop the scheduled check  # Stop the timer
-```
+Use `CronDelete <job_id>` (for Claude Code session schedules) or remove the cron entry.
 
 **Benefits:**
 - Session is freed for other work
@@ -104,39 +107,41 @@ For maximum efficiency with 100+ designs:
 
 ### Stage 1: Fast screen with ESMFold (all designs)
 
-```python
+```bash
 # ESMFold: ~10 seconds per design
-screen_task_ids = []
-for fasta in glob("outputs/seqs/*.fa"):
-    result = submit_job(
-        tool="esmfold",  # If available
-        params={"fasta_path": fasta, "output_dir": f"outputs/esm/{basename}"}
-    )
-    screen_task_ids.append(result["task_id"])
+for fasta in outputs/seqs/*.fa; do
+  python scripts/job_manager.py submit \
+    --name "esm_$(basename "$fasta" .fa)" \
+    -- python scripts/run_esmfold.py \
+      --fasta "$fasta" \
+      --output-dir "outputs/esm/$(basename "$fasta" .fa)"
+done
 ```
 
 ### Stage 2: Filter by ESMFold pLDDT
 
-```python
-# Wait for all ESMFold jobs
-# Select top 20 by pLDDT
-top_designs = sorted(results, key=lambda x: x["plddt"], reverse=True)[:20]
+```bash
+# Collect all ESMFold results
+python scripts/run_filtering.py \
+  --results-dir outputs/esm/ \
+  --min-plddt 75 \
+  --top-n 20 \
+  --output outputs/esm_top20.json
+
+# top_designs.json contains the top 20 by quality score
 ```
 
 ### Stage 3: Validate top 20 with AlphaFold3 (full MSA)
 
-```python
-af3_task_ids = []
-for design in top_designs:
-    result = submit_job(
-        tool="alphafold3",
-        params={
-            "json_path": design["json"],
-            "output_dir": f"outputs/af3/{design['name']}",
-            "run_data_pipeline": True,  # Full accuracy
-        }
-    )
-    af3_task_ids.append(result["task_id"])
+```bash
+for design in $(cat outputs/esm_top20.json | jq -r '.filtered_designs[].name'); do
+  python scripts/job_manager.py submit \
+    --name "af3_${design}" \
+    -- python scripts/run_alphafold3.py \
+      --json "inputs/${design}.json" \
+      --output-dir "outputs/af3/${design}" \
+      --run-data-pipeline true  # Full accuracy
+done
 ```
 
 **Time savings:** 100 designs × 30 min = 50 hours
@@ -154,32 +159,34 @@ Design 3: RFdiffusion → ProteinMPNN → AlphaFold3
 
 All can run simultaneously since they're independent. Use `PROTEIN_DESIGN_MAX_JOBS` to control parallelism (default 4).
 
+```bash
+export PROTEIN_DESIGN_MAX_JOBS=4
+python scripts/job_manager.py submit --name design1_stage1 -- python scripts/run_rfdiffusion.py ...
+python scripts/job_manager.py submit --name design2_stage1 -- python scripts/run_rfdiffusion.py ...
+python scripts/job_manager.py submit --name design3_stage1 -- python scripts/run_rfdiffusion.py ...
+```
+
 ## Pattern 5: Job Cancellation
 
 If you need to stop a batch:
 
-```python
-# Cancel all jobs in a batch
-for task_id in task_ids:
-    cancel_job(task_id=task_id)
-```
+```bash
+# Cancel a specific job
+python scripts/job_manager.py cancel <job_id>
 
-Or cancel specific failed/stuck jobs:
-
-```python
-batch = check_batch_progress(task_ids=task_ids)
-for result in batch["batch_results"]:
-    if result["status"] == "failed" or result["progress"] == 0:
-        cancel_job(task_id=result["task_id"])
+# Cancel all running jobs
+for job_id in $(python scripts/job_manager.py list | grep running | awk '{print $1}'); do
+  python scripts/job_manager.py cancel "$job_id"
+done
 ```
 
 ## Best Practices
 
 | Batch Size | Strategy |
 |------------|----------|
-| 1-5 | Individual submit + poll |
-| 5-20 | Batch submit + `check_batch_progress` |
-| 20-100 | Scheduled monitoring (CronCreate) |
+| 1-5 | Individual `scripts/job_manager.py submit` + `status` |
+| 5-20 | Batch submit + `scripts/job_manager.py list` |
+| 20-100 | Scheduled monitoring via `CronCreate` or system cron |
 | 100+ | Two-stage: ESMFold screen → AF3 validate top N |
 
 ### Resource Management
@@ -191,29 +198,19 @@ for result in batch["batch_results"]:
 
 ### Error Handling
 
-```python
+```bash
 # Collect all results including failures
-batch = check_batch_progress(task_ids=task_ids)
+python scripts/job_manager.py list --json > outputs/job_status.json
 
-successes = []
-failures = []
-for result in batch["batch_results"]:
-    if result["status"] == "completed":
-        successes.append(result)
-    else:
-        failures.append(result)
-
-print(f"Successes: {len(successes)}, Failures: {len(failures)}")
-if failures:
-    print("Failed tasks:")
-    for f in failures:
-        print(f"  {f['task_id']}: {f.get('error', 'Unknown error')}")
+# Inspect failures
+python scripts/summarize_outputs.py --results-dir outputs/af3/ --json | \
+  jq '.failures[] | {name, error}'
 ```
 
 ## Tips
 
-- Always use `check_batch_progress` instead of individual `query_job` calls
-- Set `run_data_pipeline=false` for initial screening, `true` for final validation
+- Always use `scripts/job_manager.py list` instead of checking individual job files
+- Set `--run-data-pipeline false` for initial screening, `true` for final validation
 - Use `PROTEIN_DESIGN_MAX_JOBS` env var to control parallelism
 - Failed jobs don't affect other jobs in the batch
 - Job outputs are preserved even if the session closes

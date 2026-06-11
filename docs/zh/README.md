@@ -1,21 +1,22 @@
-# Protein Design MCP 文档
+# Protein Design Skills 文档
 
-欢迎使用 Protein Design MCP 插件文档。
+欢迎使用 Protein Design Skills 插件文档——一个与智能体无关的蛋白质设计编排框架。
 
 ## 入门
 
-- [安装指南](guides/installation.md) — 安装插件和外部工具
-- [快速开始](guides/quickstart.md) — 运行你的第一个设计流程
-- [流程架构](guides/pipeline.md) — 了解 5 阶段工作流
+- [安装指南](guides/installation.md) —— 安装插件、hooks 和外部工具
+- [快速开始](guides/quickstart.md) —— 运行你的第一个设计流程
+- [流程架构](guides/pipeline.md) —— 理解 5 阶段工作流和 hook 系统
 
 ## 参考
 
-- [API 参考 — 工具](api-reference/tools.md) — 所有 MCP 工具及参数
+- [API 参考 —— Scripts](api-reference/scripts.md) —— 所有 standalone scripts 及其 CLI 参数
+- [Skills 索引](../skills/SKILL_INDEX.md) —— 60+ 工作流 skills 的完整列表
 
 ## 进阶主题
 
-- [故障排除](guides/troubleshooting.md) — 常见问题及解决方案
+- [故障排除](guides/troubleshooting.md) —— 常见问题和解决方案
 
 ## 发布说明
 
-- [变更记录](release-notes/changelog.md)
+- [更新日志](release-notes/changelog.md)

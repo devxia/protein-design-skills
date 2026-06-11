@@ -46,7 +46,7 @@ alphafold_conda_env: alphafold
 
 ## Natural Language Configuration
 
-Instead of explicit `configure_tool_path` MCP calls, users can simply tell the agent:
+Users can tell the agent:
 
 ### Setting Tool Paths
 
@@ -79,7 +79,7 @@ User: What's my current config?
 → Plugin shows all configured paths, detected tools, and environment
 
 User: Are my tools properly configured?
-→ Plugin runs check_all_tools and reports status
+→ Plugin runs `python protein_design/hooks/session-health-check.py` and reports status
 ```
 
 ### Setting Output Directory
@@ -119,35 +119,64 @@ The plugin automatically searches common locations:
 
 ## Configuration Commands
 
-### Via MCP Tools (Explicit)
+### Direct YAML Editing (Recommended)
 
-```json
-{"tool": "configure_tool_path", "params": {
-  "tool_name": "rfdiffusion",
-  "path": "~/software/RFdiffusion",
-  "conda_env": "SE3nv"
-}}
+Create or edit `~/.protein-design/config.yaml`:
+
+```yaml
+# Tool paths
+tool_paths:
+  rfdiffusion: ~/software/RFdiffusion
+  proteinmpnn: ~/software/ProteinMPNN
+  alphafold3: ~/software/alphafold3
+  boltz: ~/software/boltz
+  chai1: ~/software/chai-1
+  omegafold: ~/software/OmegaFold
+  esmfold: ~/software/esmfold
+  protenix: ~/software/protenix
+  openfold3: ~/software/openfold3
+  pdbfixer: ~/software/pdbfixer
+
+# Conda environments for each tool
+conda_envs:
+  rfdiffusion: SE3nv
+  proteinmpnn: mpnn
+  alphafold3: af3
+
+# AlphaFold3 genetic databases directory (~2.6 TB)
+db_dir: ~/public_databases
+
+# Job management
+max_jobs: 4
+output_dir: /tmp/protein-design
+
+# Timeouts (seconds)
+timeout: 3600
 ```
 
-```json
-{"tool": "configure_db_dir", "params": {
-  "path": "~/public_databases"
-}}
+You can also use environment variables (highest priority):
+
+```bash
+export RFDIFFUSION_PATH=~/software/RFdiffusion
+export PROTEINMPNN_PATH=~/software/ProteinMPNN
+export ALPHAFOLD_PATH=~/software/alphafold3
+export PROTEIN_DESIGN_OUTPUT_DIR=/tmp/protein-design
+export PROTEIN_DESIGN_MAX_JOBS=4
 ```
 
-### Via Conversation (Implicit)
+### Via Conversation
 
-The agent interprets natural language and auto-configures:
+The agent interprets natural language and writes the config for you:
 
 ```
 User: "RFdiffusion is in ~/software/RFdiffusion, SE3nv env"
-→ Agent calls configure_tool_path automatically
+→ Agent updates ~/.protein-design/config.yaml
 
 User: "Databases at /data/public_databases"
-→ Agent calls configure_db_dir automatically
+→ Agent sets db_dir in config.yaml
 
 User: "max 8 jobs"
-→ Agent sets PROTEIN_DESIGN_MAX_JOBS=8
+→ Agent sets max_jobs: 8 in config.yaml
 ```
 
 ## Tips
@@ -155,5 +184,5 @@ User: "max 8 jobs"
 - Configuration persists across sessions (saved to `~/.protein-design/config.yaml`)
 - Environment variables override config file settings
 - Auto-detection runs on every session start
-- Use `check_all_tools` to verify configuration
+- Use `python protein_design/hooks/install-hooks.py` for automation
 - Legacy `~/.kimi-protein-design/` config is also supported for migration

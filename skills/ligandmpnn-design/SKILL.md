@@ -5,6 +5,10 @@ description: Ligand-aware sequence design with LigandMPNN — alternative to Pro
 
 # Alternative Stage 2: LigandMPNN Sequence Design
 
+> **Quick Entry**: Stage 2 alternative | ligand-aware sequence design | metal/cofactor contexts
+>
+> **Upstream**: `structure-generation` (RFdiffusion/FoldFlow/Chroma/Genie 3) | **Downstream**: `structure-validation`
+
 ## When to Trigger
 
 - User says "LigandMPNN", "ligand-aware design", "design with ligand"

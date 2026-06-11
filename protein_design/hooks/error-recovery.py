@@ -2,11 +2,8 @@
 """PostToolUse hook: analyze tool failures and suggest recovery strategies.
 
 When a tool call fails, this hook intercepts the error and provides
-context-aware recovery suggestions — reducing the need for the user
-to manually debug or make additional MCP calls.
-
-This hook reduces MCP usage by embedding error-handling knowledge directly
-into the agent's context.
+context-aware recovery suggestions — helping users diagnose and fix
+issues without manual debugging.
 """
 
 import json
@@ -110,31 +107,37 @@ def _build_recovery_strategy(error_info: dict[str, Any], tool_name: str) -> list
 
     elif error_type == "tool_not_found":
         missing_tool = error_info.get("missing_tool", "工具")
+        alt_map = {
+            "rfdiffusion": "Chroma (`pip install chroma-ai`) 或 FrameDiff",
+            "proteinmpnn": "ESM-IF1 (`pip install fair-esm`) 或 LigandMPNN",
+            "alphafold": "ESMFold (`pip install fair-esm`) 或 OmegaFold (`pip install omegafold`) — 无需数据库",
+            "pdbfixer": "运行: `conda install -c conda-forge pdbfixer openmm`",
+        }
+        alt = alt_map.get(missing_tool, "参考 install-guide 技能")
         strategies = [
-            f"{missing_tool} 未安装或未找到。",
-            "  1. 使用 check_tool_status 检查安装状态",
-            "  2. 使用 configure_tool_path 配置工具路径",
-            f"  3. 设置环境变量: {missing_tool.upper()}_PATH",
-            "  4. 参考安装指南安装缺失的工具",
+            f"{missing_tool} 未安装或未找到 / {missing_tool} not found or not installed",
+            f"  快速替代方案 / Quick alternative: {alt}",
+            f"  设置环境变量 / Set env var: {missing_tool.upper()}_PATH=/path/to/{missing_tool}",
+            "  参考安装指南 / See install-guide skill for full instructions",
         ]
 
     elif error_type == "parameter_error":
         if subtype == "contig":
             strategies = [
-                "Contig 参数错误。检查:",
-                "  1. 语法格式: [A1-50/0 10-20/A71-150]",
-                "  2. 固定区域必须使用链ID前缀 (如 A1-50)",
-                "  3. 生成区域不需要前缀 (如 10-20)",
-                "  4. 使用 / 分隔不同区域",
-                "  5. 使用 0 表示链断裂（binder设计）",
-                "  6. 确保残基编号与输入 PDB 匹配",
+                "Contig 参数错误 / Contig parameter error。检查 / Check:",
+                "  1. 语法格式 / Syntax: [A1-50/0 10-20/A71-150]",
+                "  2. 固定区域必须使用链ID前缀 / Fixed regions need chain prefix (如 A1-50)",
+                "  3. 生成区域不需要前缀 / Generated regions no prefix (如 10-20)",
+                "  4. 使用 / 分隔不同区域 / Use / to separate regions",
+                "  5. 使用 0 表示链断裂 / Use 0 for chain break (binder设计)",
+                "  6. 确保残基编号与输入 PDB 匹配 / Match residue numbers to input PDB",
             ]
         else:
             strategies = [
-                "参数错误。检查:",
-                "  1. 所有必需参数是否已提供",
-                "  2. 参数类型是否正确（字符串/整数/布尔值）",
-                "  3. 使用 get_tool_info 查看完整参数列表",
+                "参数错误 / Parameter error。检查 / Check:",
+                "  1. 所有必需参数是否已提供 / All required params provided?",
+                "  2. 参数类型是否正确 / Correct param types (string/int/bool)?",
+                "  3. 参考 SKILL_INDEX.md 查看完整参数 / See SKILL_INDEX.md for full params",
             ]
 
     elif error_type == "timeout":
@@ -148,11 +151,11 @@ def _build_recovery_strategy(error_info: dict[str, Any], tool_name: str) -> list
 
     elif error_type == "msa_error":
         strategies = [
-            "MSA/数据库错误。解决方案:",
-            "  1. 设置 run_data_pipeline=false 跳过 MSA（快速但不精确）",
-            "  2. 使用 configure_db_dir 配置正确的数据库路径",
-            "  3. 检查数据库目录是否存在且完整 (~2.6TB)",
-            "  4. 检查磁盘空间是否充足",
+            "MSA/数据库错误 / MSA/Database error。解决方案 / Solutions:",
+            "  1. 设置 run_data_pipeline=false 跳过 MSA / Skip MSA (fast but less accurate)",
+            "  2. 使用 ESMFold 或 OmegaFold 替代（无需数据库）/ Use ESMFold or OmegaFold (no DB needed)",
+            "  3. 检查数据库目录是否存在且完整 (~2.6TB) / Check DB dir exists and complete",
+            "  4. 检查磁盘空间是否充足 / Check disk space",
         ]
 
     elif error_type == "environment_error":
@@ -227,11 +230,11 @@ def main() -> int:
         error_info = _parse_error(error_text)
         strategies = _build_recovery_strategy(error_info, tool_name)
 
-        output = f"""[错误恢复建议] 工具: {tool_name} | 错误类型: {error_info['type']}
+        output = f"""[Error Recovery / 错误恢复建议] Tool / 工具: {tool_name} | Type / 类型: {error_info['type']}
 
 {chr(10).join(strategies)}
 
-原始错误摘要: {error_info['message'][:200]}
+Error summary / 原始错误摘要: {error_info['message'][:200]}
 """
         print(output)
 

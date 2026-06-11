@@ -68,7 +68,6 @@ When non-changelog pages change in either locale, sync the mirror in the same ch
 | pip | package installer |
 | GitHub | platform name |
 | coding agent | product category |
-| MCP | Model Context Protocol |
 | Hooks | plugin hook system |
 | CronCreate | scheduling feature (varies by agent) |
 | Bash | tool name |

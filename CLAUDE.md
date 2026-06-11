@@ -4,31 +4,59 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project overview
 
-Protein Design Skills is an agent-agnostic plugin for end-to-end protein design. It orchestrates external ML tools (RFdiffusion, ProteinMPNN, AlphaFold3, PDBFixer) via subprocess through a 5-stage pipeline:
+Protein Design Skills is an agent-agnostic plugin for end-to-end protein design. It orchestrates external ML tools (RFdiffusion, ProteinMPNN, AlphaFold3, PDBFixer, Boltz-1, Chai-1, etc.) via **Skills + Hooks + Standalone Scripts** through a 5-stage pipeline.
 
-| Stage | Tool | Purpose |
-|-------|------|---------|
-| 0 | PDBFixer | Mandatory PDB repair before any design tool |
-| 1 | RFdiffusion | Backbone generation (monomers, binders, motif scaffolding) |
-| 2 | ProteinMPNN | Amino acid sequence design on backbones |
-| 3 | AlphaFold3 | Structure prediction and confidence scoring (pLDDT, ipTM, pTM) |
-| 4 | Filtering | Quality filtering and composite-score ranking |
+| Stage | Primary Tool | Alternatives | Purpose |
+|-------|-------------|--------------|---------|
+| 0 | PDBFixer | — | Mandatory PDB repair before any design tool |
+| 1 | RFdiffusion | Chroma, FoldFlow, Genie 3, DiffPepBuilder, RFpeptides | Backbone generation |
+| 2 | ProteinMPNN | LigandMPNN, ESM-IF1 | Sequence design |
+| 3 | AlphaFold3 | Boltz-1, Chai-1, OmegaFold, ESMFold, Protenix, OpenFold3 | Structure validation |
+| 4 | Filtering | Cross-validation, Score-first screening | Quality ranking |
 
-The plugin does **not** bundle the ML tools — they must be installed separately. The plugin provides the orchestration layer (MCP Server + Skills) that calls them.
+The plugin does **not** bundle the ML tools — they must be installed separately. The plugin provides the **Skills + Hooks + Scripts** orchestration layer.
 
-**Supported coding agents:** Claude Code, Codex CLI, Kimi Code, and any MCP-compatible agent.
+**Supported coding agents:** Claude Code, Codex CLI, Kimi Code, and any agent that reads skills.
 
 ## Commands
 
 ```bash
-# Run the MCP server directly (stdio JSON-RPC)
-python -m protein_design.server
-
-# Install hooks (auto-detects Claude Code, Kimi Code, Codex CLI)
+# Install hooks for automation (auto-detect agents)
 python protein_design/hooks/install-hooks.py
 
 # Install hooks for a specific agent only
 python protein_design/hooks/install-hooks.py claude
+python protein_design/hooks/install-hooks.py codex
+python protein_design/hooks/install-hooks.py kimi
+
+# Install for multiple agents at once
+python protein_design/hooks/install-hooks.py claude codex
+
+# List installed hooks per agent
+python protein_design/hooks/install-hooks.py --list
+
+# Force reinstall hooks (overwrite existing)
+python protein_design/hooks/install-hooks.py claude --force
+
+# Run standalone scripts
+python scripts/run_pdbfixer.py --input structure.pdb --output fixed.pdb
+python scripts/run_rfdiffusion.py --contig "150-150" --num-designs 50
+python scripts/run_proteinmpnn.py --pdb-path design.pdb --out-folder outputs/seqs/
+python scripts/run_alphafold3.py --json input.json --output-dir outputs/af3/
+python scripts/run_filtering.py --results-dir outputs/af3/ --min-plddt 75
+python scripts/convert_format.py --from fasta --to alphafold3_json --input seqs.fa --output af3.json
+
+# Batch pipeline (chains all stages)
+python scripts/batch_runner.py --config pipeline.yaml
+
+# Job management
+python scripts/job_manager.py submit --name rfdiff -- python scripts/run_rfdiffusion.py --contig "150-150"
+python scripts/job_manager.py list
+python scripts/job_manager.py status <job_id>
+
+# Progress monitoring
+python scripts/summarize_outputs.py --output-dir outputs/
+python scripts/project_dashboard.py --output-dir outputs/ --watch
 
 # Run tests
 python -m pytest tests/
@@ -40,69 +68,77 @@ There is no build step. Dependencies: `biopython>=1.81`, `pyyaml>=6.0`.
 
 ### Claude Code
 
-Add to `~/.claude/settings.json` or the project's `.mcp.json` (provided):
+Skills are auto-discovered from `./skills/`. Install hooks for automation:
 
-```json
-{
-  "mcpServers": {
-    "protein-design-skills": {
-      "command": "python",
-      "args": ["-m", "protein_design.server"],
-      "cwd": "/path/to/protein-design-skills",
-      "env": {
-        "PYTHONPATH": "/path/to/protein-design-skills",
-        "PROTEIN_DESIGN_OUTPUT_DIR": "/tmp/protein-design",
-        "PROTEIN_DESIGN_MAX_JOBS": "4"
-      }
-    }
-  }
-}
+```bash
+python protein_design/hooks/install-hooks.py claude
 ```
+
+Hooks are registered in `~/.claude/settings.json` and fire automatically on protein-related prompts.
 
 ### Kimi Code
 
-Uses `kimi.plugin.json` at the project root. The MCP server is launched automatically when the plugin is installed.
+Uses `kimi.plugin.json` at the project root. Skills + hooks + scripts are the execution method.
+
+```bash
+python protein_design/hooks/install-hooks.py kimi
+```
+
+Hooks are copied to `~/.kimi-code/hooks/` and config is updated in `~/.kimi-code/config.toml`.
 
 ### Codex CLI
 
-Add to `~/.codex/settings.json`:
+Install hooks for context injection and automation:
 
-```json
-{
-  "mcpServers": {
-    "protein-design-skills": {
-      "command": "python",
-      "args": ["-m", "protein_design.server"],
-      "cwd": "/path/to/protein-design-skills"
-    }
-  }
-}
+```bash
+python protein_design/hooks/install-hooks.py codex
+```
+
+Hooks are registered in `~/.codex/settings.json` and fire automatically on protein-related prompts.
+
+### Verify installation
+
+```bash
+# List installed hooks per agent
+python protein_design/hooks/install-hooks.py --list
+
+# Force reinstall if hooks aren't working
+python protein_design/hooks/install-hooks.py claude --force
 ```
 
 ## Architecture
 
-### Three-layer plugin structure
+### Two-layer plugin structure
 
-1. **MCP Server** (`protein_design/`) — stdio JSON-RPC 2.0 server that exposes tools for each pipeline stage. This is standard MCP — any MCP-compatible agent can launch it.
-2. **Skills** (`skills/`) — Markdown files providing workflow guidance to the LLM. One skill per pipeline stage + `full-pipeline` for orchestration + `protein-design-context` for session-start injection.
-3. **Hooks** (`protein_design/hooks/`) — Agent hook scripts for context injection on protein-related prompts, GPU safety checks before tool use, and desktop notifications on job completion. `install-hooks.py` supports multiple agents.
+1. **Skills** (`skills/`) — Markdown files providing workflow guidance to the LLM. 79 skills covering all pipeline stages, design patterns, tool alternatives, and troubleshooting.
+2. **Hooks** (`protein_design/hooks/`) — 24 agent hook scripts for context injection, tool recommendations, progress tracking, error recovery, and desktop notifications. `install-hooks.py` supports multiple agents.
+3. **Scripts** (`scripts/`) — 16 standalone Python scripts for direct tool execution, format conversion, job management, and progress monitoring.
 
-### MCP server internals
+### What hooks do
 
-- **`server.py`** — Async stdio JSON-RPC loop. Reads lines from stdin, dispatches to `execute_tool()`, writes responses to stdout. Logging goes to stderr.
-- **`tools/tool_registry.py`** — Central tool schema registry (`TOOL_SCHEMAS`) and dispatcher (`execute_tool()`). All tools are defined here with their JSON Schema parameters. Lazy-loads compute-heavy tool executors to avoid circular imports.
-- **`tools/job_manager.py`** — `JobManager` singleton with `ThreadPoolExecutor` (default 4 workers). All compute tools (RFdiffusion, ProteinMPNN, AlphaFold3) are submitted via `submit_job()` and polled via `query_job()`. Jobs auto-cleanup after 1 hour. Supports cancellation with subprocess kill and partial file cleanup.
-- **`tools/tool_installer.py`** — Installation detection across conda environments (editable-install probing, filesystem search, PATH search). Also handles `configure_tool_path()` and `configure_db_dir()` with YAML persistence to `~/.protein-design/config.yaml` (legacy `~/.kimi-protein-design/` also supported).
+Hooks fire automatically when you talk about protein design:
+
+| Hook | Trigger | What It Does |
+|------|---------|--------------|
+| **user-onboarding** | First protein prompt | Welcome message + tool status + quick start guide |
+| **session-health-check** | Protein prompts | Checks installed tools, suggests alternatives for missing ones |
+| **tool-recommender** | Design requests | Recommends scripts and parameters for your scenario |
+| **error-recovery** | Tool failures | Suggests fixes, alternative tools, and install commands |
+| **progress-reporter** | Long jobs | ETA estimation, file counting, progress updates |
+| **pipeline-orchestrator** | Stage completion | Auto-detects next step, suggests what to run |
+| **quality-gate** | Validation results | Pass/fail decisions with thresholds |
+| **design-report** | Filtering complete | Auto-generates summary with rankings |
+| **gpu-check-hook** | Before GPU jobs | Checks VRAM, warns if insufficient |
 
 ### Tool execution pattern
 
-Each ML tool executor (e.g., `rfdiffusion.py`) follows this pattern:
+Standalone scripts in `scripts/` follow this pattern:
 1. Locate the external script (configured path → env vars → common locations → editable-install detection via conda)
 2. Build CLI arguments (Hydra config overrides for RFdiffusion, script flags for ProteinMPNN/AlphaFold3)
 3. Optionally wrap with `conda run -n <env>` via `conda_utils.py`
-4. Start a `FileProgressTracker` that polls the output directory for completed files + uses historical ETA estimation
-5. Execute via `run_in_conda_with_logs()` (stdout/stderr → log files)
-6. Collect output files, save runtime to `~/.protein-design/history.jsonl` for future ETA
+4. Execute via `subprocess.run()` with proper timeouts
+5. Collect output files, save runtime to `~/.protein-design/history.jsonl` for future ETA
+6. Return exit codes (0 = success, 1+ = error)
 
 ### Configuration priority
 
@@ -113,17 +149,17 @@ Environment variables > config file (`~/.protein-design/config.yaml`) > defaults
 
 ### Progress tracking
 
-`utils/progress_tracker.py` combines three signals to estimate progress (0-100):
-- **File-based**: count completed files matching a glob pattern (e.g., `design_*.pdb`)
-- **Log-based**: parse `step X/Y` patterns from stdout logs (last 8KB)
-- **Time-based**: elapsed time / estimated total (from `history.jsonl` median or built-in defaults)
-
-Takes the most optimistic signal, caps at 95% until explicitly completed.
+Hooks and scripts provide progress tracking:
+- **`scripts/summarize_outputs.py`** — One-shot summary of output directories (backbone count, sequence count, validation count, quality distribution)
+- **`scripts/project_dashboard.py`** — Real-time dashboard with `--watch` mode
+- **`scripts/job_manager.py`** — Background job tracking
+- **`progress-reporter` hook** — Log file parsing + file counting for ETA estimation
+- **`pipeline-orchestrator` hook** — Auto-detects stage completions and suggests next steps
 
 ### Docs maintenance
 
 `docs/` is bilingual (en/zh). Source-of-truth rules defined in `docs/AGENTS.md`:
-- API reference (`docs/{en,zh}/api-reference/tools.md`) must be regenerated from `TOOL_SCHEMAS` when tool_registry.py changes
+- API reference (`docs/{en,zh}/api-reference/scripts.md`) documents all standalone scripts
 - Changelog is English-first, managed by the `sync-changelog` skill
 - All other docs are mirrored pairs — changes in either locale must sync to the other
 - Three project-level skills: `gen-docs`, `sync-changelog`, `translate-docs` (in `.agents/skills/`)
@@ -133,5 +169,12 @@ Takes the most optimistic signal, caps at 95% until explicitly completed.
 - **Cross-conda execution**: Tools often live in separate conda environments. `conda_utils.py` wraps commands with `conda run -n <env>` rather than activating/deactivating shells. The `wrapper_script` parameter provides an escape hatch for complex environment setup.
 - **PDBFixer is mandatory**: `run_rfdiffusion` auto-preprocesses input PDBs via `preprocess_for_design()` unless `skip_preprocessing=true`.
 - **No bundled ML models**: This plugin provides orchestration, not models. Missing-tool errors return structured messages with download URLs and install guides.
-- **Agent-agnostic MCP**: The server speaks standard stdio JSON-RPC 2.0 MCP. Any agent that supports MCP can use it. The `kimi.plugin.json` is a convenience wrapper for Kimi Code; other agents use their own config formats (`.mcp.json`, `settings.json`).
+- **Agent-agnostic**: Works with any agent that reads skills and runs hooks.
 - **Timeout is global**: All subprocess calls use `CONFIG.timeout` (default 3600s). Cancellation terminates the subprocess and cleans up partial files.
+- **Tool-not-installed fallback**: Every core skill includes alternative tools. If RFdiffusion is missing, use Chroma. If ProteinMPNN is missing, use ESM-IF1. If AlphaFold3 is missing, use ESMFold or OmegaFold (no databases needed).
+
+## Current coverage
+
+- **79 skills** — 6 core pipeline stages + 46 tool-specific + 15 meta/workflow + 12 specialized workflows
+- **24 hooks** — 9 UserPromptSubmit + 3 PreToolUse + 10 PostToolUse + 2 Notification
+- **16 scripts** — 7 tool runners + 1 format converter + 1 job manager + 1 batch runner + 1 summarizer + 1 dashboard + 4 utilities

@@ -5,21 +5,27 @@ source: README.zh.md
 
 # 安装指南
 
-> ⚠️ **重要：**本插件**不附带** RFdiffusion、ProteinMPNN、AlphaFold3 或 PDBFixer。这些都是大型机器学习模型（多 GB），必须单独安装。插件提供的是**编排层**，通过子进程调用这些工具。
+> **重要：** 本插件**不附带** RFdiffusion、ProteinMPNN、AlphaFold3 或 PDBFixer。这些都是大型机器学习模型（多 GB），必须单独安装。插件提供的是**编排层**——skills、hooks 和 standalone scripts——用于引导智能体完成设计流程。
+
+## 架构概览
+
+本插件采用 **skills + hooks + scripts** 架构：
+
+- **Skills** (`skills/`) —— 79 个 Markdown 格式的工作流指南，告诉智能体如何使用每个工具
+- **Hooks** (`protein_design/hooks/`) —— 24 个自动化脚本，用于上下文注入、GPU 检查、进度跟踪和通知
+- **Standalone Scripts** (`scripts/`) —— 16 个直接 CLI 脚本，用于工具执行
+
+本插件适用于任何能读取 skills 并运行 Python 脚本的编程智能体。
 
 ## 选择你的智能体
 
-本插件可与任何支持 MCP 的编程智能体配合使用：
-
 | 智能体 | 配置方式 |
 |--------|----------|
-| **Claude Code** | 使用 `plugin.json`（已提供）或 `~/.claude/settings.json` |
-| **Codex CLI** | 添加 MCP 服务器配置到 `~/.codex/settings.json` |
+| **Claude Code** | 安装 hooks：`python protein_design/hooks/install-hooks.py claude` |
+| **Codex CLI** | 安装 hooks：`python protein_design/hooks/install-hooks.py codex` |
 | **Kimi Code** | 使用 `kimi.plugin.json`（已提供）— `/plugins install` |
 
 ## 安装插件
-
-### Claude Code / Codex CLI
 
 ```bash
 git clone https://github.com/devxia/protein-design-skills.git
@@ -27,26 +33,22 @@ cd protein-design-skills
 pip install -r requirements.txt
 ```
 
-项目根目录的 `plugin.json` 会在智能体启动时自动配置 MCP 服务器。
+### 安装 hooks（推荐）
 
-如需全局可用，添加到 `~/.claude/settings.json`：
+Hooks 提供自动上下文注入、GPU 安全检查以及桌面通知：
 
-```json
-{
-  "mcpServers": {
-    "protein-design-skills": {
-      "command": "python",
-      "args": ["-m", "protein_design.server"],
-      "cwd": "/path/to/protein-design-skills",
-      "env": {
-        "PYTHONPATH": "/path/to/protein-design-skills",
-        "PROTEIN_DESIGN_OUTPUT_DIR": "/tmp/protein-design",
-        "PROTEIN_DESIGN_MAX_JOBS": "4"
-      }
-    }
-  }
-}
+```bash
+# 适用于 Claude Code
+python protein_design/hooks/install-hooks.py claude
+
+# 适用于 Codex CLI
+python protein_design/hooks/install-hooks.py codex
+
+# 适用于所有智能体
+python protein_design/hooks/install-hooks.py
 ```
+
+Hooks 按智能体安装，可自定义。参见 `protein_design/hooks/install-hooks.py --help` 了解选项。
 
 ### Kimi Code
 
@@ -76,7 +78,7 @@ pip install -r requirements.txt
 
 ## 安装外部工具
 
-> 💡 **已有这些工具？** 只需告诉 Agent 每个工具的位置和使用的 conda 环境。插件会自动检测常见安装位置。
+> **已有这些工具？** 只需告诉 Agent 每个工具的位置和使用的 conda 环境。插件会自动检测常见安装位置。
 
 ### 步骤 1：创建 Conda 环境
 
@@ -133,7 +135,29 @@ cd alphafold3
 pip install -r requirements.txt
 ```
 
-下载模型参数（~1.6GB）和遗传数据库（~2.6TB）。
+下载模型参数（~1.6GB）：访问 https://github.com/google-deepmind/alphafold3/blob/main/docs/installation.md 申请访问权限。
+
+下载遗传数据库（~2.6TB）：参见 AlphaFold3 文档中的数据库设置说明。
+
+**方案 C：无数据库验证器（最简单）**
+
+如果没有 2.6TB 空间存放数据库，可以使用以下替代方案：
+
+| 工具 | 安装命令 | GPU | 数据库 | 速度 |
+|------|---------|-----|--------|------|
+| ESMFold | `pip install fair-esm` | 可选 | 无 | ~2秒/序列 |
+| OmegaFold | `pip install omegafold` | 需要 | 无 | ~5秒/序列 |
+| Boltz-1 | `pip install boltz` | 需要 | 无 | ~10秒/序列 |
+| Chai-1 | 参见 chai-1 文档 | 需要 | 无 | ~10秒/序列 |
+
+### 可选：安装额外的验证工具
+
+| 工具 | 许可证 | 最佳场景 |
+|------|--------|----------|
+| Boltz-1 | MIT | 复合物、共价修饰 |
+| Chai-1 | Apache 2.0 | 约束条件、许可证灵活性 |
+| OmegaFold | MIT | 快速、无需数据库 |
+| ESMFold | MIT | 超快速筛选、CPU 兼容 |
 
 ## 配置工具路径
 
@@ -173,9 +197,17 @@ ln -s ~/software/alphafold3 ./alphafold3
 
 ## 验证安装
 
-确认 MCP 服务器已连接（验证方式因智能体而异），然后测试：
+安装 hooks 和外部工具后，验证一切正常：
 
+```bash
+# 检查 skill 发现
+ls skills/
+
+# 测试 standalone script 执行
+python scripts/run_pdbfixer.py --help
+
+# 检查工具检测
+python protein_design/hooks/session-health-check.py
 ```
-Call get_tool_info
-Call health_check
-```
+
+`session-health-check` hook 会报告已安装的工具、检测到的路径，并为缺失的工具提供安装指南。

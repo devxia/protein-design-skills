@@ -54,17 +54,39 @@ def main() -> int:
         "ProteinMPNN": check_tool("proteinmpnn", ["python", "-c", "import protein_mpnn_run"]),
         "AlphaFold3": check_tool("alphafold3", ["python", "-c", "import run_alphafold"]),
         "PDBFixer": check_tool("pdbfixer", ["python", "-c", "from pdbfixer import PDBFixer"]),
+        "ESMFold": check_tool("esmfold", ["python", "-c", "import esm"]),
+        "OmegaFold": check_tool("omegafold", ["python", "-c", "import omegafold"]),
+        "Boltz": check_tool("boltz", ["python", "-c", "import boltz"]),
     }
 
     gpu_str = f"{gpu['name']} ({gpu['free_mb']}MB free)" if gpu["free_mb"] > 0 else "Not available"
     tools_str = " | ".join(f"{k} {v}" for k, v in tools.items())
     output_dir = "/tmp/protein-design"
 
+    # Detect missing tools for guidance
+    missing = [k for k, v in tools.items() if v == "✗"]
+    missing_guidance = ""
+    if missing:
+        alt_map = {
+            "RFdiffusion": "Chroma (`pip install chroma-ai`)",
+            "ProteinMPNN": "ESM-IF1 (`pip install fair-esm`)",
+            "AlphaFold3": "ESMFold (`pip install fair-esm`) or OmegaFold (`pip install omegafold`)",
+            "PDBFixer": "`conda install -c conda-forge pdbfixer openmm`",
+            "ESMFold": "`pip install fair-esm` — MIT, CPU-compatible",
+            "OmegaFold": "`pip install omegafold` — MIT, fast",
+            "Boltz": "`pip install boltz` — MIT, good for complexes",
+        }
+        missing_guidance = "\n**Missing tools — alternatives:**\n"
+        for tool in missing:
+            if tool in alt_map:
+                missing_guidance += f"  - {tool}: {alt_map[tool]}\n"
+
     context = (
-        f"[蛋白质设计环境状态] "
+        f"[Session Health / 环境状态] "
         f"GPU: {gpu_str} | "
-        f"工具: {tools_str} | "
-        f"输出目录: {output_dir}"
+        f"Tools / 工具: {tools_str} | "
+        f"Output / 输出目录: {output_dir}"
+        f"{missing_guidance}"
     )
 
     print(context)

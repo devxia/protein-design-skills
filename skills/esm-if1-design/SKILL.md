@@ -5,6 +5,10 @@ description: Alternative sequence design with ESM-IF1 inverse folding model
 
 # Alternative Stage 2: ESM-IF1 Sequence Design
 
+> **Quick Entry**: Stage 2 alternative | inverse folding | variant scoring | partial masking
+>
+> **Upstream**: `structure-generation` (RFdiffusion/FoldFlow/Chroma/Genie 3) | **Downstream**: `structure-validation`
+
 ## When to Trigger
 
 - User says "ESM-IF1", "ESM inverse folding", "use ESM for sequence design"

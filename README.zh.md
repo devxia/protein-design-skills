@@ -1,147 +1,302 @@
-# 🧬 Protein Design MCP
+# 🧬 蛋白质设计技能插件
 
 > [English](./README.md) | 中文
 
 一个用于端到端蛋白质设计工作流的通用插件，支持多种编程智能体（Claude Code、Codex CLI、Kimi Code 等）。通过自然语言对话，即可生成蛋白质骨架、设计序列、验证结构并排序结果。
+
+仅使用 Skills + Hooks + 独立脚本。
+
+## 钩子功能（安装后自动生效）
+
+安装钩子后，你的智能体会自动获得以下能力：
+
+| 钩子 | 触发时机 | 功能 |
+|------|---------|------|
+| **user-onboarding** | 首次蛋白质提示 | 欢迎消息 + 工具状态 + 快速开始指南 |
+| **session-health-check** | 蛋白质相关提示 | 检查已安装工具，为缺失工具推荐替代方案 |
+| **tool-recommender** | 设计请求 | 根据场景推荐脚本和参数 |
+| **error-recovery** | 工具执行失败 | 建议修复方案、替代工具、安装命令 |
+| **progress-reporter** | 长时间任务 | ETA 估计、文件计数、进度更新 |
+| **pipeline-orchestrator** | 阶段完成 | 自动检测下一步，建议后续操作 |
+| **quality-gate** | 验证结果 | 基于阈值的通过/失败判定 |
+| **design-report** | 过滤完成 | 自动生成汇总报告和排名 |
+| **gpu-check-hook** | GPU 任务前 | 检查显存，不足时发出警告 |
+
+无需手动配置 — 钩子会在你讨论蛋白质设计时自动触发。
 
 ## 功能特性
 
 - **Stage 0 — 结构预处理**：使用 PDBFixer 自动修复 PDB
 - **Stage 1 — 骨架生成**：RFdiffusion 用于单体、结合物、基序支架及对称寡聚体
 - **Stage 2 — 序列设计**：ProteinMPNN 用于氨基酸序列分配
-- **Stage 3 — 结构验证**：AlphaFold3 用于置信度评分（pLDDT、ipTM、pTM）
+- **Stage 3 — 结构验证**：AlphaFold3 / Boltz-1 / Chai-1 / ESMFold / OmegaFold 等
 - **Stage 4 — 过滤与排序**：自动质量过滤及综合评分
-- **异步任务管理**：提交长时间运行的任务并轮询结果
-- **批量验证**：支持大规模 AlphaFold3 筛选的定时调度
-- **Hooks (0.6.0+)**：上下文注入、GPU 安全检查及桌面通知
+- **79 个技能**：覆盖 30+ 设计流水线，从快速筛选到完整验证
+- **24 个钩子**：上下文注入、GPU 安全检查、进度提醒、桌面通知
+- **16 个独立脚本**：直接命令行执行
 
-
-> **注意：** 本插件不捆绑 RFdiffusion、ProteinMPNN、AlphaFold3 或 PDBFixer。这些是大型机器学习模型（多 GB），必须单独安装。插件提供编排层（MCP Server + Skills），通过子进程调用这些工具。
-
+> **注意：** 本插件不捆绑 RFdiffusion、ProteinMPNN、AlphaFold3 等工具。这些是大型机器学习模型（多 GB），必须单独安装。插件提供编排层（Skills + Hooks + Scripts），通过子进程调用这些工具。
 
 ## 安装
 
 ### 前置条件
 
-本插件可与任何支持 MCP 的编程智能体配合使用（Claude Code、Codex CLI、Kimi Code 等）。
+- Python >= 3.9
+- 显存 >= 8GB 的 CUDA 显卡（推荐 16GB+）
+- Conda（miniconda 或 anaconda）
 
-### 方式一：Claude Code
+### 方式 A：插件市场安装（推荐）
+
+```bash
+claude plugin marketplace add devxia/protein-design-skills
+claude plugin install protein-design-skills@protein-design-skills
+```
+
+### 方式 B：手动安装
 
 ```bash
 # 克隆插件
 git clone https://github.com/devxia/protein-design-skills.git
 cd protein-design-skills
 
-# 安装依赖
+# 安装 Python 依赖
 pip install -r requirements.txt
-
-# 项目根目录的 plugin.json 会自动配置 MCP 服务器。
 ```
 
-### 方式二：Kimi Code
+### 安装钩子（按你的智能体选择）
 
-```
-/plugins install https://github.com/devxia/protein-design-skills
-/new
-```
+```bash
+# 自动检测所有已安装的智能体
+python protein_design/hooks/install-hooks.py
 
-### 方式三：其他 MCP 智能体
+# 或指定安装到特定智能体
+python protein_design/hooks/install-hooks.py claude    # Claude Code
+python protein_design/hooks/install-hooks.py codex     # Codex CLI
+python protein_design/hooks/install-hooks.py kimi      # Kimi Code
 
-将以下内容添加到智能体的 MCP 配置中：
-
-```json
-{
-  "mcpServers": {
-    "protein-design-skills": {
-      "command": "python",
-      "args": ["-m", "protein_design.server"],
-      "cwd": "/path/to/protein-design-skills",
-      "env": {
-        "PYTHONPATH": "/path/to/protein-design-skills",
-        "PROTEIN_DESIGN_OUTPUT_DIR": "/tmp/protein-design",
-        "PROTEIN_DESIGN_MAX_JOBS": "4"
-      }
-    }
-  }
-}
+# 同时安装到多个智能体
+python protein_design/hooks/install-hooks.py claude codex
 ```
 
-### 环境要求
+**安装内容说明：**
+- **Claude Code**: 钩子注册到 `~/.claude/settings.json`
+- **Codex CLI**: 钩子注册到 `~/.codex/settings.json`
+- **Kimi Code**: 钩子复制到 `~/.kimi-code/hooks/` 并更新配置
 
-- Python >= 3.9
-- 显存 >= 16GB 的 CUDA 显卡（推荐）
-- Conda（miniconda 或 anaconda）
-- 单独安装：RFdiffusion、ProteinMPNN、AlphaFold3、PDBFixer + OpenMM
+### 验证安装
 
-> 📚 **各工具的详细安装步骤**：[docs/zh/guides/installation.md](./docs/zh/guides/installation.md)
+```bash
+# 检查钩子是否注册成功（以 Claude Code 为例）
+cat ~/.claude/settings.json | grep -A 5 "protein"
 
+# 应该看到类似以下的钩子条目：
+# "UserPromptSubmit": [..., "session-health-check.py", ...]
+```
 
-## 通过与 Agent 对话完成设置
+### 安装第三方工具
 
-配置插件最简单的方式就是**直接和 Agent 对话**。
+你不需要安装所有工具 — 根据你的需求选择即可：
 
-**已经安装了这些工具？** 直接告诉 Agent：
-- 每个工具的位置（例如："RFdiffusion 在 `~/software/RFdiffusion`"）
-- 每个工具运行在哪个 conda 环境中（例如："RFdiffusion 使用 conda 环境 `SE3nv`"）
+| 工具 | 用途 | 安装难度 | 无 GPU 可用替代 |
+|------|------|---------|----------------|
+| PDBFixer | 结构修复（Stage 0） | ⭐ 简单 | — |
+| RFdiffusion | 骨架生成（Stage 1） | ⭐⭐ 中等 | Chroma、FoldFlow |
+| ProteinMPNN | 序列设计（Stage 2） | ⭐ 简单 | ESM-IF1、LigandMPNN |
+| AlphaFold3 | 结构验证（Stage 3） | ⭐⭐⭐ 复杂 | ESMFold、OmegaFold（无需数据库） |
 
-插件会自动探测常见安装位置并请你确认。你也可以随时运行 `check_all_tools` 查看已检测到的工具。
+**没有 GPU？** 使用 ESMFold 或 OmegaFold 进行快速验证，它们可以在 CPU 上运行。
 
-**偏好手动配置？** 你可以通过以下方式设置路径：
-- 环境变量（`RFDIFFUSION_PATH`、`PROTEINMPNN_PATH`、`ALPHAFOLD_PATH`）
-- 配置文件（`~/.protein-design/config.yaml`）
-- 插件根目录中的符号链接
+**没有 2.6TB 数据库？** 使用 `--run-data-pipeline false` 跳过 AlphaFold3 的 MSA 搜索，或使用 ESMFold/OmegaFold。
 
-> 📚 详见 [docs/zh/guides/installation.md](./docs/zh/guides/installation.md) 中的详细配置说明。
-
+> 📚 详细安装步骤：[docs/zh/guides/installation.md](./docs/zh/guides/installation.md)
 
 ## 快速开始
 
-### 示例 1：设计一个 150 个氨基酸的单体
+### 最快路径：5 分钟出结果
 
-```
-User: 生成一个 150 个氨基酸的蛋白质骨架
-→ 插件自动运行 RFdiffusion，contig 为 [150-150]
+```bash
+# 1. 生成 10 个 150 残基的骨架
+python scripts/run_rfdiffusion.py --contig "150-150" --num-designs 10 --verbose
+
+# 2. 为每个骨架设计 8 条序列
+python scripts/run_proteinmpnn.py --pdb-path "outputs/design_*.pdb" --out-folder outputs/seqs/ --num-seq 8 --verbose
+
+# 3. 用 OmegaFold 验证（无需数据库）
+python scripts/run_omegafold.py --input outputs/seqs/seqs.fa --output-dir outputs/validation/ --verbose
+
+# 4. 过滤优质设计
+python scripts/run_filtering.py --results-dir outputs/validation/ --min-plddt 75 --top-n 5 --verbose
 ```
 
-### 示例 2：为 PD-L1 设计结合物
+### 通过对话完成设计
+
+直接告诉智能体你想做什么：
 
 ```
 User: 为 PD-L1 设计一个结合物
 → Stage 0: PDBFixer 预处理 target.pdb
-→ Stage 1: RFdiffusion 生成结合物骨架
-→ Stage 2: ProteinMPNN 设计结合物序列
+→ Stage 1: RFdiffusion 生成结合物骨架（20 个）
+→ Stage 2: ProteinMPNN 设计序列（每个 8 条）
 → Stage 3: AlphaFold3 验证结构
 → Stage 4: 按 ipTM > 0.8 和 pLDDT > 80 过滤
 ```
 
-流程默认值：10 个骨架 → 每个 8 条序列 → 每个 5 次预测。可通过自然语言调整（例如："生成 50 个骨架"、"用 3 个种子验证"）。
+### 批量流水线
 
+```bash
+# 创建流水线配置
+cat > pipeline.yaml << 'EOF'
+stages:
+  - name: "Stage 0: PDBFixer"
+    command: [python, scripts/run_pdbfixer.py, --input, target.pdb, --output, outputs/fixed.pdb]
+  - name: "Stage 1: RFdiffusion"
+    command: [python, scripts/run_rfdiffusion.py, --input-pdb, outputs/fixed.pdb, --contig, "[150-150]", --num-designs, "50"]
+  - name: "Stage 2: ProteinMPNN"
+    command: [python, scripts/run_proteinmpnn.py, --pdb-path, "outputs/design_*.pdb", --out-folder, outputs/seqs/, --num-seq, "8"]
+  - name: "Stage 3: OmegaFold"
+    command: [python, scripts/run_omegafold.py, --input, outputs/seqs/seqs.fa, --output-dir, outputs/validation/]
+  - name: "Stage 4: Filtering"
+    command: [python, scripts/run_filtering.py, --results-dir, outputs/validation/, --min-plddt, "75", --top-n, "10"]
+EOF
+
+# 一键运行整个流水线
+python scripts/batch_runner.py --config pipeline.yaml
+```
+
+### 验证安装成功
+
+```bash
+# 测试钩子执行（应打印欢迎消息）
+echo "design a protein" | python protein_design/hooks/user-onboarding.py
+
+# 测试工具检测（应列出已安装/缺失的工具）
+echo "protein design" | python protein_design/hooks/session-health-check.py
+
+# 测试脚本执行（应显示帮助信息）
+python scripts/run_rfdiffusion.py --help
+```
+
+## 进度追踪
+
+```bash
+# 单次汇总
+python scripts/summarize_outputs.py --output-dir outputs/
+
+# 实时监控（每 30 秒刷新）
+python scripts/summarize_outputs.py --output-dir outputs/ --watch
+
+# 项目级仪表盘
+python scripts/project_dashboard.py --output-dir outputs/ \
+  --expected-backbones 50 \
+  --expected-sequences 400 \
+  --expected-validations 50
+```
+
+汇总内容包括：骨架数量、序列数量、验证数量、质量分布、平均/最佳 pLDDT 和 ipTM、以及排名靠前的设计。
 
 ## 文档
 
 | 文档 | 说明 |
-|----------|-------------|
+|------|------|
 | [安装指南](./docs/zh/guides/installation.md) | 分步工具安装和配置 |
-| [快速开始](./docs/zh/guides/quickstart.md) | 流程默认值和示例工作流 |
-| [流程架构](./docs/zh/guides/pipeline.md) | 5 阶段设计流程和项目结构 |
-| [API 参考](./docs/zh/api-reference/tools.md) | 所有 MCP 工具及其参数 |
+| [快速开始](./docs/zh/guides/quickstart.md) | 从零到第一个设计 |
+| [流程架构](./docs/zh/guides/pipeline.md) | 5 阶段设计流程 |
+| [脚本参考](./docs/zh/api-reference/scripts.md) | 所有独立脚本及参数 |
 | [故障排除](./docs/zh/guides/troubleshooting.md) | 常见问题及解决方案 |
 | [变更记录](./docs/zh/release-notes/changelog.md) | 发布说明 |
-
 
 ## 质量阈值
 
 | 指标 | 可接受 | 良好 | 优秀 |
-|--------|-----------|------|-----------|
+|------|--------|------|------|
 | pLDDT | >70 | >80 | >90 |
 | ipTM | >0.6 | >0.8 | >0.9 |
 | pTM | >0.5 | >0.7 | >0.9 |
 
+## 支持的智能体
+
+| 智能体 | 配置位置 | 钩子格式 | 状态 |
+|--------|---------|---------|------|
+| **Claude Code** | `~/.claude/settings.json` | JSON | ✅ 完全支持 |
+| **Codex CLI** | `~/.codex/settings.json` | JSON | ✅ 完全支持 |
+| **Kimi Code** | `~/.kimi-code/config.toml` | TOML | ✅ 完全支持 |
+
+所有智能体都获得相同的 24 个钩子和 79 个技能。插件会自动检测已安装的智能体。
+
+## 系统要求
+
+| 组件 | 最低要求 | 推荐配置 |
+|------|---------|---------|
+| GPU | NVIDIA 8GB 显存 | NVIDIA A100/V100 16GB+ |
+| CPU | 8 核 | 16+ 核 |
+| 内存 | 32GB | 64GB+ |
+| 磁盘 | 100GB | 3TB（含数据库） |
+| 系统 | Linux | Linux (Ubuntu 20.04+) |
+
+## 安装故障排除
+
+### 钩子没有触发？
+
+```bash
+# 检查钩子是否注册成功
+cat ~/.claude/settings.json | grep protein  # Claude Code
+cat ~/.codex/settings.json | grep protein   # Codex CLI
+
+# 重新安装钩子（强制覆盖）
+python protein_design/hooks/install-hooks.py claude --force
+
+# 列出所有已安装的钩子
+python protein_design/hooks/install-hooks.py --list
+```
+
+### "Module not found" 错误？
+
+```bash
+# 确保在插件目录中
+cd protein-design-skills
+
+# 安装依赖
+pip install -r requirements.txt
+```
+
+### 智能体未被检测到？
+
+```bash
+# 手动为你的智能体安装
+python protein_design/hooks/install-hooks.py claude
+python protein_design/hooks/install-hooks.py codex
+python protein_design/hooks/install-hooks.py kimi
+```
+
+### 检查钩子安装状态
+
+```bash
+# 列出每个智能体的已安装钩子
+python protein_design/hooks/install-hooks.py --list
+
+# 或手动检查
+ls -la ~/.claude/hooks/     # Claude Code
+ls -la ~/.codex/hooks/      # Codex CLI
+ls -la ~/.kimi-code/hooks/  # Kimi Code
+```
+
+## 插件结构
+
+本项目支持多个编码智能体，每个智能体有专用的 manifest 文件：
+
+| 文件 | 用途 | 使用者 |
+|------|------|--------|
+| `.claude-plugin/plugin.json` | Claude Code 插件 manifest | Claude Code |
+| `.claude-plugin/marketplace.json` | 插件市场注册 | `claude plugin marketplace add` |
+| `plugin.json` | 根目录元数据 | npm、GitHub、通用工具 |
+| `kimi.plugin.json` | Kimi Code 插件 manifest | Kimi Code |
+| `hooks/hooks.json` | 标准钩子配置 | Claude Code 插件加载器 |
+
+`.claude-plugin/plugin.json` 遵循 [Claude Code plugin-structure 规范](https://docs.anthropic.com/en/docs/claude-code/plugins)。钩子也可通过 `protein_design/hooks/install-hooks.py` 安装，适用于不使用标准钩子加载器的智能体。
 
 ## 许可证
 
 MIT
-
 
 ## 致谢
 

@@ -43,38 +43,35 @@ Key concepts:
 
 ### Stage 0: Prepare catalytic motif
 
-```json
-{"tool": "run_pdbfixer", "params": {
-  "input_pdb": "catalytic_motif.pdb",
-  "output_pdb": "outputs/motif_fixed.pdb"
-}}
+```bash
+python scripts/run_pdbfixer.py \
+  --input catalytic_motif.pdb \
+  --output outputs/motif_fixed.pdb
 ```
 
 ### Stage 1: Generate scaffolds around motif
 
-```json
-{"tool": "run_rfdiffusion", "params": {
-  "input_pdb": "outputs/motif_fixed.pdb",
-  "contig": "[30-50/A55-58/30-50]",
-  "ckpt_override_path": "models/ActiveSite_ckpt.pt",
-  "output_prefix": "outputs/enzyme_scaffold/design",
-  "num_designs": 100,
-  "diffuser_T": 50
-}}
+```bash
+python scripts/run_rfdiffusion.py \
+  --input-pdb outputs/motif_fixed.pdb \
+  --contig "[30-50/A55-58/30-50]" \
+  --checkpoint models/ActiveSite_ckpt.pt \
+  --output-prefix outputs/enzyme_scaffold/design \
+  --num-designs 100 \
+  --diffuser-T 50
 ```
 
 **Important:** Use `ActiveSite_ckpt.pt` for small motifs (<10 residues).
 
 ### Stage 2: Design sequences with fixed catalytic residues
 
-```json
-{"tool": "run_proteinmpnn", "params": {
-  "pdb_path": "outputs/enzyme_scaffold/design_0.pdb",
-  "output_folder": "outputs/enzyme_seqs",
-  "num_seq_per_target": 8,
-  "sampling_temp": "0.1",
-  "fixed_positions_jsonl": "catalytic_residues.jsonl"
-}}
+```bash
+python scripts/run_proteinmpnn.py \
+  --pdb-path outputs/enzyme_scaffold/design_0.pdb \
+  --out-folder outputs/enzyme_seqs \
+  --num-seq-per-target 8 \
+  --sampling-temp 0.1 \
+  --fixed-positions catalytic_residues.jsonl
 ```
 
 **Fixed positions:**
@@ -84,13 +81,12 @@ Key concepts:
 
 ### Stage 3: Validate structure
 
-```json
-{"tool": "run_alphafold3", "params": {
-  "json_path": "outputs/enzyme_seqs/design_0_af3_input.json",
-  "output_dir": "outputs/af3/enzyme",
-  "num_seeds": 1,
-  "num_samples": 5
-}}
+```bash
+python scripts/run_alphafold3.py \
+  --json outputs/enzyme_seqs/design_0_af3_input.json \
+  --output-dir outputs/af3/enzyme \
+  --num-seeds 1 \
+  --num-samples 5
 ```
 
 ### Stage 4: Check active site geometry
@@ -131,15 +127,14 @@ print(f"Binding pocket: {binding_pocket}")
 
 ### Step 2: Design new binding pocket
 
-```json
-{"tool": "run_rfdiffusion", "params": {
-  "input_pdb": "enzyme_substrate_complex.pdb",
-  "contig": "[A1-100]",
-  "inpaint_str": "[B1-20]",
-  "output_prefix": "outputs/binding_pocket/design",
-  "num_designs": 50,
-  "diffuser_T": 25
-}}
+```bash
+python scripts/run_rfdiffusion.py \
+  --input-pdb enzyme_substrate_complex.pdb \
+  --contig "[A1-100]" \
+  --inpaint-str "[B1-20]" \
+  --output-prefix outputs/binding_pocket/design \
+  --num-designs 50 \
+  --diffuser-T 25
 ```
 
 ### Step 3: Validate with new substrate
@@ -206,14 +201,13 @@ ts_structure = build_transition_state(substrate, reaction_type)
 
 ### Step 2: Design enzyme to stabilize TS
 
-```json
-{"tool": "run_rfdiffusion", "params": {
-  "input_pdb": "transition_state.pdb",
-  "contig": "[50-100]",
-  "potentials": ["type:substrate_contacts,weight:2.0"],
-  "output_prefix": "outputs/ts_stabilization/design",
-  "num_designs": 100
-}}
+```bash
+python scripts/run_rfdiffusion.py \
+  --input-pdb transition_state.pdb \
+  --contig "[50-100]" \
+  --potentials "type:substrate_contacts,weight:2.0" \
+  --output-prefix outputs/ts_stabilization/design \
+  --num-designs 100
 ```
 
 ### Step 3: Score designs for TS stabilization

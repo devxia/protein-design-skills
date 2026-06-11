@@ -1,6 +1,48 @@
 # Changelog
 
-This page documents the changes in each release of the Protein Design MCP plugin.
+This page documents the changes in each release of the Protein Design Skills plugin.
+
+## 2026-06-11
+
+### Breaking Changes
+
+- **MCP (Model Context Protocol) has been completely removed.** The plugin no longer uses or supports MCP. All execution now flows through **skills + hooks + standalone scripts**.
+- Deleted `protein_design/server.py` — the async stdio JSON-RPC server is gone.
+- Deleted `protein_design/tools/` directory — all 11 MCP tool implementation files removed (`tool_registry.py`, `job_manager.py`, `pdbfixer_tool.py`, `rfdiffusion.py`, `proteinmpnn.py`, `alphafold.py`, `format_converter.py`, `filtering.py`, `tool_installer.py`, `system_info.py`).
+- Deleted `protein_design/utils/` directory — all 4 utility files removed (`config.py`, `conda_utils.py`, `gpu_utils.py`, `progress_tracker.py`).
+- Rewrote `plugin.json` — removed `mcpServers` configuration.
+- Rewrote `kimi.plugin.json` — changed to skills-first instructions with MCP deprecated.
+- Rewrote `protein_design/__init__.py` — pure plugin metadata, no server imports.
+
+### New Features
+
+- **Added 5 new skills** (54 total):
+  - `rfpeptides-macrocycle` — RFpeptides macrocyclic peptide design pipeline
+  - `cross-validation` — Multi-validator consensus ranking (AlphaFold3 + Boltz-1 + Chai-1)
+  - `score-first-screening` — ProteinMPNN `score_only` pre-screening strategy
+  - `protenix-training` — Protenix fine-tuning and training guide
+  - `quickstart-guide` — 10-minute getting started guide for new users
+- **Expanded 4 existing skills** with parameters discovered from GitHub source code:
+  - `la-proteina-backbone` — Added 7 LD models, 3 AE models, Hydra config system, model selection guide
+  - `framedipt-inpainting` — Added Hydra config, TCR CDR3 use cases, evaluation metrics, cg2all conversion
+  - `alphaflow-ensemble` — Added 8 model variants, ESMFlow, MSA generation, ensemble analysis scripts
+  - `rfdpoly-multipolymer` — Added Apptainer details, two weight variants, multi-polymer contig syntax
+- **Rewrote entry skills** for better discoverability:
+  - `protein-design-context` — Now provides explicit Main Entrance with 10 scenario quick-match table
+  - `pipeline-selection` — Added Immediate Match quick-reference table
+- **Updated hooks**: `install-hooks.py` now supports `--mcp-free` flag for all agents. Generates `.mcp-free.json` template.
+- **Rewrote docs** from MCP-centric to skills-first architecture:
+  - `docs/en/guides/installation.md` — Removed MCP config, added hooks installation
+  - `docs/en/guides/pipeline.md` — Updated architecture diagram, added hook reference table
+  - `docs/en/api-reference/scripts.md` — Replaced tools.md with standalone scripts reference
+  - `docs/en/README.md` — Renamed from "MCP Documentation" to "Skills Documentation"
+
+### Architecture
+
+- **Primary execution method**: Standalone scripts in `scripts/` (12 scripts)
+- **Guidance layer**: Skills in `skills/` (54 skills)
+- **Automation layer**: Hooks in `protein_design/hooks/` (22 hooks)
+- **Deprecated**: All MCP infrastructure (removed in this release)
 
 ## 2026-06-04
 

@@ -128,33 +128,25 @@ ccolabfold_batch input.fasta output_dir/ \
 
 Same as standard pipeline, but use ColabFold instead of AlphaFold3:
 
-```json
-{
-  "tool": "run_colabfold",
-  "params": {
-    "fasta_path": "inputs/designs.fa",
-    "output_dir": "outputs/colabfold",
-    "num_models": 3,
-    "num_recycle": 3
-  }
-}
+```bash
+python scripts/run_colabfold.py \
+  --fasta inputs/designs.fa \
+  --output-dir outputs/colabfold \
+  --num-models 3 \
+  --num-recycle 3
 ```
 
 ## Stage 3 Alternative 3: AlphaFold3 No-MSA Mode
 
 If you have AlphaFold3 installed but not the full databases, you can skip the MSA data pipeline:
 
-```json
-{
-  "tool": "run_alphafold3",
-  "params": {
-    "json_path": "inputs/design.json",
-    "output_dir": "outputs/af3",
-    "run_data_pipeline": false,
-    "num_seeds": 1,
-    "num_samples": 5
-  }
-}
+```bash
+python scripts/run_alphafold3.py \
+  --json inputs/design.json \
+  --output-dir outputs/af3 \
+  --run-data-pipeline false \
+  --num-seeds 1 \
+  --num-samples 5
 ```
 
 **Pros:** Still uses AlphaFold3's powerful structure prediction model

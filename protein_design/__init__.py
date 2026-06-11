@@ -1,6 +1,7 @@
-"""MCP Server for Protein Design plugin.
+"""Protein Design Skills plugin.
 
-Provides protein design tools via stdio JSON-RPC 2.0.
+Provides hooks for protein design workflow automation.
+Uses skills + hooks + standalone scripts for all operations.
 """
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"

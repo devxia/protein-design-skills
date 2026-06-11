@@ -1,183 +1,243 @@
 ---
 name: protein-design-context
-description: Session-start context for protein design workflows
+description: Session-start context injection — THE MAIN ENTRANCE for all protein design workflows. Auto-triggered when protein design is mentioned.
 ---
 
-# Protein Design Pipeline Context
+# Protein Design Plugin — Main Entrance
 
-You are assisting with **protein design** using the Protein Design MCP plugin. This plugin provides an integrated pipeline from backbone generation to structure validation.
+Welcome to the Protein Design plugin. **This is your starting point.**
 
-## Standard Workflow Stages
+## What are you trying to do? Pick a scenario:
 
-| Stage | Tool | Purpose |
-|-------|------|---------|
-| **Stage 0** — Structure Preprocessing | `run_pdbfixer` | Mandatory PDB repair before any design tool |
-| **Stage 1** — Structure Generation | `run_rfdiffusion` | Generate protein backbones (monomer, binder, motif scaffold) |
-| **Stage 2** — Sequence Design | `run_proteinmpnn` | Design amino acid sequences for backbones |
-| **Stage 3** — Structure Validation | `run_alphafold3` | Predict and validate 3D structures |
-| **Stage 4** — Filtering & Ranking | `run_filtering` | Filter by confidence metrics and rank designs |
+| I want to... | Go Here | Skill |
+|--------------|---------|-------|
+| **Design a protein from scratch** (monomer, binder, scaffold) | ➡️ [Standard Pipeline](#standard-pipeline) | `full-pipeline` |
+| **Design an automated protein binder** (highest experimental success) | ➡️ [BindCraft Pipeline](#bindcraft-pipeline) | `bindcraft-workflow` |
+| **Run binder design on HPC / cloud / cluster** | ➡️ [nf-binder-design Pipeline](#nf-binder-design-pipeline) | `nf-binder-design` |
+| **Design something that binds a small molecule** (cofactor, metal, ligand) | ➡️ [Ligand-Aware Pipeline](#ligand-aware-pipeline) | `rfdiffusion-all-atom` |
+| **Validate designs with ligands / DNA / RNA / metals** (AF3 doesn't support it) | ➡️ [RFAA Validation Pipeline](#rfaa-validation-pipeline) | `rosettafold-all-atom` |
+| **Redesign an existing pocket around a ligand** | ➡️ [PocketGen Pipeline](#pocketgen-pipeline) | `pocketgen-ligand` |
+| **Generate a protein from function / GO terms** | ➡️ [ESM3 Pipeline](#esm3-pipeline) | `esm3-generative` |
+| **Joint sequence + structure generation** (diffusion in sequence space) | ➡️ [ProteinGenerator Pipeline](#proteingenerator-pipeline) | `protein-generator` |
+| **Design a short peptide** (8-30 amino acids) | ➡️ [Peptide Pipeline](#peptide-pipeline) | `diffpepbuilder-design` |
+| **Design a macrocyclic peptide** (12-18 aa, head-to-tail cyclic) | ➡️ [RFpeptides Pipeline](#rfpeptides-pipeline) | `rfpeptides-macrocycle` |
+| **Design an antibody or nanobody** | ➡️ [Antibody Pipeline](#antibody-pipeline) | `igdiff-antibody` |
+| **Redesign a loop or region** of an existing protein | ➡️ [Inpainting / Partial Diffusion](#partial-diffusion-pipeline) | `structure-generation` |
+| **Screen many designs quickly** (100+) without big databases | ➡️ [Fast Screening Pipeline](#fast-screening-pipeline) | `fast-screening` |
+| **Get the most robust validation** using multiple predictors | ➡️ [Cross-Validation Pipeline](#cross-validation-pipeline) | `cross-validation` |
+| **Save time by pre-screening sequences** before expensive validation | ➡️ [Score-First Screening](#score-first-screening) | `score-first-screening` |
+| **I have no idea which pipeline to use** | ➡️ [Pipeline Selection Guide](#pipeline-selection) | `pipeline-selection` |
 
-## Alternative Pipelines
+---
 
-The plugin supports multiple design pipelines depending on user needs:
+## Quick Pipeline Overview
 
-| Pipeline | Stage 1 | Stage 2 | Stage 3 | Use Case |
-|----------|---------|---------|---------|----------|
-| **Standard** | RFdiffusion | ProteinMPNN | AlphaFold3 (full MSA) | Best accuracy |
-| **Fast Screening** | RFdiffusion | ProteinMPNN | ESMFold (no MSA) | Speed > accuracy |
-| **Balanced** | RFdiffusion | ProteinMPNN | AlphaFold3 (no-MSA) | Medium speed |
-| **Chroma** | Chroma (joint) | — | AlphaFold3 | All-atom generation |
-| **Ligand** | RFdiffusion | LigandMPNN | AlphaFold3 | Ligand-aware design |
-
-**Skills available:** `structure-generation`, `sequence-design`, `structure-validation`, `filtering-ranking`, `fast-screening`, `chroma-backbone`, `ligandmpnn-design`, `design-patterns`, `full-pipeline`
-
-## Available MCP Tools
-
-### Workflow Tools
-- **`run_pdbfixer`** — PDB preprocessing (mandatory Stage 0)
-- **`run_rfdiffusion`** — Backbone generation (Stage 1)
-- **`run_proteinmpnn`** — Sequence design (Stage 2)
-- **`run_alphafold3`** — Structure validation (Stage 3)
-- **`run_filtering`** — Filter/rank by metrics (Stage 4)
-- **`convert_format`** — Convert FASTA → AlphaFold3 JSON
-
-### Job Management
-- **`submit_job`** — Submit async computation job (returns `task_id`)
-- **`query_job`** — Poll job status by `task_id`
-- **`cancel_job`** — Cancel a running/queued job
-- **`check_batch_progress`** — Check multiple jobs at once
-
-### Setup & Discovery
-- **`get_tool_info`** — List all tools with parameter schemas
-- **`health_check`** — Check GPU, CUDA, conda, tool installations, disk space
-- **`check_all_tools`** — Check if RFdiffusion/ProteinMPNN/AlphaFold3/PDBFixer are installed
-- **`check_tool_status`** — Check a single tool's status
-- **`configure_tool_path`** — Set a tool's path and save to config file
-- **`configure_db_dir`** — Set AlphaFold3 genetic database directory
-
-## First-Time Setup Guide
-
-If this is the user's first session (or tools are not yet configured), follow this onboarding flow:
-
-### Step 1: Detect what's installed
-```
-call check_all_tools
-```
-
-### Step 2: If tools are missing, guide the user
-
-**For each missing tool, present:**
-- What it does
-- Where to download it
-- One-line install command (if available)
-
-Example interaction:
-```
-User: Design a protein for me
-→ call check_all_tools
-→ Response: RFdiffusion ❌, ProteinMPNN ❌, AlphaFold3 ❌, PDBFixer ✓
-→ Assistant: "I see RFdiffusion, ProteinMPNN, and AlphaFold3 are not yet installed.
-   Here's what you need:
-
-   1. RFdiffusion — git clone https://github.com/RosettaCommons/RFdiffusion.git
-   2. ProteinMPNN — git clone https://github.com/dauparas/ProteinMPNN.git
-   3. AlphaFold3 — git clone https://github.com/google-deepmind/alphafold3.git
-
-   After installing, tell me the directory paths and I'll configure them."
-```
-
-### Step 3: User provides paths, configure them
+### Standard Pipeline
+**Most common choice.** Design any protein backbone, assign sequences, validate structure.
 
 ```
-User: RFdiffusion is at ~/software/RFdiffusion
-→ call configure_tool_path(tool_name="rfdiffusion", path="~/software/RFdiffusion")
-→ Saved to ~/.protein-design/config.yaml
+PDBFixer → RFdiffusion → ProteinMPNN → AlphaFold3 → Filtering
+   ↑            ↑              ↑              ↑            ↑
+stage-0      stage-1       stage-2        stage-3      stage-4
 ```
 
-### Step 4: Verify
+**Start here:** Read `full-pipeline` skill, then run `scripts/batch_runner.py --config pipeline.yaml`
+
+### BindCraft Pipeline
+**Best for binder design.** Automated, end-to-end target-to-binder pipeline with the highest reported experimental success rate. Runs AlphaFold2 Multimer co-design, ProteinMPNN refinement, and AF2 monomer validation in one command.
+
 ```
-call check_all_tools
-→ All green? Proceed with design workflow.
+Target PDB + settings JSON → BindCraft → Ranked binders
 ```
 
-## Tool Call Protocol
+**Start here:** Read `bindcraft-workflow` skill, then run `python /path/to/BindCraft/bindcraft.py --settings target.json`
 
-1. **Always** call `get_tool_info` before using a tool for the first time in a session
-2. **Always** use `submit_job` for compute tasks (RFdiffusion, ProteinMPNN, AlphaFold3)
-3. **Poll** with `query_job` using the returned `task_id`
-4. **Never** manually construct CLI commands when MCP tools are available
-5. **If a tool call returns a missing-tool error**, guide the user through the First-Time Setup Guide above instead of failing silently
+### Ligand-Aware Pipeline
+Design proteins that bind small molecules, cofactors, or metal ions.
 
-## Reducing MCP Dependency with Hooks
+```
+PDBFixer → RFdiffusionAA → LigandMPNN → AlphaFold3 → Filtering
+```
 
-The plugin provides hooks that inject context automatically, reducing the need for explicit tool discovery calls:
+**Start here:** Read `rfdiffusion-all-atom` skill
 
-| Hook | Trigger | What it does |
-|------|---------|-------------|
-| `protein-context-inject` | On protein-related prompts | Injects environment status (GPU, tools, output dir) |
-| `tool-recommender` | On protein-related prompts | Detects design type and recommends tools/parameters |
-| `pipeline-orchestrator` | After tool completion | Suggests next pipeline stage automatically |
-| `error-recovery` | On tool failure | Provides context-aware recovery suggestions |
-| `gpu-check-hook` | Before submit_job | Blocks if GPU unavailable |
-| `design-complete-notify` | After query_job | Desktop notification on completion |
+### RFAA Validation Pipeline
+Validate designs that include ligands, DNA/RNA, metal ions, or covalent modifications that AlphaFold3 may not support natively. Uses explicit `pae_inter` interface metric.
 
-**Install hooks:** `python protein_design/hooks/install-hooks.py`
+```
+PDBFixer → RFdiffusionAA / ProteinMPNN → RFAA → Filtering
+```
 
-When hooks are active, the agent receives design recommendations automatically without needing `get_tool_info` calls.
+**Start here:** Read `rosettafold-all-atom` skill
 
-## Polling Strategy
+### PocketGen Pipeline
+Redesign an existing protein pocket around a known small-molecule ligand. Faster and more targeted than full scaffold generation.
 
-| Elapsed Time | Poll Interval |
-|--------------|---------------|
-| 0–30 seconds | Every 5 seconds |
-| 30 seconds – 5 minutes | Every 15 seconds |
-| 5+ minutes | Every 60 seconds |
+```
+Scaffold PDB + Ligand SDF → PocketGen → AlphaFold3 / Boltz-1 → Filtering
+```
 
-## Batch Validation with scheduling (CronCreate or equivalent) (Recommended for >10 designs)
+**Start here:** Read `pocketgen-ligand` skill
 
-For large AlphaFold3 batch validations, use `scheduling (CronCreate or equivalent)` instead of blocking polling:
+### ESM3 Pipeline
+Generate proteins programmatically from partial sequence, structure, or function prompts. Best for designing from GO terms or functional descriptions.
 
-1. Submit all AlphaFold3 jobs (get multiple `task_id`s)
-2. `scheduling (CronCreate or equivalent)(cron="*/10 * * * *", prompt="Check AlphaFold3 batch progress for task_ids [X, Y, Z], report completed count and designs passing pLDDT>80, ipTM>0.75")`
-3. Session is freed for other work
-4. When complete, `stop the scheduled check` to stop the timer
+```
+Partial prompt (seq / struct / function) → ESM3.generate() → AlphaFold3 / Boltz-1 → Filtering
+```
 
-## Quick Design Patterns
+**Start here:** Read `esm3-generative` skill
 
-For common scenarios, use these ready-to-use patterns (see `design-patterns` skill for details):
+### ProteinGenerator Pipeline
+Joint sequence + structure generation via RoseTTAFold sequence-space diffusion. Particularly strong for motif scaffolding with sequence constraints, multistate design, and custom potentials.
 
-| Pattern | Description | Key Params |
-|---------|-------------|------------|
-| De Novo Monomer | 150-residue protein from scratch | `contig=[150-150]`, `num_designs=50` |
-| PD-L1 Binder | Protein binder for target | `contig=[B1-150/0 100-100]`, `hotspot_res=[...]` |
-| Motif Scaffolding | Scaffold around conserved motif | `contig=[10-40/A163-181/10-40]` |
-| Symmetric Oligomer | C4 tetramer | `contig=[100]`, `symmetry=c4` |
-| Cyclic Peptide Binder | Cyclic peptide for target | `cyclic=true`, `contig=[B1-100/0 12-18]` |
-| Partial Diffusion | Redesign loop region | `partial_T=10`, `contig=[A1-50/0 10-20/A71-150]` |
-| Fast Screening | 400 sequences in 2 hours | ESMFold instead of AlphaFold3 |
-| Enzyme Active Site | Scaffold small catalytic motif | `ckpt_override_path=ActiveSite_ckpt.pt` |
+```
+PDBFixer → ProteinGenerator (notebook + inference.py) → AlphaFold3 / Boltz-1 / RFAA → Filtering
+```
+
+**Start here:** Read `protein-generator` skill
+
+### Peptide Pipeline
+Design 8-30 aa peptide binders with disulfide bonds.
+
+```
+PDBFixer → DiffPepBuilder → AMBER/Rosetta relax → AlphaFold3 → Filtering
+```
+
+**Start here:** Read `diffpepbuilder-design` skill
+
+### RFpeptides Pipeline
+Design 12-18 aa macrocyclic peptides (head-to-tail cyclization) using standard RFdiffusion.
+
+```
+PDBFixer → RFdiffusion (cyclic=True) → ProteinMPNN → AlphaFold3/Boltz-1 → Filtering
+```
+
+**Start here:** Read `rfpeptides-macrocycle` skill
+
+### Fast Screening Pipeline
+Skip AlphaFold3's 2.6TB databases. Use OmegaFold or ESMFold for quick validation.
+
+```
+PDBFixer → RFdiffusion → ProteinMPNN → OmegaFold/ESMFold → Filtering
+```
+
+**Start here:** Read `fast-screening` skill
+
+### Cross-Validation Pipeline
+Run multiple validators (Boltz-1, Chai-1, OmegaFold, ESMFold) and rank by consensus.
+
+```
+PDBFixer → RFdiffusion → ProteinMPNN → [Boltz-1 + Chai-1 + OmegaFold] → Consensus Filtering
+```
+
+**Start here:** Read `cross-validation` skill
+
+### Score-First Screening
+Use ProteinMPNN's score_only mode to pre-filter sequences BEFORE running expensive validation.
+
+```
+PDBFixer → RFdiffusion → ProteinMPNN (design 32 seqs)
+                                      ↓
+                          ProteinMPNN score_only (filter to top 20%)
+                                      ↓
+                               AlphaFold3 (only top candidates)
+```
+
+**Start here:** Read `score-first-screening` skill
+
+### Partial Diffusion / Inpainting
+Redesign a specific region while keeping the rest fixed.
+
+```
+PDBFixer → RFdiffusion (partial_T=10) → ProteinMPNN → AlphaFold3 → Filtering
+```
+
+**Start here:** Read `structure-generation` skill (Advanced Parameters section)
+
+### Antibody Pipeline
+Design antibodies or nanobodies.
+
+```
+PDBFixer → IgDiff / RFdiffusion → AbMPNN / ProteinMPNN → AlphaFold3 → Filtering
+```
+
+**Start here:** Read `igdiff-antibody` skill
+
+### nf-binder-design Pipeline
+HPC/cloud-ready Nextflow pipeline that wraps multiple binder design methods (`rfd`, `rfd_partial`, `bindcraft`, `boltzgen`, `boltz_pulldown`) with built-in parallelization and scoring.
+
+```
+Target PDB → Nextflow nf-binder-design --method <method> → Ranked binders + scores
+```
+
+**Start here:** Read `nf-binder-design` skill
+
+---
+
+## Execution Mode: Choose How to Run
+
+### Option A: Standalone Scripts (Recommended)
+
+Use Python scripts directly. Fastest, simplest, works with any agent.
+
+```bash
+# Step-by-step
+python scripts/run_pdbfixer.py --input target.pdb --output fixed.pdb
+python scripts/run_rfdiffusion.py --contig "150-150" --num-designs 50
+python scripts/run_proteinmpnn.py --pdb-path "design_*.pdb" --out-folder seqs/
+python scripts/run_alphafold3.py --json af3_input.json --output-dir af3/
+python scripts/run_filtering.py --results-dir af3/ --min-plddt 75
+
+# Or all-at-once with batch runner
+python scripts/batch_runner.py --config pipeline.yaml
+```
+
+---
+
+## Stage Reference
+
+| Stage | Purpose | Primary Skill | Script |
+|-------|---------|--------------|--------|
+| 0 | PDB repair | `structure-preprocessing` | `run_pdbfixer.py` |
+| 1 | Backbone generation | `structure-generation` | `run_rfdiffusion.py` |
+| 2 | Sequence design | `sequence-design` | `run_proteinmpnn.py` |
+| 3 | Structure validation | `structure-validation` | `run_alphafold3.py` |
+| 4 | Filtering / ranking | `filtering-ranking` | `run_filtering.py` |
+
+## Alternative Validators (Replace Stage 3)
+
+| Validator | Speed | Databases | License | Skill |
+|-----------|-------|-----------|---------|-------|
+| AlphaFold3 | Slow | 2.6TB | Non-commercial | `structure-validation` |
+| RFAA | Medium | ~400GB | Open | `rosettafold-all-atom` |
+| Boltz-1 | Medium | None | MIT | `boltz-validation` |
+| Chai-1 | Medium | None | Apache 2.0 | `chai1-validation` |
+| OmegaFold | Fast | None | Open | `omegafold-validation` |
+| ESMFold | **Fastest** | None | MIT | `esmfold-validation` |
+| Protenix | Medium | None | Apache 2.0 | `protenix-validation` |
+| OpenFold3 | Medium | pip install | Apache 2.0 | `openfold-validation` |
 
 ## Quality Thresholds
 
 | Metric | Acceptable | Good | Excellent |
 |--------|-----------|------|-----------|
-| **pLDDT** | >70 | >80 | >90 |
-| **ipTM** | >0.6 | >0.8 | >0.9 |
-| **pTM** | >0.5 | >0.7 | >0.9 |
-| **RMSD** | <5Å | <2Å | <1Å |
+| pLDDT | >70 | >80 | >90 |
+| ipTM | >0.6 | >0.8 | >0.9 |
+| pTM | >0.5 | >0.7 | >0.9 |
 
-## Output Directory Convention
+## First-Time Setup
 
-Default: `/tmp/protein-design/<timestamp>/`
+If tools are not installed, read `install-guide` skill for one-line install commands.
 
-## Safety Rules
+## Quick Check: Are Tools Ready?
 
-- GPU tasks default timeout: **1 hour**
-- Temporary files are cleaned up automatically after 1 hour
-- All user-provided PDBs **must** pass `run_pdbfixer` before Stage 1–3
-- `run_pdbfixer` never adds hydrogens or missing loops (design tools don't need them)
+```bash
+python protein_design/hooks/session-health-check.py
+```
 
-## Installation Reminder
+Or check the hook output that should have fired automatically when you mentioned protein design.
 
-- Plugin changes require restarting the session
+---
 
+**Next step:** Tell me what you want to design, and I'll guide you to the right pipeline and parameters.

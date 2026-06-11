@@ -1,11 +1,11 @@
 # gen-docs
 
-Generate and maintain human-facing product documentation for the `protein-design-skills` MCP plugin.
+Generate and maintain human-facing product documentation for the `protein-design-skills` plugin.
 
 ## When To Use
 
-- After adding, removing, or modifying tools in `protein_design/tools/`
-- After changing tool parameters (JSON Schema) in `protein_design/tools/tool_registry.py`
+- After adding, removing, or modifying scripts in `scripts/`
+- After adding or modifying skills in `skills/`
 - After updating `README.md` or `README.zh.md` and wanting to sync changes into structured docs
 - When setting up docs for the first time on a new project
 
@@ -23,7 +23,7 @@ docs/
 │   │   ├── pipeline.md
 │   │   └── troubleshooting.md
 │   ├── api-reference/
-│   │   └── tools.md            # Auto-generated from tool_registry.py
+│   │   └── scripts.md          # Auto-generated from scripts/
 │   └── release-notes/
 │       └── changelog.md        # Managed by sync-changelog skill
 ├── zh/                          # Chinese docs (mirror structure)
@@ -35,33 +35,17 @@ docs/
 
 ## Workflow
 
-### Step 1: Generate API Reference (`docs/{lang}/api-reference/tools.md`)
+### Step 1: Generate API Reference (`docs/{lang}/api-reference/scripts.md`)
 
-Source of truth: `protein_design/tools/tool_registry.py` → `TOOL_SCHEMAS`
+Source of truth: `scripts/` directory — each script's `--help` output and argparse definitions.
 
-For each tool schema in `TOOL_SCHEMAS`, extract:
-- `name`: Tool name
-- `description`: Tool description
-- `inputSchema.properties`: Each parameter with type, default, description
-- `inputSchema.required`: Required parameters
+For each script in `scripts/`, extract:
+- Script name and description
+- CLI arguments and options
+- Usage examples
+- Exit codes
 
-Generate a Markdown table + detailed section per tool.
-
-Example output structure:
-
-```markdown
-# API Reference — Tools
-
-## run_pdbfixer
-
-Preprocess a PDB/CIF file with PDBFixer...
-
-| Parameter | Type | Required | Default | Description |
-|-----------|------|----------|---------|-------------|
-| input_pdb | string | Yes | — | Input PDB/CIF file path |
-| output_pdb | string | No | auto | Output PDB file path |
-| conda_env | string | No | — | Target conda environment |
-```
+Generate a Markdown table + detailed section per script.
 
 ### Step 2: Sync Guides from README
 
@@ -76,17 +60,6 @@ Map README sections to guide files:
 | Pipeline Stages / Full Workflow | `guides/pipeline.md` |
 | Troubleshooting table | `guides/troubleshooting.md` |
 
-Rules:
-- Copy content from README, do not rewrite unless the README itself is outdated
-- Preserve code blocks, tables, and formatting
-- Add a front-matter header to each guide file:
-  ```markdown
-  ---
-  title: Installation Guide
-  source: README.md
-  ---
-  ```
-
 ### Step 3: Ensure Bi-Lingual Sync
 
 After updating English docs, mirror the changes to Chinese docs:
@@ -94,36 +67,8 @@ After updating English docs, mirror the changes to Chinese docs:
 - Same file structure (`docs/zh/` mirrors `docs/en/`)
 - Same section order and entry counts
 - Translate title and body; keep tool names, parameter names, code blocks, and file paths as-is
-- Follow Chinese typography: full-width punctuation, spaces between Chinese and English
-
-### Step 4: Write `docs/AGENTS.md`
-
-This file tells future AI agents how to maintain docs:
-
-```markdown
-# Docs Maintenance Guide
-
-## Directory Structure
-...
-
-## Rules
-- English is source of truth
-- Keep Chinese docs in sync with English
-- Auto-regenerate api-reference/tools.md when tool_registry.py changes
-- Do not edit docs directly without updating the source (code or README)
-```
 
 ## Stop Signals
 
-- `protein_design/tools/tool_registry.py` does not exist or `TOOL_SCHEMAS` is empty
 - `README.md` does not exist
 - Generated docs would lose content compared to existing docs (ask user before overwriting)
-
-## Common Mistakes
-
-| Mistake | Fix |
-|---------|-----|
-| Hardcoding tool schemas instead of reading from tool_registry.py | Always extract from `TOOL_SCHEMAS` dynamically |
-| Forgetting to update Chinese docs after English changes | Run the bi-lingual sync step every time |
-| Rewriting user-facing descriptions | Copy from source; only edit if source is wrong |
-| Missing required vs optional parameter indicators | Preserve from `inputSchema.required` |

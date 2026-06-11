@@ -1,16 +1,17 @@
-# Protein Design MCP Documentation
+# Protein Design Skills Documentation
 
-Welcome to the documentation for the Protein Design MCP plugin.
+Welcome to the documentation for the Protein Design Skills plugin — an agent-agnostic protein design orchestration framework.
 
 ## Getting started
 
-- [Installation Guide](guides/installation.md) — Install the plugin and external tools
+- [Installation Guide](guides/installation.md) — Install the plugin, hooks, and external tools
 - [Quick Start](guides/quickstart.md) — Run your first design pipeline
-- [Pipeline Architecture](guides/pipeline.md) — Understand the 5-stage workflow
+- [Pipeline Architecture](guides/pipeline.md) — Understand the 5-stage workflow and hook system
 
 ## Reference
 
-- [API Reference — Tools](api-reference/tools.md) — All MCP tools and parameters
+- [API Reference — Scripts](api-reference/scripts.md) — All standalone scripts and their CLI parameters
+- [Skills Index](../skills/SKILL_INDEX.md) — Complete list of 60+ workflow skills
 
 ## Advanced topics
 

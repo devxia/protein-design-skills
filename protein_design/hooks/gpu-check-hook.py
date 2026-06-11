@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""PreToolUse hook: GPU resource safety check before submit_job.
+"""PreToolUse hook: GPU resource safety check before tool execution.
 
-Blocks submit_job if GPU is unavailable or disk space is critically low.
+Blocks tool execution if GPU is unavailable or disk space is critically low.
 Exit codes:
-  0 = allow submission
-  2 = block submission (stderr explains why)
-  other = fail-open (allow submission with warning)
+  0 = allow execution
+  2 = block execution (stderr explains why)
+  other = fail-open (allow execution with warning)
 """
 
 import shutil

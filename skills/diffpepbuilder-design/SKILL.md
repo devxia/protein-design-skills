@@ -5,6 +5,10 @@ description: Specialized peptide binder design with DiffPepBuilder (8-30aa pepti
 
 # Alternative Stage 1: DiffPepBuilder Peptide Design
 
+> **Quick Entry**: Stage 1 alternative | 8-30aa peptides | peptide-protein interfaces | disulfide bonds | DiffPepDock
+>
+> **Upstream**: `structure-preprocessing` (PDBFixer target) | **Downstream**: `sequence-design` (ProteinMPNN, optional) → `structure-validation` (Boltz-1/AF3)
+
 ## When to Trigger
 
 - User says "design a peptide", "peptide binder", "short peptide"

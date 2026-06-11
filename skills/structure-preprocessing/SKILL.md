@@ -5,13 +5,21 @@ description: PDB structure preprocessing with PDBFixer (Stage 0)
 
 # Stage 0: Structure Preprocessing (PDBFixer)
 
-## When to Trigger
+**This skill is the FIRST stage of the pipeline. ALWAYS run this before any design tool.**
 
-- User provides any PDB/CIF file before design
-- Input contains non-standard residues (MSE, HIP, etc.)
-- Input contains heterogens (ligands, ions, water)
+**Quick entry:** If you have a PDB file and want to use it for design, you MUST preprocess it here first.
+
+**Typical flow:** **THIS SKILL** (Stage 0) → `structure-generation` (Stage 1) → `sequence-design` (Stage 2) → `structure-validation` (Stage 3) → `filtering-ranking` (Stage 4)
+
+## When to Use This Skill
+
+- You have any PDB/CIF file to use as input for design
+- Your input contains non-standard residues (MSE, HIP, etc.)
+- Your input contains heterogens (ligands, ions, water) that need removal
 - Missing atoms reported in structure
-- Any tool fails with "missing atom" or "unknown residue" errors
+- Any downstream tool fails with "missing atom" or "unknown residue" errors
+
+**Why mandatory:** All design tools (RFdiffusion, ProteinMPNN, AlphaFold3) require clean PDBs. Unprocessed structures cause cryptic failures.
 
 ## Why This is Mandatory
 
@@ -27,18 +35,14 @@ All user-provided structures **must** be preprocessed before entering RFdiffusio
 6. **No hydrogen addition** — design tools don't need hydrogens
 7. **No water box** — design tools don't need solvent
 
-## MCP Tool
+## Standalone Script
 
-```json
-{
-  "tool": "run_pdbfixer",
-  "params": {
-    "input_pdb": "path/to/input.pdb",
-    "output_pdb": "path/to/output_fixed.pdb",
-    "keep_chains": ["A"],
-    "seed": 42
-  }
-}
+```bash
+python scripts/run_pdbfixer.py \
+  --input path/to/input.pdb \
+  --output path/to/output_fixed.pdb \
+  --keep-chains A \
+  --seed 42
 ```
 
 ## Parameters
@@ -86,7 +90,7 @@ All user-provided structures **must** be preprocessed before entering RFdiffusio
 ```
 User provides PDB
      ↓
-run_pdbfixer (this stage)
+python scripts/run_pdbfixer.py (this stage)
      ↓
 Clean PDB → RFdiffusion / ProteinMPNN / AlphaFold3
 ```

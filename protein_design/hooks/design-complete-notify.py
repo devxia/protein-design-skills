@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """PostToolUse hook: send desktop notification when design jobs complete.
 
-Triggered after query_job returns "completed" status.
+Triggered after tool execution completes.
 Supports macOS (osascript), Linux (notify-send), and Windows (powershell).
 """
 

@@ -43,48 +43,57 @@ CDRs:
 ## Pipeline 1: De Novo Antibody Design
 
 ### Stage 0: Prepare antigen structure
-```json
-{"tool": "run_pdbfixer", "params": {
-  "input_pdb": "antigen.pdb",
-  "output_pdb": "outputs/antigen_fixed.pdb"
-}}
+```bash
+python scripts/run_pdbfixer.py \
+  --input antigen.pdb \
+  --output outputs/antigen_fixed.pdb
 ```
 
 ### Stage 1: Generate antibody scaffold
 
 Option A: Use known antibody framework (recommended)
-```json
-{"tool": "run_rfdiffusion", "params": {
-  "input_pdb": "outputs/antigen_fixed.pdb",
-  "contig": "[H1-120/0 L1-110]",
-  "output_prefix": "outputs/antibody/design",
-  "num_designs": 50,
-  "diffuser_T": 50
-}}
+```bash
+python scripts/run_rfdiffusion.py \
+  --input-pdb outputs/antigen_fixed.pdb \
+  --contig "[H1-120/0 L1-110]" \
+  --output-prefix outputs/antibody/design \
+  --num-designs 50 \
+  --diffuser-T 50
 ```
 
 Option B: Design CDRs on fixed framework
-```json
-{"tool": "run_rfdiffusion", "params": {
-  "input_pdb": "antibody_framework.pdb",
-  "contig": "[H1-25/0 H10-20/H36-49/0 H10-20/H66-94/0 H10-15/H103-120]",
-  "output_prefix": "outputs/cdr_redesign/design",
-  "num_designs": 100,
-  "diffuser_T": 25,
-  "partial_T": 10
-}}
+```bash
+python scripts/run_rfdiffusion.py \
+  --input-pdb antibody_framework.pdb \
+  --contig "[H1-25/0 H10-20/H36-49/0 H10-20/H66-94/0 H10-15/H103-120]" \
+  --output-prefix outputs/cdr_redesign/design \
+  --num-designs 100 \
+  --diffuser-T 25 \
+  --partial-T 10
+```
+
+Option C: **Use IgDiff (Recommended for antibodies)**
+- 74% CDR H3 design success vs 6% for RFdiffusion
+- 93% light chain pairing success vs 0% for RFdiffusion
+- See `igdiff-antibody` skill for detailed usage
+```bash
+python experiments/inference_se3_diffusion.py \
+    --model_path huggingface_weights/ \
+    --input_pdb antibody_framework.pdb \
+    --redesign_cdrs H1,H2,H3,L1,L2,L3 \
+    --output_dir outputs/igdiff_cdr \
+    --num_samples 50
 ```
 
 ### Stage 2: Design sequences with constraints
 
-```json
-{"tool": "run_proteinmpnn", "params": {
-  "pdb_path": "outputs/antibody/design_0.pdb",
-  "output_folder": "outputs/antibody_seqs",
-  "num_seq_per_target": 16,
-  "sampling_temp": "0.1",
-  "fixed_positions_jsonl": "framework_positions.jsonl"
-}}
+```bash
+python scripts/run_proteinmpnn.py \
+  --pdb-path outputs/antibody/design_0.pdb \
+  --out-folder outputs/antibody_seqs \
+  --num-seq-per-target 16 \
+  --sampling-temp 0.1 \
+  --fixed-positions framework_positions.jsonl
 ```
 
 **Framework positions to fix:**
@@ -94,32 +103,32 @@ Option B: Design CDRs on fixed framework
 
 ### Stage 3: Validate with antigen present
 
-```json
-{"tool": "convert_format", "params": {
-  "from_format": "fasta",
-  "to_format": "alphafold3_json",
-  "input_path": "outputs/antibody_seqs/design_0.fa",
-  "receptor_pdb": "outputs/antigen_fixed.pdb",
-  "receptor_chain": "A",
-  "job_name": "antibody_antigen"
-}}
+```bash
+python scripts/convert_format.py \
+  --from fasta \
+  --to alphafold3_json \
+  --input outputs/antibody_seqs/design_0.fa \
+  --receptor-pdb outputs/antigen_fixed.pdb \
+  --receptor-chain A \
+  --job-name antibody_antigen \
+  --output outputs/antibody_seqs/design_0_af3_input.json
 ```
 
-```json
-{"tool": "run_alphafold3", "params": {
-  "json_path": "outputs/antibody_seqs/design_0_af3_input.json",
-  "output_dir": "outputs/af3/antibody",
-  "num_seeds": 1,
-  "num_samples": 5
-}}
+```bash
+python scripts/run_alphafold3.py \
+  --json outputs/antibody_seqs/design_0_af3_input.json \
+  --output-dir outputs/af3/antibody \
+  --num-seeds 1 \
+  --num-samples 5
 ```
 
 ### Stage 4: Filter for binding
 
-```json
-{"tool": "run_filtering", "params": {
-  "criteria": {"min_iptm": 0.75, "min_plddt": 75}
-}}
+```bash
+python scripts/run_filtering.py \
+  --results-dir outputs/af3/antibody \
+  --min-iptm 0.75 \
+  --min-plddt 75
 ```
 
 ## Pipeline 2: CDR Grafting
@@ -160,11 +169,10 @@ grafted = build_grafted_antibody(human_framework, donor_cdrs)
 
 ### Step 4: Validate structure
 
-```json
-{"tool": "run_alphafold3", "params": {
-  "json_path": "grafted_antibody.json",
-  "output_dir": "outputs/af3/grafted"
-}}
+```bash
+python scripts/run_alphafold3.py \
+  --json grafted_antibody.json \
+  --output-dir outputs/af3/grafted
 ```
 
 ## Pipeline 3: Affinity Maturation
@@ -192,13 +200,12 @@ for pos in mutation_positions:
 ### Step 3: Score variants
 
 Option A: ProteinMPNN scoring
-```json
-{"tool": "run_proteinmpnn", "params": {
-  "pdb_path": "antibody_antigen_complex.pdb",
-  "output_folder": "outputs/scoring",
-  "score_only": true,
-  "path_to_fasta": "variants.fa"
-}}
+```bash
+python scripts/run_proteinmpnn.py \
+  --pdb-path antibody_antigen_complex.pdb \
+  --out-folder outputs/scoring \
+  --score-only \
+  --path-to-fasta variants.fa
 ```
 
 Option B: ESM-IF1 scoring
@@ -218,11 +225,10 @@ top_variants = sorted(scores, key=lambda x: x[1], reverse=True)[:20]
 
 ### Step 5: Validate top variants
 
-```json
-{"tool": "run_alphafold3", "params": {
-  "json_path": "top_variants.json",
-  "output_dir": "outputs/af3/maturation"
-}}
+```bash
+python scripts/run_alphafold3.py \
+  --json top_variants.json \
+  --output-dir outputs/af3/maturation
 ```
 
 ## Pipeline 4: Humanization
@@ -250,11 +256,10 @@ for pos, aa in non_human.items():
 
 ### Step 3: Validate binding retained
 
-```json
-{"tool": "run_alphafold3", "params": {
-  "json_path": "humanized_variants.json",
-  "output_dir": "outputs/af3/humanization"
-}}
+```bash
+python scripts/run_alphafold3.py \
+  --json humanized_variants.json \
+  --output-dir outputs/af3/humanization
 ```
 
 ### Step 4: Check for immunogenicity

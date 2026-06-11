@@ -1,6 +1,48 @@
 # 变更记录
 
-本页记录 Protein Design 插件每个版本的变更内容。
+本页记录 Protein Design Skills 插件每个版本的变更内容。
+
+## 2026-06-11
+
+### 重大变更
+
+- **MCP（Model Context Protocol）已彻底移除。** 本插件不再使用或支持 MCP。所有执行现在通过 **skills + hooks + standalone scripts** 进行。
+- 删除 `protein_design/server.py` —— 异步 stdio JSON-RPC 服务器已移除。
+- 删除 `protein_design/tools/` 目录 —— 所有 11 个 MCP tool 实现文件已删除（`tool_registry.py`、`job_manager.py`、`pdbfixer_tool.py`、`rfdiffusion.py`、`proteinmpnn.py`、`alphafold.py`、`format_converter.py`、`filtering.py`、`tool_installer.py`、`system_info.py`）。
+- 删除 `protein_design/utils/` 目录 —— 所有 4 个工具文件已删除（`config.py`、`conda_utils.py`、`gpu_utils.py`、`progress_tracker.py`）。
+- 重写 `plugin.json` —— 移除 `mcpServers` 配置。
+- 重写 `kimi.plugin.json` —— 改为 skills-first 指令，MCP 已弃用。
+- 重写 `protein_design/__init__.py` —— 纯插件元数据，无服务器导入。
+
+### 新功能
+
+- **新增 5 个 skills**（共 54 个）：
+  - `rfpeptides-macrocycle` —— RFpeptides 大环环化多肽设计流程
+  - `cross-validation` —— 多验证器共识排序（AlphaFold3 + Boltz-1 + Chai-1）
+  - `score-first-screening` —— ProteinMPNN `score_only` 预筛选策略
+  - `protenix-training` —— Protenix 微调和训练指南
+  - `quickstart-guide` —— 新用户 10 分钟快速上手指南
+- **扩充 4 个现有 skills**，添加从 GitHub 源码发现的参数：
+  - `la-proteina-backbone` —— 新增 7 种 LD 模型、3 种 AE 模型、Hydra 配置系统、模型选择指南
+  - `framedipt-inpainting` —— 新增 Hydra 配置、TCR CDR3 用例、评估指标、cg2all 转换
+  - `alphaflow-ensemble` —— 新增 8 种模型变体、ESMFlow、MSA 生成、ensemble 分析脚本
+  - `rfdpoly-multipolymer` —— 新增 Apptainer 详细用法、两种权重变体、多聚合物 contig 语法
+- **重写入口 skills**，提升可发现性：
+  - `protein-design-context` —— 现提供显式 Main Entrance，含 10 种场景快速匹配表
+  - `pipeline-selection` —— 新增 Immediate Match 快速参考表
+- **更新 hooks**：`install-hooks.py` 现支持所有智能体的 `--mcp-free` 标志。生成 `.mcp-free.json` 模板。
+- **重写文档**，从 MCP 中心架构改为 skills-first 架构：
+  - `docs/en/guides/installation.md` —— 移除 MCP 配置，添加 hooks 安装
+  - `docs/en/guides/pipeline.md` —— 更新架构图，添加 hook 参考表
+  - `docs/en/api-reference/scripts.md` —— 替换 tools.md，改为 standalone scripts 参考
+  - `docs/en/README.md` —— 从「MCP Documentation」重命名为「Skills Documentation」
+
+### 架构
+
+- **主要执行方式**：`scripts/` 中的 standalone scripts（12 个脚本）
+- **指导层**：`skills/` 中的 skills（54 个）
+- **自动化层**：`protein_design/hooks/` 中的 hooks（22 个）
+- **已弃用**：所有 MCP 基础设施（本版本中已移除）
 
 ## 2026-06-04
 

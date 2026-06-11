@@ -9,7 +9,7 @@ docs/
 ├── en/                          # English docs
 │   ├── README.md               # Docs landing page
 │   ├── guides/                 # User guides
-│   ├── api-reference/          # Auto-generated from tool_registry.py
+│   ├── api-reference/          # Standalone scripts reference (manually maintained from scripts/)
 │   └── release-notes/          # Changelog (source of truth)
 ├── zh/                          # Chinese docs
 │   └── ... (mirror structure)
@@ -34,14 +34,13 @@ When non-changelog pages change in either locale, sync the mirror in the same ch
    - File structure and names
    - Section order and heading hierarchy
    - Entry counts in tables and lists
-3. **Auto-regenerate `api-reference/tools.md`** whenever `tool_registry.py` changes:
-   - Extract `TOOL_SCHEMAS`
-   - Generate parameter tables (name, type, required, default, description)
-   - Do not hardcode tool schemas
-   - Generate both English and Chinese versions
+3. **Maintain `api-reference/scripts.md`** to reflect changes in `scripts/`:
+   - Update parameter tables when script CLI arguments change
+   - Keep usage examples current with script behavior
+   - Maintain both English and Chinese versions
 4. **Do not edit docs directly** without updating the source (code or README).
    - Guides should be extracted from `README.md` / `README.zh.md`
-   - API reference should be generated from `tool_registry.py`
+   - API reference should reflect the actual scripts in `scripts/`
 5. **Changelog is managed by `sync-changelog` skill** — do not edit manually.
 
 ## Terminology table (do not translate)
@@ -83,7 +82,6 @@ When non-changelog pages change in either locale, sync the mirror in the same ch
 | pip | package installer |
 | GitHub | platform name |
 | coding agent | product category |
-| MCP | Model Context Protocol |
 | Hooks | plugin hook system |
 | CronCreate | scheduling feature (varies by agent) |
 | Bash | tool name |

@@ -2,8 +2,7 @@
 """UserPromptSubmit hook: auto-run health checks on protein-related prompts.
 
 When the session starts or user sends a protein-related message, this hook
-silently checks environment health and injects the results into context —
-eliminating the need for explicit health_check MCP calls.
+silently checks environment health and injects the results into context.
 """
 
 import json
@@ -21,6 +20,12 @@ def _check_tools() -> dict[str, Any]:
         ("proteinmpnn", ["python", "-c", "import protein_mpnn_run"]),
         ("alphafold3", ["python", "-c", "import run_alphafold"]),
         ("pdbfixer", ["python", "-c", "from pdbfixer import PDBFixer"]),
+        ("esmfold", ["python", "-c", "import esm"]),
+        ("omegafold", ["python", "-c", "import omegafold"]),
+        ("boltz", ["python", "-c", "import boltz"]),
+        ("chai1", ["python", "-c", "import chai1"]),
+        ("protenix", ["python", "-c", "import protenix"]),
+        ("openfold", ["python", "-c", "import openfold"]),
     ]:
         try:
             subprocess.run(import_test, capture_output=True, timeout=5, check=True)
@@ -88,8 +93,28 @@ def main() -> int:
     missing_str = f" | Missing: {', '.join(missing)}" if missing else ""
 
     output = (
-        f"[环境状态] Tools: {tools_str} | GPU: {gpu_str} | Disk: {disk['free_gb']}GB free{missing_str}"
+        f"[Session Health] Tools: {tools_str} | GPU: {gpu_str} | Disk: {disk['free_gb']}GB free{missing_str}"
     )
+
+    # Add guidance for missing tools
+    if missing:
+        output += "\n\n**Missing tools — quick alternatives:**\n"
+        alt_map = {
+            "rfdiffusion": "Chroma (`pip install chroma-ai`) or FrameDiff",
+            "proteinmpnn": "ESM-IF1 (`pip install fair-esm`) or LigandMPNN",
+            "alphafold3": "ESMFold (`pip install fair-esm`) or OmegaFold (`pip install omegafold`) — no databases needed",
+            "pdbfixer": "Run: `conda install -c conda-forge pdbfixer openmm`",
+            "esmfold": "`pip install fair-esm` — MIT, CPU-compatible, no databases",
+            "omegafold": "`pip install omegafold` — MIT, fast, no databases",
+            "boltz": "`pip install boltz` — MIT, good for complexes",
+            "chai1": "See chai-1 docs — Apache 2.0, single-seq mode",
+            "protenix": "See protenix docs — MIT, training+inference scaling",
+            "openfold": "`pip install openfold3` — Apache 2.0, AF3 parity",
+        }
+        for tool in missing:
+            if tool in alt_map:
+                output += f"  - **{tool}**: {alt_map[tool]}\n"
+        output += "\nSee `install-guide` skill for full installation instructions.\n"
 
     print(output)
     return 0

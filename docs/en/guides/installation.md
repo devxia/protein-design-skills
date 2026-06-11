@@ -5,21 +5,27 @@ source: README.md
 
 # Installation Guide
 
-> ⚠️ **Important**: This plugin does **NOT** install RFdiffusion, ProteinMPNN, AlphaFold3, or PDBFixer. These are large machine-learning models (multi-GB) that must be installed separately. The plugin provides the **orchestration layer** that calls these tools via subprocess.
+> **Important**: This plugin does **NOT** install RFdiffusion, ProteinMPNN, AlphaFold3, or PDBFixer. These are large machine-learning models (multi-GB) that must be installed separately. The plugin provides the **orchestration layer** — skills, hooks, and standalone scripts — that guides agents through the design pipeline.
+
+## Architecture Overview
+
+This plugin uses a **skills + hooks + scripts** architecture:
+
+- **Skills** (`skills/`) — 79 Markdown workflow guides that tell the agent how to use each tool
+- **Hooks** (`protein_design/hooks/`) — 24 automation scripts for context injection, GPU checks, progress tracking, and notifications
+- **Standalone Scripts** (`scripts/`) — 16 direct CLI scripts for tool execution
+
+The plugin works with any coding agent that reads skills and runs Python scripts.
 
 ## Choose your agent
 
-This plugin works with any MCP-compatible coding agent:
-
 | Agent | Setup |
 |-------|-------|
-| **Claude Code** | Use `plugin.json` (included) or `~/.claude/settings.json` |
-| **Codex CLI** | Add MCP server config to `~/.codex/settings.json` |
+| **Claude Code** | Install hooks: `python protein_design/hooks/install-hooks.py claude` |
+| **Codex CLI** | Install hooks: `python protein_design/hooks/install-hooks.py codex` |
 | **Kimi Code** | Use `kimi.plugin.json` (included) — `/plugins install` |
 
 ## Install the plugin
-
-### Claude Code / Codex CLI
 
 ```bash
 git clone https://github.com/devxia/protein-design-skills.git
@@ -27,26 +33,22 @@ cd protein-design-skills
 pip install -r requirements.txt
 ```
 
-The included `plugin.json` configures the MCP server automatically when the agent starts in this directory.
+### Install hooks (recommended)
 
-For global availability, add to `~/.claude/settings.json`:
+Hooks provide automatic context injection, GPU safety checks, and desktop notifications:
 
-```json
-{
-  "mcpServers": {
-    "protein-design-skills": {
-      "command": "python",
-      "args": ["-m", "protein_design.server"],
-      "cwd": "/path/to/protein-design-skills",
-      "env": {
-        "PYTHONPATH": "/path/to/protein-design-skills",
-        "PROTEIN_DESIGN_OUTPUT_DIR": "/tmp/protein-design",
-        "PROTEIN_DESIGN_MAX_JOBS": "4"
-      }
-    }
-  }
-}
+```bash
+# For Claude Code
+python protein_design/hooks/install-hooks.py claude
+
+# For Codex CLI
+python protein_design/hooks/install-hooks.py codex
+
+# For all agents
+python protein_design/hooks/install-hooks.py
 ```
+
+Hooks are installed per-agent and can be customized. See `protein_design/hooks/install-hooks.py --help` for options.
 
 ### Kimi Code
 
@@ -76,7 +78,7 @@ Start a **new session** after installation:
 
 ## Install external tools
 
-> 💡 **Already have these tools?** Just tell the Agent where each tool is located and which conda environment it uses. The plugin auto-detects common install locations.
+> **Already have these tools?** Just tell the Agent where each tool is located and which conda environment it uses. The plugin auto-detects common install locations.
 
 ### Step 1: Create a Conda environment
 
@@ -133,7 +135,29 @@ cd alphafold3
 pip install -r requirements.txt
 ```
 
-Download model parameters (~1.6GB) and genetic databases (~2.6TB).
+Download model parameters (~1.6GB): Request access at https://github.com/google-deepmind/alphafold3/blob/main/docs/installation.md
+
+Download genetic databases (~2.6TB): See AlphaFold3 documentation for database setup.
+
+**Option C: No-Database Validators (Easiest)**
+
+If you don't have 2.6TB for databases, use these alternatives:
+
+| Tool | Install | GPU | Databases | Speed |
+|------|---------|-----|-----------|-------|
+| ESMFold | `pip install fair-esm` | Optional | None | ~2s/seq |
+| OmegaFold | `pip install omegafold` | Yes | None | ~5s/seq |
+| Boltz-1 | `pip install boltz` | Yes | None | ~10s/seq |
+| Chai-1 | See chai-1 docs | Yes | None | ~10s/seq |
+
+### Optional: Install additional validation tools
+
+| Tool | License | Best For |
+|------|---------|----------|
+| Boltz-1 | MIT | Complexes, covalent modifications |
+| Chai-1 | Apache 2.0 | Constraints, licensing flexibility |
+| OmegaFold | MIT | Fast, no databases |
+| ESMFold | MIT | Ultra-fast screening, CPU-compatible |
 
 ## Configure tool paths
 
@@ -173,9 +197,17 @@ ln -s ~/software/alphafold3 ./alphafold3
 
 ## Verify installation
 
-Check that the MCP server is connected (method varies by agent), then test:
+After installing hooks and external tools, verify everything works:
 
+```bash
+# Check skill discovery
+ls skills/
+
+# Test standalone script execution
+python scripts/run_pdbfixer.py --help
+
+# Check tool detection
+python protein_design/hooks/session-health-check.py
 ```
-Call get_tool_info
-Call health_check
-```
+
+The `session-health-check` hook reports which tools are installed, their detected paths, and provides installation instructions for any missing tools.

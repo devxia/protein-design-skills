@@ -1,0 +1,140 @@
+{
+  "UserPromptSubmit": [
+    {
+      "matcher": "(?i)(protein|pdb|binder|alphafold|rfdiffusion|proteinmpnn|design|structure|sequence|residue|loop|scaffold|diffusion|mpnn|fold|validation|filter|rank)",
+      "hooks": [
+        {
+          "type": "command",
+          "command": "python protein_design/hooks/user-onboarding.py",
+          "timeout": 5
+        },
+        {
+          "type": "command",
+          "command": "python protein_design/hooks/session-health-check.py",
+          "timeout": 5
+        },
+        {
+          "type": "command",
+          "command": "python protein_design/hooks/protein-context-inject.py",
+          "timeout": 5
+        },
+        {
+          "type": "command",
+          "command": "python protein_design/hooks/tool-recommender.py",
+          "timeout": 5
+        },
+        {
+          "type": "command",
+          "command": "python protein_design/hooks/auto-parameter-tuner.py",
+          "timeout": 5
+        },
+        {
+          "type": "command",
+          "command": "python protein_design/hooks/batch-orchestrator.py",
+          "timeout": 5
+        },
+        {
+          "type": "command",
+          "command": "python protein_design/hooks/progress-query-helper.py",
+          "timeout": 5
+        },
+        {
+          "type": "command",
+          "command": "python protein_design/hooks/cost-estimator.py",
+          "timeout": 5
+        },
+        {
+          "type": "command",
+          "command": "python protein_design/hooks/parameter-generator.py",
+          "timeout": 5
+        }
+      ]
+    }
+  ],
+  "PreToolUse": [
+    {
+      "matcher": "(?i)(run_pdbfixer|run_rfdiffusion|run_proteinmpnn|run_alphafold|run_filtering|run_boltz|run_chai|run_esmfold|run_omegafold)",
+      "hooks": [
+        {
+          "type": "command",
+          "command": "python protein_design/hooks/alternative-tool-recommender.py",
+          "timeout": 5
+        },
+        {
+          "type": "command",
+          "command": "python protein_design/hooks/execution-adapter.py",
+          "timeout": 5
+        },
+        {
+          "type": "command",
+          "command": "python protein_design/hooks/gpu-check-hook.py",
+          "timeout": 5
+        }
+      ]
+    }
+  ],
+  "PostToolUse": [
+    {
+      "matcher": "(?i)(run_pdbfixer|run_rfdiffusion|run_proteinmpnn|run_alphafold|run_filtering|run_boltz|run_chai|run_esmfold|run_omegafold|batch_runner|job_manager)",
+      "hooks": [
+        {
+          "type": "command",
+          "command": "python protein_design/hooks/design-complete-notify.py",
+          "timeout": 5
+        },
+        {
+          "type": "command",
+          "command": "python protein_design/hooks/design-comparator.py",
+          "timeout": 5
+        },
+        {
+          "type": "command",
+          "command": "python protein_design/hooks/design-report.py",
+          "timeout": 5
+        },
+        {
+          "type": "command",
+          "command": "python protein_design/hooks/error-recovery.py",
+          "timeout": 5
+        },
+        {
+          "type": "command",
+          "command": "python protein_design/hooks/format-converter.py",
+          "timeout": 5
+        },
+        {
+          "type": "command",
+          "command": "python protein_design/hooks/job-monitor.py",
+          "timeout": 5
+        },
+        {
+          "type": "command",
+          "command": "python protein_design/hooks/pipeline-orchestrator.py",
+          "timeout": 5
+        },
+        {
+          "type": "command",
+          "command": "python protein_design/hooks/quality-gate.py",
+          "timeout": 5
+        }
+      ]
+    }
+  ],
+  "Notification": [
+    {
+      "matcher": "task\\.(completed|failed|killed|timeout)",
+      "hooks": [
+        {
+          "type": "command",
+          "command": "python protein_design/hooks/progress-reporter.py",
+          "timeout": 5
+        },
+        {
+          "type": "command",
+          "command": "python protein_design/hooks/background-notify.py",
+          "timeout": 5
+        }
+      ]
+    }
+  ]
+}

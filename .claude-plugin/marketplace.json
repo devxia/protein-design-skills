@@ -1,0 +1,21 @@
+{
+  "name": "protein-design-skills",
+  "version": "0.2.0",
+  "description": "Agent-agnostic protein design pipeline — 76 skills + 24 hooks + 16 scripts for RFdiffusion, ProteinMPNN, AlphaFold3, Boltz-1, Chai-1, and 15+ other tools. Covers backbone generation, sequence design, structure validation, and quality filtering.",
+  "owner": {
+    "name": "devxia"
+  },
+  "plugins": [
+    {
+      "name": "protein-design-skills",
+      "version": "0.2.0",
+      "source": "./",
+      "description": "End-to-end protein design orchestration plugin. Provides skills for 76+ workflows (binder design, antibody design, enzyme design, peptide design, macrocyclic design), hooks for automation (context injection, GPU checks, error recovery, pipeline orchestration), and standalone scripts for direct tool execution.",
+      "author": {
+        "name": "Protein Design Team"
+      },
+      "keywords": ["protein", "protein-design", "alphafold", "proteinmpnn", "rfdiffusion", "bioinformatics", "binder", "antibody", "enzyme"],
+      "category": "science"
+    }
+  ]
+}

@@ -5,58 +5,51 @@ description: Filter and rank protein designs by AlphaFold3 metrics (Stage 4)
 
 # Stage 4: Filtering & Ranking
 
-## When to Trigger
+> **Quick Entry**: Stage 4 | pLDDT/ipTM/pTM filtering | ranking | clash detection
+>
+> **Upstream**: `structure-validation` (AlphaFold3/Boltz-1/Chai-1/OmegaFold/ESMFold/Protenix/OpenFold3) | **Downstream**: (none — final stage)
 
-- User says "filter designs", "rank by quality", "find the best designs"
-- After AlphaFold3 validation: "show me the top 10"
-- User wants to apply quality thresholds: "only keep pLDDT > 80"
+**This skill is the FINAL stage of the pipeline.**
+
+**Quick entry:** If you have validation results (AlphaFold3, Boltz-1, etc.) and need to find the best designs, you are in the right place.
+
+**Typical flow:** `structure-generation` (Stage 1) → `sequence-design` (Stage 2) → `structure-validation` (Stage 3) → **THIS SKILL** (Stage 4)
+
+## When to Use This Skill
+
+- You have validation results and want to rank designs by quality
+- You need to apply thresholds (pLDDT, ipTM, pTM) to filter designs
+- You want to find the top N candidates for experimental validation
+- You need to compare designs across multiple validators
+
+**Cross-validator filtering?** Read `cross-validation` skill for multi-validator consensus ranking.
+
+## Filtering Overview
 
 ## Filtering Overview
 
 The filtering stage evaluates AlphaFold3 confidence metrics and ranks designs by a composite quality score. Designs failing thresholds are excluded; survivors are sorted by quality.
 
-## MCP Tool
+## Standalone Script
 
-```json
-{
-  "tool": "run_filtering",
-  "params": {
-    "designs": [
-      {
-        "name": "design_0",
-        "metrics": {
-          "mean_plddt": 85.2,
-          "iptm": 0.82,
-          "ptm": 0.91,
-          "has_clash": false
-        }
-      },
-      {
-        "name": "design_1",
-        "metrics": {
-          "mean_plddt": 68.5,
-          "iptm": 0.45,
-          "ptm": 0.62,
-          "has_clash": true
-        }
-      }
-    ],
-    "criteria": {
-      "min_plddt": 70,
-      "min_iptm": 0.6,
-      "min_ptm": 0.5,
-      "allow_clashes": false
-    }
-  }
-}
+`run_filtering.py` scans a validation output directory, parses all `confidence.json` files, applies thresholds, and ranks passing designs by a composite score.
+
+```bash
+python scripts/run_filtering.py \
+  --results-dir outputs/validation/ \
+  --min-plddt 70 \
+  --min-iptm 0.6 \
+  --min-ptm 0.5 \
+  --max-pae 10.0 \
+  --top-n 20
 ```
 
 ## Parameters
 
-| Parameter | Required | Default | Description |
-|-----------|----------|---------|-------------|
-| `designs` | ✅ | — | List of design dicts, each with `name` and `metrics` |
-| `criteria.min_plddt` | ❌ | 70 | Minimum mean pLDDT (0–100) |
+| Parameter | CLI Flag | Required | Default | Description |
+|-----------|----------|----------|---------|-------------|
+| `results_dir` | `--results-dir` / `-d` | ✅ | — | Directory containing validation outputs |
+| `criteria.min_plddt` | `--min-plddt` | ❌ | 70 | Minimum mean pLDDT (0–100) |
 | `criteria.min_iptm` | ❌ | 0.6 | Minimum ipTM (0–1) |
 | `criteria.min_ptm` | ❌ | 0.5 | Minimum pTM (0–1) |
 | `criteria.allow_clashes` | ❌ | false | Allow designs with atomic clashes |
@@ -151,11 +144,9 @@ Input: AlphaFold3 results from Stage 3
      ↓
 Collect metrics from each design's confidence JSON
      ↓
-Build designs list
+python scripts/run_filtering.py --results-dir outputs/validation/ [thresholds]
      ↓
-submit_job("filtering", {designs, criteria})
-     ↓
-Return ranked list → User review / iteration
+Ranked list printed / saved → User review / iteration
 ```
 
 ## Iteration Support

@@ -5,15 +5,28 @@ description: Structure prediction and validation with AlphaFold3 and alternative
 
 # Stage 3: Structure Validation (AlphaFold3 + Alternatives)
 
-## When to Trigger
+**This skill is used AFTER sequence design (Stage 2).**
 
-- User says "validate this design", "predict structure", "run AlphaFold"
-- Follow-up to ProteinMPNN: "check if the sequence folds correctly"
-- User wants confidence metrics (pLDDT, pTM, ipTM) for a sequence
-- User requests multimer prediction: "predict complex structure"
-- User requests ligand prediction: "predict with ligand"
-- User requests embedding extraction: "get embeddings"
-- User requests fast/no-MSA prediction
+**Quick entry:** If you have designed sequences and need to predict/check their 3D structures, you are in the right place.
+
+**Typical flow:** `structure-generation` (Stage 1) → `sequence-design` (Stage 2) → **THIS SKILL** (Stage 3) → `filtering-ranking` (Stage 4)
+
+**Alternative validators (no AF3 databases needed):**
+- Fast + no DB: `omegafold-validation`, `esmfold-validation`
+- Commercial license: `boltz-validation` (MIT), `chai1-validation` (Apache 2.0)
+- Multiple validators: `cross-validation`
+
+## When to Use This Skill
+
+- You have sequences from ProteinMPNN and need structure prediction
+- You want pLDDT, pTM, ipTM confidence metrics
+- You need to validate binder-target complexes
+- You want to extract structure embeddings
+- You need no-MSA fast screening
+
+**Not sure which validator to use?** Read `pipeline-selection` for the comparison table.
+
+## AlphaFold3 Overview
 
 ## AlphaFold3 Overview
 
@@ -93,35 +106,42 @@ AlphaFold3 accepts a JSON file. For protein-only designs:
 }
 ```
 
-## MCP Tool
+## Standalone Script
 
-```json
-{
-  "tool": "run_alphafold3",
-  "params": {
-    "json_path": "inputs/design_af3_input.json",
-    "output_dir": "outputs/af3",
-    "model_dir": "/path/to/models",
-    "db_dir": "/path/to/databases",
-    "num_seeds": 1,
-    "num_samples": 5
-  }
-}
+```bash
+python scripts/run_alphafold3.py \
+  --json inputs/design_af3_input.json \
+  --output-dir outputs/af3 \
+  --model-dir /path/to/models \
+  --db-dir /path/to/databases \
+  --num-seeds 1 \
+  --num-samples 5
+```
+
+To skip MSA for faster inference:
+
+```bash
+python scripts/run_alphafold3.py \
+  --json inputs/design_af3_input.json \
+  --output-dir outputs/af3_fast \
+  --run-data-pipeline false \
+  --num-seeds 1 \
+  --num-samples 1
 ```
 
 ## Parameters
 
-| Parameter | Required | Default | Description |
-|-----------|----------|---------|-------------|
-| `json_path` | ✅ | — | Input JSON file path |
-| `output_dir` | ✅ | — | Output directory |
-| `model_dir` | ❌ | `~/models` | Model parameters directory |
-| `db_dir` | ❌ | `~/public_databases` | Genetic databases directory |
-| `num_seeds` | ❌ | 1 | Number of random seeds |
-| `num_samples` | ❌ | 5 | Samples per seed |
-| `run_data_pipeline` | ❌ | true | Run MSA search (slow, CPU-only) |
-| `save_embeddings` | ❌ | false | Save structure embeddings |
-| `save_distogram` | ❌ | false | Save distogram predictions |
+| Parameter | CLI Flag | Required | Default | Description |
+|-----------|----------|----------|---------|-------------|
+| `json_path` | `--json` | ✅ | — | Input JSON file path |
+| `output_dir` | `--output-dir` | ✅ | — | Output directory |
+| `model_dir` | `--model-dir` | ❌ | `~/models` | Model parameters directory |
+| `db_dir` | `--db-dir` | ❌ | `~/public_databases` | Genetic databases directory |
+| `num_seeds` | `--num-seeds` | ❌ | 1 | Number of random seeds |
+| `num_samples` | `--num-samples` | ❌ | 5 | Samples per seed |
+| `run_data_pipeline` | `--run-data-pipeline` | ❌ | true | Run MSA search (slow, CPU-only) |
+| `save_embeddings` | `--save-embeddings` | ❌ | false | Save structure embeddings |
+| `save_distogram` | `--save-distogram` | ❌ | false | Save distogram predictions |
 
 ## Database Setup
 
@@ -129,59 +149,59 @@ AlphaFold3 requires **genetic databases** (~2.6TB) for MSA search. The plugin ha
 
 | Scenario | Behavior |
 |----------|----------|
-| `db_dir` passed explicitly | Uses the provided path |
-| `db_dir` configured via `configure_db_dir` | Uses the configured path |
+| `--db-dir` passed explicitly | Uses the provided path |
+| `db_dir` set in `~/.protein-design/config.yaml` | Uses the configured path |
 | `~/public_databases` exists and looks valid | Auto-detected |
-| No databases found + `run_data_pipeline=true` | Logs warning, MSA may fail |
-| No databases found + `run_data_pipeline=false` | Skips MSA, runs inference only |
+| No databases found + `--run-data-pipeline true` | Logs warning, MSA may fail |
+| No databases found + `--run-data-pipeline false` | Skips MSA, runs inference only |
 
 **To configure databases:**
+
+Edit `~/.protein-design/config.yaml`:
+```yaml
+db_dir: /data/public_databases
 ```
-User: My AlphaFold3 databases are at /data/public_databases
-→ call configure_db_dir(path="/data/public_databases")
-→ Saved to ~/.protein-design/config.yaml
+
+Or set the environment variable:
+```bash
+export PROTEIN_DESIGN_DB_DIR=/data/public_databases
 ```
 
 **To check database status:**
-```
-call check_tool_status(tool_name="alphafold3")
-→ Returns: script found + database detected/present/missing details
+```bash
+python protein_design/hooks/session-health-check.py
+# Or inspect manually:
+ls -d ~/public_databases 2>/dev/null && echo "Found" || echo "Missing"
 ```
 
 ## Format Conversion (Stage 2 → Stage 3)
 
 ProteinMPNN outputs FASTA; AlphaFold3 needs JSON. Use `convert_format`:
 
-```json
-{
-  "tool": "convert_format",
-  "params": {
-    "from_format": "fasta",
-    "to_format": "alphafold3_json",
-    "input_path": "seqs/design_0.fa",
-    "job_name": "design_0",
-    "seed": 1
-  }
-}
+```bash
+python scripts/convert_format.py \
+  --from fasta \
+  --to alphafold3_json \
+  --input seqs/design_0.fa \
+  --job-name design_0 \
+  --seed 1 \
+  --output seqs/design_0_af3_input.json
 ```
 
 ### Multi-Chain Conversion (Binder + Target)
 
 For binder-target complexes, provide the receptor PDB:
 
-```json
-{
-  "tool": "convert_format",
-  "params": {
-    "from_format": "fasta",
-    "to_format": "alphafold3_json",
-    "input_path": "seqs/binder.fa",
-    "job_name": "binder_complex",
-    "seed": 1,
-    "receptor_pdb": "target_fixed.pdb",
-    "receptor_chain": "A"
-  }
-}
+```bash
+python scripts/convert_format.py \
+  --from fasta \
+  --to alphafold3_json \
+  --input seqs/binder.fa \
+  --job-name binder_complex \
+  --seed 1 \
+  --receptor-pdb target_fixed.pdb \
+  --receptor-chain A \
+  --output seqs/binder_complex_af3_input.json
 ```
 
 ## Output Format
@@ -227,13 +247,11 @@ For multi-chain complexes, AlphaFold3 outputs per-chain pLDDT and pTM:
 
 Save structure embeddings for downstream analysis:
 
-```json
-{
-  "tool": "run_alphafold3",
-  "params": {
-    "json_path": "inputs/design.json",
-    "output_dir": "outputs/af3",
-    "save_embeddings": true
+```bash
+python scripts/run_alphafold3.py \
+  --json inputs/design.json \
+  --output-dir outputs/af3 \
+  --save-embeddings
   }
 }
 ```
@@ -247,32 +265,24 @@ Embeddings are saved as NPZ arrays and can be used for:
 
 Save predicted distance distributions:
 
-```json
-{
-  "tool": "run_alphafold3",
-  "params": {
-    "json_path": "inputs/design.json",
-    "output_dir": "outputs/af3",
-    "save_distogram": true
-  }
-}
+```bash
+python scripts/run_alphafold3.py \
+  --json inputs/design.json \
+  --output-dir outputs/af3 \
+  --save-distogram
 ```
 
 ### No-MSA Fast Inference
 
 Skip MSA for rapid screening (less accurate):
 
-```json
-{
-  "tool": "run_alphafold3",
-  "params": {
-    "json_path": "inputs/design.json",
-    "output_dir": "outputs/af3_fast",
-    "run_data_pipeline": false,
-    "num_seeds": 1,
-    "num_samples": 1
-  }
-}
+```bash
+python scripts/run_alphafold3.py \
+  --json inputs/design.json \
+  --output-dir outputs/af3_fast \
+  --run-data-pipeline false \
+  --num-seeds 1 \
+  --num-samples 1
 ```
 
 Useful for:
@@ -286,14 +296,21 @@ Useful for:
 
 Parse existing AlphaFold3 output:
 
-```json
-{
-  "tool": "analyze_alphafold3_results",
-  "params": {
-    "output_dir": "outputs/af3/design_0",
-    "job_name": "design_0"
-  }
-}
+```bash
+# One-shot summary for a single design directory
+python scripts/summarize_outputs.py --output-dir outputs/af3/design_0
+
+# Or parse confidence JSON directly with Python
+python -c "
+import json
+with open('outputs/af3/design_0/design_0_summary_confidences.json') as f:
+    data = json.load(f)
+print('pLDDT:', data.get('plddt'))
+print('pTM:', data.get('ptm'))
+print('ipTM:', data.get('iptm'))
+print('ranking_score:', data.get('ranking_score'))
+print('has_clash:', data.get('has_clash'))
+"
 ```
 
 Returns:
@@ -316,11 +333,11 @@ Returns:
 ```
 Input: FASTA from Stage 2 (ProteinMPNN)
      ↓
-convert_format(fasta → alphafold3_json)
+python scripts/convert_format.py --from fasta --to alphafold3_json ...
      ↓
-submit_job("alphafold3", params)
+python scripts/run_alphafold3.py --json ... --output-dir ...
      ↓
-query_job polling (can take minutes to hours)
+Track progress with python scripts/summarize_outputs.py --output-dir outputs/af3
      ↓
 Parse metrics (pLDDT, ipTM, pTM)
      ↓
@@ -329,11 +346,23 @@ Return: mmCIF + confidence JSON → Stage 4 (filtering)
 
 ## Batch Validation Optimization
 
-For >10 designs, use scheduling (CronCreate or equivalent) instead of blocking polling:
+For >10 designs, avoid blocking the session:
 
-1. Submit all AlphaFold3 jobs (get task_ids)
-2. `scheduling (CronCreate or equivalent)(cron="*/10 * * * *", prompt="Check AF3 batch progress for [task_ids], report completed and pLDDT>80 count")`
-3. When all done, `stop the scheduled check` the timer
+```bash
+# Watch output directory automatically
+python scripts/summarize_outputs.py \
+  --output-dir outputs/af3 \
+  --expected-validations 50 \
+  --watch \
+  --interval 60
+```
+
+Or schedule a periodic check:
+```
+/loop 10m Check AlphaFold3 batch progress in outputs/af3/. Report total completed, count with pLDDT>80 and ipTM>0.75, and any failures.
+```
+
+Stop the loop when the batch is complete.
 
 ## Alternative Validation Tools
 
@@ -362,4 +391,38 @@ For >10 designs, use scheduling (CronCreate or equivalent) instead of blocking p
 - Always check `has_clash` — clashes indicate physically impossible structures
 - Use `save_embeddings` for downstream clustering/analysis
 - For multimer complexes, check per-chain pLDDT for all chains
-- `analyze_alphafold3_results` can parse outputs without re-running
+- `scripts/summarize_outputs.py` can parse outputs without re-running
+
+## AlphaFold3 Not Installed?
+
+You have many alternatives — **no databases required** for any of these:
+
+| Alternative | Install | GPU | Databases | Speed | License |
+|-------------|---------|-----|-----------|-------|---------|
+| ESMFold | `pip install fair-esm` | Optional | None | ~2s/seq | MIT |
+| OmegaFold | `pip install omegafold` | Yes | None | ~5s/seq | MIT |
+| Boltz-1 | `pip install boltz` | Yes | None | ~10s/seq | MIT |
+| Boltz-2 | `pip install boltz` | Yes | None | ~10s/seq | MIT |
+| Chai-1 | See chai-1 docs | Yes | None | ~10s/seq | Apache 2.0 |
+| OpenFold3 | `pip install openfold3` | Yes | None | ~15s/seq | Apache 2.0 |
+| Protenix | See protenix docs | Yes | None | ~15s/seq | MIT |
+
+**Quick start with ESMFold (easiest, CPU-compatible):**
+```bash
+pip install fair-esm
+python scripts/run_esmfold.py --input outputs/seqs/seqs.fa --output-dir outputs/validation/ --verbose
+```
+
+**Quick start with OmegaFold (fast, GPU required):**
+```bash
+pip install omegafold
+python scripts/run_omegafold.py --input outputs/seqs/seqs.fa --output-dir outputs/validation/ --verbose
+```
+
+**Quick start with Boltz-1 (MIT license, good for complexes):**
+```bash
+pip install boltz
+python scripts/run_boltz.py --input outputs/seqs/seqs.fa --output-dir outputs/validation/ --verbose
+```
+
+See `install-guide` skill for full AlphaFold3 installation instructions.

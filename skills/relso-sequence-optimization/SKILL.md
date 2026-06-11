@@ -1,0 +1,198 @@
+---
+name: relso-sequence-optimization
+description: Guide for using ReLSO, an Apache 2.0 transformer-based latent-space optimizer for generating and optimizing protein sequences toward a target property
+---
+
+# ReLSO Sequence Optimization Guide
+
+**ReLSO** (Regularized Latent Space Optimization) is an **Apache 2.0-licensed** method from Yale/Krishnaswamy Lab for generating and optimizing protein sequences. It trains a Transformer autoencoder to produce a smooth, geometry-aware latent space, then performs gradient-based optimization in that latent space to generate sequences with improved properties.
+
+Use ReLSO when you want:
+- **Latent-space optimization** of protein sequences toward a fitness or property goal
+- A **compact generative model** trained jointly with a smooth latent manifold
+- An **Apache 2.0** license for unrestricted academic and commercial use
+- To explore sequence landscapes starting from a known family or dataset
+- A complement to structure-aware inverse-folding tools (ProteinMPNN, PiFold)
+
+---
+
+## What Makes ReLSO Different
+
+| Feature | PRO-LDM | DiMA | ReLSO |
+|---------|---------|------|-------|
+| Approach | Latent diffusion | Diffusion on pLM latents | **Transformer VAE + latent optimization** |
+| Optimization | Diffusion sampling | Diffusion sampling | **Gradient-based latent optimization** |
+| Scale | Fitness-conditional | 35M denoiser | Lightweight transformer |
+| License | MIT | MIT | **Apache 2.0** |
+
+ReLSO is best suited for **fitness-optimization campaigns** where you have a labeled training set (even a small one) and want to generate high-fitness variants by moving in a learned latent space.
+
+---
+
+## Installation (Document-Only — Do Not Install)
+
+```bash
+git clone https://github.com/KrishnaswamyLab/ReLSO-Guided-Generative-Protein-Design-using-Regularized-Transformers.git
+cd ReLSO-Guided-Generative-Protein-Design-using-Regularized-Transformers
+conda create --name relsoenv python=3.9
+conda activate relsoenv
+pip3 install torch torchvision torchaudio
+python -m pip install networkx pytorch-lightning==1.9 wandb scikit-learn pandas matplotlib gdown phate
+pip install -e .
+```
+
+Download pretrained weights:
+
+```bash
+bash download_weights.sh
+# Creates relso_model_weights/ with trained_models/ and model_embeddings/
+```
+
+**Sources:**
+- [GitHub repository](https://github.com/KrishnaswamyLab/ReLSO-Guided-Generative-Protein-Design-using-Regularized-Transformers)
+- [Paper — *Nature Machine Intelligence* 2022](https://www.nature.com/articles/s42256-022-00532-1)
+- [arXiv preprint](https://arxiv.org/abs/2201.09948)
+
+---
+
+## Quickstart: Train a Model
+
+ReLSO ships with several benchmark datasets (`gifford`, `GB1_WU`, `GFP`, `TAPE`).
+
+```bash
+python train_relso.py --data gifford
+```
+
+For CPU-only machines:
+
+```bash
+python train_relso.py --data gifford --cpu
+```
+
+Training jointly optimizes:
+- Sequence reconstruction
+- Latent-space regularization (smooth folding landscape)
+- Optional property predictor head
+
+---
+
+## Quickstart: Optimize Sequences from a Pretrained Model
+
+```bash
+python run_optim.py \
+  --weights relso_model_weights/trained_models/model_state.ckpt \
+  --embeddings relso_model_weights/model_embeddings/train_embeddings.npy \
+  --dataset gifford
+```
+
+Outputs:
+- Optimized sequences sampled from the latent space
+- Latent trajectories showing optimization path
+- Predicted fitness/property scores for generated variants
+
+Save results to FASTA for downstream validation:
+
+```bash
+python scripts/convert_format.py \
+  --from raw --to fasta \
+  --input relso_outputs.txt \
+  --output outputs/relso/optimized_sequences.fa
+```
+
+---
+
+## Pipeline Integration
+
+ReLSO is a **Stage 2 optimization add-on** that can follow backbone generation or act as a sequence-only design stage:
+
+| Stage | Typical Tool | ReLSO Role |
+|-------|--------------|------------|
+| 0 | PDBFixer | Prepare input structures if structure-aware |
+| 1 | RFdiffusion / FrameDiff / TopoDiff | Generate backbones (optional) |
+| 2 | ProteinMPNN / PiFold | Initial sequence design |
+| **2b** | **ReLSO** | **Latent-space optimization of sequences toward target property** |
+| 3 | ESMFold / AlphaFold3 / Boltz-2 | Validate generated variants |
+| 4 | Filtering | Rank by property score + pLDDT |
+
+### Recommended pairings
+- Fitness landscape exploration → ReLSO on GB1/GFP dataset → `esmfold-validation`
+- Combine with PRO-LDM → ensemble of latent diffusion + latent optimization
+- Post-MPNN optimization → seed ReLSO with ProteinMPNN sequences, optimize for predicted fitness
+
+---
+
+## Hardware & Timing
+
+- **GPU recommended** for training and large-scale optimization
+- `train_relso.py --cpu` works but is much slower
+- Pre-training examples in the repo use 1–2 GPUs with PyTorch Lightning
+- Inference/optimization is lightweight and can run on modest GPUs
+
+---
+
+## Interpreting Outputs
+
+| Output | Interpretation |
+|--------|----------------|
+| Optimized sequence | Variant generated by moving in the ReLSO latent space |
+| Latent trajectory | Path taken during gradient-based optimization |
+| Predicted fitness | Property predictor score (higher = better for the trained objective) |
+| Reconstruction confidence | Decoder likelihood of the generated sequence |
+
+Typical filtering workflow:
+
+```bash
+# 1. Run ReLSO optimization
+# 2. Keep top 20% by predicted fitness
+# 3. Fold with ESMFold / AlphaFold3
+# 4. Keep designs with pLDDT ≥ 75 and no obvious steric clashes
+```
+
+---
+
+## Strengths and Limitations
+
+**Strengths:**
+- Apache 2.0 license (very permissive)
+- Smooth latent space enables efficient gradient-based optimization
+- Joint sequence + property predictor training
+- Multiple benchmark datasets included
+- Pretrained weights available for quick start
+
+**Limitations:**
+- Requires a labeled dataset or pretrained checkpoint for the target property
+- Sequence-only: no explicit structural constraint during optimization
+- Property predictor quality limits optimization ceiling
+- Best for local fitness improvement; may struggle with very long proteins
+- Training from scratch can be slower than zero-shot methods
+
+---
+
+## Citation
+
+Rives et al. approach / Notably the ReLSO authors are from Krishnaswamy Lab:
+
+Pei et al., "ReLSO: A Transformer-based Model for Latent Space Optimization and Generation of Proteins," *Nature Machine Intelligence*, 2022.
+
+```bibtex
+@article{pei2022relso,
+  author = {Pei, Jian and others},
+  title = {ReLSO: A Transformer-based Model for Latent Space Optimization and Generation of Proteins},
+  journal = {Nature Machine Intelligence},
+  year = {2022},
+  doi = {10.1038/s42256-022-00532-1}
+}
+```
+
+---
+
+## See Also
+
+- `pro-ldm-workflow` — Fitness-conditional latent diffusion
+- `dima-workflow` — Latent diffusion on pLM representations
+- `progen2-sequence` — Autoregressive PLM generation + zero-shot fitness
+- `pifold-sequence-design` — Fast inverse folding for fixed backbones
+- `esmfold-validation` — Lightweight structure validation
+- `boltz2-validation` — Structure + affinity validation
+- `pipeline-selection` — Choose the right workflow
+- `periodic-summary` — Track optimized sequence outputs

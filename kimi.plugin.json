@@ -1,28 +1,21 @@
 {
   "name": "protein-design-skills",
-  "version": "0.1.0",
-  "description": "Protein design pipeline: RFdiffusion backbone generation, ProteinMPNN sequence design, AlphaFold3 structure validation",
+  "version": "0.2.0",
+  "description": "Protein design pipeline: RFdiffusion backbone generation, ProteinMPNN sequence design, AlphaFold3 structure validation — skills + hooks + scripts",
   "keywords": ["protein", "protein-design", "alphafold", "proteinmpnn", "rfdiffusion", "bioinformatics"],
+  "author": {
+    "name": "Protein Design Team"
+  },
+  "repository": "https://github.com/devxia/protein-design-skills",
+  "license": "MIT",
   "skills": "./skills/",
   "sessionStart": {
     "skill": "protein-design-context"
   },
-  "skillInstructions": "Prioritize using MCP tools to invoke protein design software. All compute tasks must use submit_job for async execution and query_job for polling. Always call get_tool_info before invoking any tool. Never manually construct command lines when MCP tools are available. For long-running batch validation tasks, use scheduling features (CronCreate or equivalent) to check progress periodically rather than blocking the session with continuous polling.",
-  "mcpServers": {
-    "protein-design": {
-      "command": "python",
-      "args": ["-m", "protein_design.server"],
-      "cwd": "./",
-      "env": {
-        "PYTHONPATH": "./",
-        "PROTEIN_DESIGN_OUTPUT_DIR": "/tmp/protein-design",
-        "PROTEIN_DESIGN_MAX_JOBS": "4"
-      }
-    }
-  },
+  "skillInstructions": "This plugin uses Skills + Hooks + Standalone Scripts only. Read SKILL_INDEX.md to find relevant skills. Use scripts/ directory for tool execution: run_pdbfixer.py, run_rfdiffusion.py, run_proteinmpnn.py, run_alphafold3.py, run_filtering.py, convert_format.py, batch_runner.py, job_manager.py. Install hooks for automation: python protein_design/hooks/install-hooks.py. For pipeline selection, read the pipeline-selection skill. For quick start, read the quickstart-guide skill.",
   "interface": {
     "displayName": "Protein Design",
-    "shortDescription": "Protein design pipeline integration",
+    "shortDescription": "Protein design pipeline — skills + hooks + scripts",
     "developerName": "Protein Design Team"
   }
 }

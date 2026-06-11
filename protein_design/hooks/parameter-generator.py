@@ -2,11 +2,7 @@
 """UserPromptSubmit hook: auto-generate optimal parameters for common design scenarios.
 
 Analyzes user prompts for design goals and returns pre-configured parameter
-dicts — eliminating the need for explicit parameter configuration MCP calls.
-
-This hook is the ultimate MCP reducer: instead of the agent making multiple
-get_tool_info + submit_job calls to figure out parameters, this hook returns
-the exact params needed.
+dicts — reducing the need for manual parameter research.
 """
 
 import json
