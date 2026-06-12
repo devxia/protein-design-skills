@@ -6,55 +6,55 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python ${PLUGIN_ROOT}/protein_design/hooks/user-onboarding.py",
+            "command": "python protein_design/hooks/user-onboarding.py",
             "statusMessage": "Protein design: User Onboarding",
             "timeout": 5
           },
           {
             "type": "command",
-            "command": "python ${PLUGIN_ROOT}/protein_design/hooks/session-health-check.py",
+            "command": "python protein_design/hooks/session-health-check.py",
             "statusMessage": "Protein design: Session Health Check",
             "timeout": 5
           },
           {
             "type": "command",
-            "command": "python ${PLUGIN_ROOT}/protein_design/hooks/protein-context-inject.py",
+            "command": "python protein_design/hooks/protein-context-inject.py",
             "statusMessage": "Protein design: Protein Context Inject",
             "timeout": 5
           },
           {
             "type": "command",
-            "command": "python ${PLUGIN_ROOT}/protein_design/hooks/tool-recommender.py",
+            "command": "python protein_design/hooks/tool-recommender.py",
             "statusMessage": "Protein design: Tool Recommender",
             "timeout": 5
           },
           {
             "type": "command",
-            "command": "python ${PLUGIN_ROOT}/protein_design/hooks/auto-parameter-tuner.py",
+            "command": "python protein_design/hooks/auto-parameter-tuner.py",
             "statusMessage": "Protein design: Auto Parameter Tuner",
             "timeout": 5
           },
           {
             "type": "command",
-            "command": "python ${PLUGIN_ROOT}/protein_design/hooks/batch-orchestrator.py",
+            "command": "python protein_design/hooks/batch-orchestrator.py",
             "statusMessage": "Protein design: Batch Orchestrator",
             "timeout": 5
           },
           {
             "type": "command",
-            "command": "python ${PLUGIN_ROOT}/protein_design/hooks/progress-query-helper.py",
+            "command": "python protein_design/hooks/progress-query-helper.py",
             "statusMessage": "Protein design: Progress Query Helper",
             "timeout": 5
           },
           {
             "type": "command",
-            "command": "python ${PLUGIN_ROOT}/protein_design/hooks/cost-estimator.py",
+            "command": "python protein_design/hooks/cost-estimator.py",
             "statusMessage": "Protein design: Cost Estimator",
             "timeout": 5
           },
           {
             "type": "command",
-            "command": "python ${PLUGIN_ROOT}/protein_design/hooks/parameter-generator.py",
+            "command": "python protein_design/hooks/parameter-generator.py",
             "statusMessage": "Protein design: Parameter Generator",
             "timeout": 5
           }
@@ -67,19 +67,19 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python ${PLUGIN_ROOT}/protein_design/hooks/alternative-tool-recommender.py",
+            "command": "python protein_design/hooks/alternative-tool-recommender.py",
             "statusMessage": "Protein design: Alternative Tool Recommender",
             "timeout": 5
           },
           {
             "type": "command",
-            "command": "python ${PLUGIN_ROOT}/protein_design/hooks/execution-adapter.py",
+            "command": "python protein_design/hooks/execution-adapter.py",
             "statusMessage": "Protein design: Execution Adapter",
             "timeout": 5
           },
           {
             "type": "command",
-            "command": "python ${PLUGIN_ROOT}/protein_design/hooks/gpu-check-hook.py",
+            "command": "python protein_design/hooks/gpu-check-hook.py",
             "statusMessage": "Protein design: Gpu Check Hook",
             "timeout": 5
           }
@@ -92,49 +92,49 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python ${PLUGIN_ROOT}/protein_design/hooks/design-complete-notify.py",
+            "command": "python protein_design/hooks/design-complete-notify.py",
             "statusMessage": "Protein design: Design Complete Notify",
             "timeout": 5
           },
           {
             "type": "command",
-            "command": "python ${PLUGIN_ROOT}/protein_design/hooks/design-comparator.py",
+            "command": "python protein_design/hooks/design-comparator.py",
             "statusMessage": "Protein design: Design Comparator",
             "timeout": 5
           },
           {
             "type": "command",
-            "command": "python ${PLUGIN_ROOT}/protein_design/hooks/design-report.py",
+            "command": "python protein_design/hooks/design-report.py",
             "statusMessage": "Protein design: Design Report",
             "timeout": 5
           },
           {
             "type": "command",
-            "command": "python ${PLUGIN_ROOT}/protein_design/hooks/error-recovery.py",
+            "command": "python protein_design/hooks/error-recovery.py",
             "statusMessage": "Protein design: Error Recovery",
             "timeout": 5
           },
           {
             "type": "command",
-            "command": "python ${PLUGIN_ROOT}/protein_design/hooks/format-converter.py",
+            "command": "python protein_design/hooks/format-converter.py",
             "statusMessage": "Protein design: Format Converter",
             "timeout": 5
           },
           {
             "type": "command",
-            "command": "python ${PLUGIN_ROOT}/protein_design/hooks/job-monitor.py",
+            "command": "python protein_design/hooks/job-monitor.py",
             "statusMessage": "Protein design: Job Monitor",
             "timeout": 5
           },
           {
             "type": "command",
-            "command": "python ${PLUGIN_ROOT}/protein_design/hooks/pipeline-orchestrator.py",
+            "command": "python protein_design/hooks/pipeline-orchestrator.py",
             "statusMessage": "Protein design: Pipeline Orchestrator",
             "timeout": 5
           },
           {
             "type": "command",
-            "command": "python ${PLUGIN_ROOT}/protein_design/hooks/quality-gate.py",
+            "command": "python protein_design/hooks/quality-gate.py",
             "statusMessage": "Protein design: Quality Gate",
             "timeout": 5
           }
@@ -147,13 +147,13 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python ${PLUGIN_ROOT}/protein_design/hooks/progress-reporter.py",
+            "command": "python protein_design/hooks/progress-reporter.py",
             "statusMessage": "Protein design: Progress Reporter",
             "timeout": 5
           },
           {
             "type": "command",
-            "command": "python ${PLUGIN_ROOT}/protein_design/hooks/background-notify.py",
+            "command": "python protein_design/hooks/background-notify.py",
             "statusMessage": "Protein design: Background Notify",
             "timeout": 5
           }

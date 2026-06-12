@@ -21,9 +21,28 @@ The plugin works with any coding agent that reads skills and runs Python scripts
 
 | Agent | Setup |
 |-------|-------|
-| **Claude Code** | Install hooks: `python protein_design/hooks/install-hooks.py claude` |
-| **Codex CLI** | Install hooks: `python protein_design/hooks/install-hooks.py codex` |
-| **Kimi Code** | Use `kimi.plugin.json` (included) — `/plugins install` |
+| **Claude Code** | `claude plugin marketplace add devxia/protein-design-skills` then `claude plugin install protein-design-skills@protein-design-skills` |
+| **Codex CLI** | `codex plugin marketplace add devxia/protein-design-skills` then `codex plugin install protein-design-skills` |
+| **Kimi Code** | `/plugins install https://github.com/devxia/protein-design-skills` |
+
+For manual installation, install hooks per agent:
+
+```bash
+# Claude Code
+python protein_design/hooks/install-hooks.py claude
+
+# Codex CLI
+python protein_design/hooks/install-hooks.py codex
+
+# All agents
+python protein_design/hooks/install-hooks.py
+```
+
+You can also install project-local hooks for Claude Code and Codex CLI:
+
+```bash
+python protein_design/hooks/install-hooks.py --local claude codex
+```
 
 ## Install the plugin
 

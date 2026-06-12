@@ -80,14 +80,27 @@ No manual setup needed — hooks fire automatically when you talk about protein 
 
 ## Quick Start
 
-### Option A: Plugin Marketplace (Recommended)
+### Plugin Marketplace (Recommended)
 
+**Claude Code:**
 ```bash
 claude plugin marketplace add devxia/protein-design-skills
 claude plugin install protein-design-skills@protein-design-skills
 ```
 
-### Option B: Manual Install
+**Codex CLI:**
+```bash
+codex plugin marketplace add devxia/protein-design-skills
+codex plugin install protein-design-skills
+```
+
+**Kimi Code:**
+```bash
+/plugins install https://github.com/devxia/protein-design-skills
+/new
+```
+
+### Manual Install
 
 ```bash
 git clone https://github.com/devxia/protein-design-skills.git
@@ -95,7 +108,7 @@ cd protein-design-skills
 pip install -r requirements.txt
 ```
 
-### 2. Install Hooks for Your Agent
+### Install Hooks for Your Agent
 
 The plugin auto-detects your agent. Or install for a specific one:
 
@@ -110,14 +123,22 @@ python protein_design/hooks/install-hooks.py kimi      # Kimi Code
 
 # Install for multiple agents at once
 python protein_design/hooks/install-hooks.py claude codex
+
+# Validate plugin manifests
+python protein_design/hooks/install-hooks.py --validate
 ```
 
 **What gets installed:**
-- **Claude Code**: Hooks registered in `~/.claude/settings.json`
-- **Codex CLI**: Hooks registered in `~/.codex/settings.json`
-- **Kimi Code**: Hooks copied to `~/.kimi-code/hooks/` + config updated
+- **Claude Code**: Hooks registered in `~/.claude/settings.json` (or `.claude/settings.json` with `--local`)
+- **Codex CLI**: Hooks written to `~/.codex/hooks.json` (or `.codex/hooks.json` with `--local`)
+- **Kimi Code**: Hooks registered in `~/.kimi-code/config.toml`
 
-### 3. Verify Installation
+**Project-local installation (no global config):**
+```bash
+python protein_design/hooks/install-hooks.py --local claude codex
+```
+
+### Verify Installation
 
 ```bash
 # Check hooks are registered (Claude Code example)
@@ -127,7 +148,7 @@ cat ~/.claude/settings.json | grep -A 5 "protein"
 # "UserPromptSubmit": [..., "session-health-check.py", ...]
 ```
 
-### 4. Start Designing
+### Start Designing
 
 ```bash
 # Read the entry skill
@@ -137,7 +158,7 @@ cat skills/protein-design-context/SKILL.md
 python scripts/run_rfdiffusion.py --contig "150-150" --num-designs 50
 ```
 
-### 5. Verify Everything Works
+### Verify Everything Works
 
 ```bash
 # Test hook execution (should print onboarding message)
@@ -154,8 +175,8 @@ python scripts/run_rfdiffusion.py --help
 
 | Agent | Config Location | Hook Format | Status |
 |-------|----------------|-------------|--------|
-| **Claude Code** | `~/.claude/settings.json` | JSON | ✅ Fully supported |
-| **Codex CLI** | `~/.codex/settings.json` | JSON | ✅ Fully supported |
+| **Claude Code** | `~/.claude/settings.json` (or `.claude/settings.json` with `--local`) | JSON | ✅ Fully supported |
+| **Codex CLI** | `~/.codex/hooks.json` (or `.codex/hooks.json` with `--local`) | JSON | ✅ Fully supported |
 | **Kimi Code** | `~/.kimi-code/config.toml` | TOML | ✅ Fully supported |
 
 All agents get the same 24 hooks and 79 skills. The plugin auto-detects which agents are installed.

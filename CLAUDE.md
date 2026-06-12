@@ -68,7 +68,14 @@ There is no build step. Dependencies: `biopython>=1.81`, `pyyaml>=6.0`.
 
 ### Claude Code
 
-Skills are auto-discovered from `./skills/`. Install hooks for automation:
+Install via marketplace (recommended):
+
+```bash
+claude plugin marketplace add devxia/protein-design-skills
+claude plugin install protein-design-skills@protein-design-skills
+```
+
+Or install hooks manually for automation:
 
 ```bash
 python protein_design/hooks/install-hooks.py claude
@@ -78,23 +85,35 @@ Hooks are registered in `~/.claude/settings.json` and fire automatically on prot
 
 ### Kimi Code
 
-Uses `kimi.plugin.json` at the project root. Skills + hooks + scripts are the execution method.
+Install via marketplace (recommended):
+
+```bash
+/plugins install https://github.com/devxia/protein-design-skills
+/new
+```
+
+Uses `kimi.plugin.json` at the project root for skills. Hooks are registered in `~/.kimi-code/config.toml` via the installer:
 
 ```bash
 python protein_design/hooks/install-hooks.py kimi
 ```
 
-Hooks are copied to `~/.kimi-code/hooks/` and config is updated in `~/.kimi-code/config.toml`.
-
 ### Codex CLI
 
-Install hooks for context injection and automation:
+Install via marketplace (recommended):
+
+```bash
+codex plugin marketplace add devxia/protein-design-skills
+codex plugin install protein-design-skills
+```
+
+Or install hooks manually for context injection and automation:
 
 ```bash
 python protein_design/hooks/install-hooks.py codex
 ```
 
-Hooks are registered in `~/.codex/settings.json` and fire automatically on protein-related prompts.
+Hooks are written to `~/.codex/hooks.json` (global) or `.codex/hooks.json` (with `--local`) and fire automatically on protein-related prompts.
 
 ### Verify installation
 

@@ -7,6 +7,8 @@ description: Session-start context injection — THE MAIN ENTRANCE for all prote
 
 Welcome to the Protein Design plugin. **This is your starting point.**
 
+> **First-time setup / 首次使用：** If you installed via Kimi Code marketplace, run `python protein_design/hooks/install-hooks.py kimi` once to enable automation hooks. Claude Code and Codex CLI marketplace installs already include hooks.
+
 ## What are you trying to do? Pick a scenario:
 
 | I want to... | Go Here | Skill |

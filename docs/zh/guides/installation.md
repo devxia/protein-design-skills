@@ -21,9 +21,28 @@ source: README.zh.md
 
 | 智能体 | 配置方式 |
 |--------|----------|
-| **Claude Code** | 安装 hooks：`python protein_design/hooks/install-hooks.py claude` |
-| **Codex CLI** | 安装 hooks：`python protein_design/hooks/install-hooks.py codex` |
-| **Kimi Code** | 使用 `kimi.plugin.json`（已提供）— `/plugins install` |
+| **Claude Code** | `claude plugin marketplace add devxia/protein-design-skills`，然后 `claude plugin install protein-design-skills@protein-design-skills` |
+| **Codex CLI** | `codex plugin marketplace add devxia/protein-design-skills`，然后 `codex plugin install protein-design-skills` |
+| **Kimi Code** | `/plugins install https://github.com/devxia/protein-design-skills` |
+
+手动安装时，按智能体安装 hooks：
+
+```bash
+# Claude Code
+python protein_design/hooks/install-hooks.py claude
+
+# Codex CLI
+python protein_design/hooks/install-hooks.py codex
+
+# 所有智能体
+python protein_design/hooks/install-hooks.py
+```
+
+你也可以为 Claude Code 和 Codex CLI 安装项目级本地 hooks：
+
+```bash
+python protein_design/hooks/install-hooks.py --local claude codex
+```
 
 ## 安装插件
 

@@ -45,14 +45,27 @@
 - 显存 >= 8GB 的 CUDA 显卡（推荐 16GB+）
 - Conda（miniconda 或 anaconda）
 
-### 方式 A：插件市场安装（推荐）
+### 插件市场安装（推荐）
 
+**Claude Code：**
 ```bash
 claude plugin marketplace add devxia/protein-design-skills
 claude plugin install protein-design-skills@protein-design-skills
 ```
 
-### 方式 B：手动安装
+**Codex CLI：**
+```bash
+codex plugin marketplace add devxia/protein-design-skills
+codex plugin install protein-design-skills
+```
+
+**Kimi Code：**
+```bash
+/plugins install https://github.com/devxia/protein-design-skills
+/new
+```
+
+### 手动安装
 
 ```bash
 # 克隆插件
@@ -76,12 +89,20 @@ python protein_design/hooks/install-hooks.py kimi      # Kimi Code
 
 # 同时安装到多个智能体
 python protein_design/hooks/install-hooks.py claude codex
+
+# 验证插件清单
+python protein_design/hooks/install-hooks.py --validate
 ```
 
 **安装内容说明：**
-- **Claude Code**: 钩子注册到 `~/.claude/settings.json`
-- **Codex CLI**: 钩子注册到 `~/.codex/settings.json`
-- **Kimi Code**: 钩子复制到 `~/.kimi-code/hooks/` 并更新配置
+- **Claude Code**: 钩子注册到 `~/.claude/settings.json`（或使用 `--local` 注册到 `.claude/settings.json`）
+- **Codex CLI**: 钩子写入 `~/.codex/hooks.json`（或使用 `--local` 写入 `.codex/hooks.json`）
+- **Kimi Code**: 钩子注册到 `~/.kimi-code/config.toml`
+
+**项目级本地安装（不写全局配置）：**
+```bash
+python protein_design/hooks/install-hooks.py --local claude codex
+```
 
 ### 验证安装
 
