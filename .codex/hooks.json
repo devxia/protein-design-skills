@@ -2,7 +2,7 @@
   "hooks": {
     "UserPromptSubmit": [
       {
-        "matcher": "(?i)(protein|pdb|binder|alphafold|rfdiffusion|proteinmpnn|design|structure|sequence|residue|loop|scaffold|diffusion|mpnn|fold|validation|filter|rank)",
+        "matcher": "(?i)\\b(protein|pdb|binder|alphafold|rfdiffusion|proteinmpnn|design|structure|sequence|residue|loop|scaffold|diffusion|mpnn|fold|validation|filter|rank)\\b",
         "hooks": [
           {
             "type": "command",
@@ -63,7 +63,7 @@
     ],
     "PreToolUse": [
       {
-        "matcher": "(?i)(run_pdbfixer|run_rfdiffusion|run_proteinmpnn|run_alphafold|run_filtering|run_boltz|run_chai|run_esmfold|run_omegafold)",
+        "matcher": "(?i)\\b(run_pdbfixer|run_rfdiffusion|run_proteinmpnn|run_alphafold|run_filtering|run_boltz|run_chai|run_esmfold|run_omegafold)\\b",
         "hooks": [
           {
             "type": "command",
@@ -88,7 +88,7 @@
     ],
     "PostToolUse": [
       {
-        "matcher": "(?i)(run_pdbfixer|run_rfdiffusion|run_proteinmpnn|run_alphafold|run_filtering|run_boltz|run_chai|run_esmfold|run_omegafold|batch_runner|job_manager)",
+        "matcher": "(?i)\\b(run_pdbfixer|run_rfdiffusion|run_proteinmpnn|run_alphafold|run_filtering|run_boltz|run_chai|run_esmfold|run_omegafold|batch_runner|job_manager)\\b",
         "hooks": [
           {
             "type": "command",

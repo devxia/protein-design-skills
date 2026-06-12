@@ -86,6 +86,67 @@ HOOK_INSTRUCTIONS = """
 # ── Helpers ──────────────────────────────────────────────────────────────
 
 
+def _escape_toml_string(value: str) -> str:
+    r"""Escape a string for TOML basic-string representation.
+
+    TOML basic strings are surrounded by double quotes and support the
+    following escape sequences:
+      \"  \\  \b  \t  \n  \f  \r  \uXXXX  \UXXXXXXXX
+    """
+    value = value.replace("\\", "\\\\")
+    value = value.replace('"', '\\"')
+    value = value.replace("\b", "\\b")
+    value = value.replace("\t", "\\t")
+    value = value.replace("\n", "\\n")
+    value = value.replace("\f", "\\f")
+    value = value.replace("\r", "\\r")
+    # Escape remaining control characters (U+0000–U+001F).
+    escaped = []
+    for ch in value:
+        code = ord(ch)
+        if code < 0x20:
+            escaped.append(f"\\u{code:04x}")
+        else:
+            escaped.append(ch)
+    return "".join(escaped)
+
+
+def _resolve_hook_script(script_arg: str, project_root: Path) -> Path:
+    """Resolve a hook script argument to an absolute path inside the plugin.
+
+    Args:
+        script_arg: The script path from the hook command (may contain
+                    ${PLUGIN_ROOT} or be relative/absolute).
+        project_root: Project root directory.
+
+    Returns:
+        Absolute, canonical path to the hook script.
+
+    Raises:
+        ValueError: If the script path escapes the allowed hooks directory
+                    or contains shell metacharacters.
+    """
+    # Disallow shell metacharacters / command separators.
+    forbidden = set(";|&$()`\n\r\x00")
+    if any(ch in forbidden for ch in script_arg):
+        raise ValueError(f"Hook script path contains forbidden characters: {script_arg!r}")
+
+    script_arg = script_arg.replace("${PLUGIN_ROOT}", str(project_root))
+    script_path = Path(script_arg)
+    if not script_path.is_absolute():
+        script_path = project_root / script_path
+
+    allowed_dir = (project_root / "protein_design" / "hooks").resolve()
+    resolved = script_path.resolve()
+    try:
+        resolved.relative_to(allowed_dir)
+    except ValueError as exc:
+        raise ValueError(
+            f"Hook script {resolved} is outside allowed directory {allowed_dir}"
+        ) from exc
+    return resolved
+
+
 def _load_hooks_source(project_root: Path) -> dict:
     """Load the canonical hooks definition from hooks/hooks.json."""
     source_path = project_root / HOOKS_SOURCE
@@ -108,6 +169,10 @@ def _rewrite_hook_commands(hooks_config: dict, project_root: Path, absolute: boo
         project_root: Project root directory.
         absolute: If True, use absolute paths to hook scripts.
                   If False, use paths relative to the config file location.
+
+    Raises:
+        ValueError: If a hook command points outside the allowed hooks
+                    directory or contains shell metacharacters.
     """
     config = json.loads(json.dumps(hooks_config))  # deep copy
     plugin_root = str(project_root) if absolute else "."
@@ -128,7 +193,9 @@ def _rewrite_hook_commands(hooks_config: dict, project_root: Path, absolute: boo
                 elif absolute:
                     script_path = str(project_root / script_path)
 
-                hook["command"] = f"{PYTHON} {script_path}"
+                # Validate the resolved path is inside the plugin hooks dir.
+                resolved = _resolve_hook_script(script_path, project_root)
+                hook["command"] = f"{PYTHON} {resolved}"
     return config
 
 
@@ -383,7 +450,10 @@ def _uninstall_codex(config_path: Path) -> bool:
 
 
 def _build_kimi_toml_block(hooks_config: dict) -> str:
-    """Build a TOML config block for Kimi Code hooks."""
+    """Build a TOML config block for Kimi Code hooks.
+
+    Values are escaped for TOML basic-string safety.
+    """
     lines = [f"# {PROTEIN_DESIGN_MARKER} start"]
     for event_name, event_groups in hooks_config.get("hooks", {}).items():
         for group in event_groups:
@@ -392,10 +462,10 @@ def _build_kimi_toml_block(hooks_config: dict) -> str:
                 cmd = hook.get("command", "")
                 timeout = hook.get("timeout", 5)
                 lines.append("[[hooks]]")
-                lines.append(f'event = "{event_name}"')
+                lines.append(f'event = "{_escape_toml_string(event_name)}"')
                 if matcher:
-                    lines.append(f'matcher = "{matcher}"')
-                lines.append(f'command = "{cmd}"')
+                    lines.append(f'matcher = "{_escape_toml_string(matcher)}"')
+                lines.append(f'command = "{_escape_toml_string(cmd)}"')
                 lines.append(f"timeout = {timeout}")
                 lines.append("")
     lines.append(f"# {PROTEIN_DESIGN_MARKER} end")
@@ -667,24 +737,31 @@ def validate_plugin(project_root: Path) -> bool:
                 else:
                     count = _count_protein_hooks(data, flat=False)
                     print(f"  ✅ Valid hooks config ({count} hooks)")
-                    # Verify referenced scripts exist.
+                    # Verify referenced scripts exist and are inside allowed dir.
                     missing_scripts = []
+                    invalid_scripts = []
                     for event_groups in data["hooks"].values():
                         for group in event_groups:
                             for hook in group.get("hooks", []):
                                 cmd = hook.get("command", "")
-                                script = cmd.split()[-1] if cmd else ""
-                                script = script.replace("${PLUGIN_ROOT}", str(project_root))
-                                script_path = Path(script)
-                                if not script_path.is_absolute():
-                                    script_path = project_root / script_path
-                                if not script_path.exists():
-                                    missing_scripts.append(str(script_path))
-                    if missing_scripts:
+                                if not cmd.startswith("python ") and not cmd.startswith(f"{PYTHON} "):
+                                    invalid_scripts.append(cmd)
+                                    continue
+                                script = cmd.split(maxsplit=1)[1] if len(cmd.split(maxsplit=1)) > 1 else ""
+                                try:
+                                    script_path = _resolve_hook_script(script, project_root)
+                                    if not script_path.exists():
+                                        missing_scripts.append(str(script_path))
+                                except ValueError as exc:
+                                    invalid_scripts.append(f"{cmd} ({exc})")
+                    if invalid_scripts:
+                        print(f"  ❌ Invalid hook commands: {invalid_scripts}")
+                        ok = False
+                    elif missing_scripts:
                         print(f"  ❌ Missing hook scripts: {missing_scripts}")
                         ok = False
                     else:
-                        print(f"  ✅ All referenced hook scripts exist")
+                        print(f"  ✅ All referenced hook scripts exist and are inside protein_design/hooks")
             elif "plugin" in label.lower() or label == "Kimi plugin manifest":
                 if "name" not in data:
                     print(f"  ❌ Missing required 'name' field")
