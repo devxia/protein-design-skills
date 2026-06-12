@@ -14,6 +14,14 @@ Complete index of all available skills in the protein design plugin.
 | `quickstart-guide` | Zero-to-first-design in 10 minutes | New users |
 | `next-steps` | What to run next after each stage | After completing a pipeline stage |
 
+## Documentation & Maintenance
+
+| Skill | Purpose | When to Use |
+|-------|---------|-------------|
+| `gen-docs` | Generate and maintain product documentation | After adding/modifying scripts or skills |
+| `sync-changelog` | Sync changelog from git history | Before releases or after meaningful changes |
+| `translate-docs` | Translate and sync bilingual docs | After updating docs in either language |
+
 ## Stage-Specific Skills
 
 ### Stage 0: Preprocessing

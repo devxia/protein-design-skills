@@ -6,38 +6,50 @@
 
 仅使用 Skills + Hooks + 独立脚本。
 
-## 钩子功能（安装后自动生效）
+## 架构
 
-安装钩子后，你的智能体会自动获得以下能力：
+本插件采用**三层架构** — 无需服务器：
 
-| 钩子 | 触发时机 | 功能 |
-|------|---------|------|
-| **user-onboarding** | 首次蛋白质提示 | 欢迎消息 + 工具状态 + 快速开始指南 |
-| **session-health-check** | 蛋白质相关提示 | 检查已安装工具，为缺失工具推荐替代方案 |
-| **tool-recommender** | 设计请求 | 根据场景推荐脚本和参数 |
-| **error-recovery** | 工具执行失败 | 建议修复方案、替代工具、安装命令 |
-| **progress-reporter** | 长时间任务 | ETA 估计、文件计数、进度更新 |
-| **pipeline-orchestrator** | 阶段完成 | 自动检测下一步，建议后续操作 |
-| **quality-gate** | 验证结果 | 基于阈值的通过/失败判定 |
-| **design-report** | 过滤完成 | 自动生成汇总报告和排名 |
-| **gpu-check-hook** | GPU 任务前 | 检查显存，不足时发出警告 |
+| 层 | 说明 | 数量 | 位置 |
+|----|------|------|------|
+| **Skills** | 面向 LLM 的 Markdown 知识 | 79 | `skills/` |
+| **Hooks** | 自动化脚本 | 24 | `protein_design/hooks/` |
+| **Scripts** | 独立执行脚本 | 16 | `scripts/` |
 
-无需手动配置 — 钩子会在你讨论蛋白质设计时自动触发。
+**工作原理：** Skills 教导智能体 → Hooks 自动触发 → Scripts 直接运行工具。
 
 ## 功能特性
 
 - **Stage 0 — 结构预处理**：使用 PDBFixer 自动修复 PDB
-- **Stage 1 — 骨架生成**：RFdiffusion 用于单体、结合物、基序支架及对称寡聚体
-- **Stage 2 — 序列设计**：ProteinMPNN 用于氨基酸序列分配
-- **Stage 3 — 结构验证**：AlphaFold3 / Boltz-1 / Chai-1 / ESMFold / OmegaFold 等
-- **Stage 4 — 过滤与排序**：自动质量过滤及综合评分
+- **Stage 1 — 骨架生成**：RFdiffusion、Chroma、FoldFlow、DiffPepBuilder、RFpeptides 等
+- **Stage 2 — 序列设计**：ProteinMPNN、LigandMPNN、ESM-IF1、EvoDiff
+- **Stage 3 — 结构验证**：AlphaFold3、Boltz-1、Chai-1、OmegaFold、ESMFold、Protenix、OpenFold3
+- **Stage 4 — 过滤与排序**：质量指标、交叉验证共识、评分优先筛选
 - **79 个技能**：覆盖 30+ 设计流水线，从快速筛选到完整验证
-- **24 个钩子**：上下文注入、GPU 安全检查、进度提醒、桌面通知
-- **16 个独立脚本**：直接命令行执行
+- **24 个钩子**：上下文注入、GPU 安全检查、工具推荐、流水线编排、错误恢复
+- **16 个独立脚本**：所有流水线阶段的直接命令行执行
 
-> **注意：** 本插件不捆绑 RFdiffusion、ProteinMPNN、AlphaFold3 等工具。这些是大型机器学习模型（多 GB），必须单独安装。插件提供编排层（Skills + Hooks + Scripts），通过子进程调用这些工具。
+## 15+ 设计流水线
 
-## 安装
+| 流水线 | 阶段 1 | 阶段 2 | 阶段 3 | 适用场景 |
+|--------|--------|--------|--------|----------|
+| **标准** | RFdiffusion | ProteinMPNN | AlphaFold3 | 通用用途 |
+| **快速筛选** | RFdiffusion | ProteinMPNN | ESMFold/OmegaFold | 无需数据库 |
+| **配体感知** | RFdiffusionAA | LigandMPNN | AlphaFold3 | 小分子、辅因子 |
+| **肽段** | DiffPepBuilder | 内置 | AlphaFold3 | 8-30aa 肽段 |
+| **大环肽** | RFpeptides | ProteinMPNN | AlphaFold3/Boltz-1 | 12-18aa 环肽 |
+| **交叉验证** | RFdiffusion | ProteinMPNN | Boltz-1 + Chai-1 + OmegaFold | 最稳健的排名 |
+| **评分优先** | RFdiffusion | ProteinMPNN (score_only) | AlphaFold3 | 预筛选以节省计算 |
+| **Chroma** | Chroma（联合） | — | AlphaFold3 | 全原子、自然语言 |
+| **ColabDesign** | AfDesign | AfDesign | AlphaFold3 | 无本地 GPU |
+| **集成** | RFdiffusion | ProteinMPNN + ESM-IF1 | AlphaFold3 | 最大多样性 |
+| **FoldFlow** | FoldFlow | ProteinMPNN | AlphaFold3 | 快速流匹配 |
+| **OpenFold3** | RFdiffusion | ProteinMPNN | OpenFold3 | pip 安装，AF3 等效 |
+| **Protenix** | RFdiffusion | ProteinMPNN | Protenix | 训练 + 推理扩展 |
+| **抗体** | IgDiff/RFdiffusion | AbMPNN/ProteinMPNN | AlphaFold3 | 抗体、纳米抗体 |
+| **酶** | RFdiffusionAA | LigandMPNN | AlphaFold3 | 活性位点、催化 |
+
+## 快速开始
 
 ### 前置条件
 
@@ -233,6 +245,24 @@ python scripts/project_dashboard.py --output-dir outputs/ \
 | pLDDT | >70 | >80 | >90 |
 | ipTM | >0.6 | >0.8 | >0.9 |
 | pTM | >0.5 | >0.7 | >0.9 |
+
+## 钩子功能（安装后自动生效）
+
+安装钩子后，你的智能体会自动获得以下能力：
+
+| 钩子 | 触发时机 | 功能 |
+|------|---------|------|
+| **user-onboarding** | 首次蛋白质提示 | 欢迎消息 + 工具状态 + 快速开始指南 |
+| **session-health-check** | 蛋白质相关提示 | 检查已安装工具，为缺失工具推荐替代方案 |
+| **tool-recommender** | 设计请求 | 根据场景推荐脚本和参数 |
+| **error-recovery** | 工具执行失败 | 建议修复方案、替代工具、安装命令 |
+| **progress-reporter** | 长时间任务 | ETA 估计、文件计数、进度更新 |
+| **pipeline-orchestrator** | 阶段完成 | 自动检测下一步，建议后续操作 |
+| **quality-gate** | 验证结果 | 基于阈值的通过/失败判定 |
+| **design-report** | 过滤完成 | 自动生成汇总报告和排名 |
+| **gpu-check-hook** | GPU 任务前 | 检查显存，不足时发出警告 |
+
+无需手动配置 — 钩子会在你讨论蛋白质设计时自动触发。
 
 ## 支持的智能体
 

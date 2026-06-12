@@ -11,7 +11,8 @@
 ## 参考
 
 - [API 参考 —— Scripts](api-reference/scripts.md) —— 所有 standalone scripts 及其 CLI 参数
-- [Skills 索引](../skills/SKILL_INDEX.md) —— 60+ 工作流 skills 的完整列表
+- [Skills 索引](../skills/SKILL_INDEX.md) —— 79+ 工作流 skills 的完整列表
+- [文档维护 Skills](../skills/SKILL_INDEX.md#documentation--maintenance) —— 用于维护项目文档的 skills
 
 ## 进阶主题
 

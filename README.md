@@ -4,7 +4,7 @@
 
 An **agent-agnostic** protein design plugin for coding agents (Claude Code, Codex CLI, Kimi Code, and any agent that reads skills). Orchestrates RFdiffusion, ProteinMPNN, AlphaFold3, Boltz-1, Chai-1, and 15+ other tools for end-to-end protein design workflows.
 
-## Architecture: Skills + Hooks + Scripts
+## Architecture
 
 This plugin uses **three layers** — no server needed:
 
@@ -16,18 +16,16 @@ This plugin uses **three layers** — no server needed:
 
 **How it works:** Skills teach the agent → Hooks fire automatically → Scripts run tools directly.
 
-```bash
-# Install hooks (one-time setup)
-python protein_design/hooks/install-hooks.py
+## Features
 
-# Run any pipeline stage directly
-python scripts/run_rfdiffusion.py --contig "150-150" --num-designs 50
-python scripts/run_proteinmpnn.py --pdb-path "design_*.pdb" --out-folder seqs/
-python scripts/run_alphafold3.py --json input.json --output-dir outputs/
-
-# Or chain all stages
-python scripts/batch_runner.py --config pipeline.yaml
-```
+- **Stage 0 — Preprocessing**: PDBFixer repair
+- **Stage 1 — Backbone**: RFdiffusion, Chroma, FoldFlow, DiffPepBuilder, RFpeptides, and more
+- **Stage 2 — Sequence**: ProteinMPNN, LigandMPNN, ESM-IF1, EvoDiff
+- **Stage 3 — Validation**: AlphaFold3, Boltz-1, Chai-1, OmegaFold, ESMFold, Protenix, OpenFold3
+- **Stage 4 — Filtering**: Quality metrics, cross-validation consensus, score-first screening
+- **79 Skills**: Covering 30+ design pipelines from fast screening to full validation
+- **24 Hooks**: Auto-context injection, GPU checks, tool recommendation, pipeline orchestration, error recovery
+- **16 Scripts**: Direct command-line execution for all pipeline stages
 
 ## 15+ Design Pipelines Available
 
@@ -48,35 +46,6 @@ python scripts/batch_runner.py --config pipeline.yaml
 | **Protenix** | RFdiffusion | ProteinMPNN | Protenix | Training + inference scaling |
 | **Antibody** | IgDiff/RFdiffusion | AbMPNN/ProteinMPNN | AlphaFold3 | Antibodies, nanobodies |
 | **Enzyme** | RFdiffusionAA | LigandMPNN | AlphaFold3 | Active sites, catalysis |
-
-## What Hooks Do (After Installation)
-
-Once hooks are installed, your agent automatically gets:
-
-| Hook | Trigger | What It Does |
-|------|---------|--------------|
-| **user-onboarding** | First protein prompt | Welcome message + tool status + quick start guide |
-| **session-health-check** | Protein prompts | Checks installed tools, suggests alternatives for missing ones |
-| **tool-recommender** | Design requests | Recommends scripts and parameters for your scenario |
-| **error-recovery** | Tool failures | Suggests fixes, alternative tools, and install commands |
-| **progress-reporter** | Long jobs | ETA estimation, file counting, progress updates |
-| **pipeline-orchestrator** | Stage completion | Auto-detects next step, suggests what to run |
-| **quality-gate** | Validation results | Pass/fail decisions with thresholds |
-| **design-report** | Filtering complete | Auto-generates summary with rankings |
-| **gpu-check-hook** | Before GPU jobs | Checks VRAM, warns if insufficient |
-
-No manual setup needed — hooks fire automatically when you talk about protein design.
-
-## Features
-
-- **Stage 0 — Preprocessing**: PDBFixer repair
-- **Stage 1 — Backbone**: RFdiffusion, Chroma, FoldFlow, DiffPepBuilder, RFpeptides, and more
-- **Stage 2 — Sequence**: ProteinMPNN, LigandMPNN, ESM-IF1, EvoDiff
-- **Stage 3 — Validation**: AlphaFold3, Boltz-1, Chai-1, OmegaFold, ESMFold, Protenix, OpenFold3
-- **Stage 4 — Filtering**: Quality metrics, cross-validation consensus, score-first screening
-- **Hooks**: Auto-context injection, GPU checks, tool recommendation, pipeline orchestration, error recovery
-- **Job Management**: `scripts/job_manager.py` for background jobs
-- **Batch Runner**: `scripts/batch_runner.py` chains all stages
 
 ## Quick Start
 
@@ -170,6 +139,24 @@ echo "protein design" | python protein_design/hooks/session-health-check.py
 # Test script execution (should show help)
 python scripts/run_rfdiffusion.py --help
 ```
+
+## What Hooks Do (After Installation)
+
+Once hooks are installed, your agent automatically gets:
+
+| Hook | Trigger | What It Does |
+|------|---------|--------------|
+| **user-onboarding** | First protein prompt | Welcome message + tool status + quick start guide |
+| **session-health-check** | Protein prompts | Checks installed tools, suggests alternatives for missing ones |
+| **tool-recommender** | Design requests | Recommends scripts and parameters for your scenario |
+| **error-recovery** | Tool failures | Suggests fixes, alternative tools, and install commands |
+| **progress-reporter** | Long jobs | ETA estimation, file counting, progress updates |
+| **pipeline-orchestrator** | Stage completion | Auto-detects next step, suggests what to run |
+| **quality-gate** | Validation results | Pass/fail decisions with thresholds |
+| **design-report** | Filtering complete | Auto-generates summary with rankings |
+| **gpu-check-hook** | Before GPU jobs | Checks VRAM, warns if insufficient |
+
+No manual setup needed — hooks fire automatically when you talk about protein design.
 
 ## Supported Agents
 
