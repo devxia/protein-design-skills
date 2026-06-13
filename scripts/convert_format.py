@@ -18,66 +18,15 @@ Exit codes:
     3 = Conversion error
 """
 
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from protein_design.utils import read_fasta, write_fasta, fasta_to_alphafold3_json
+
 import argparse
 import csv
 import json
-import sys
-from pathlib import Path
-
-
-def read_fasta(filepath):
-    """Read FASTA file and return list of (id, sequence) tuples."""
-    sequences = []
-    current_id = None
-    current_seq = []
-
-    with open(filepath) as f:
-        for line in f:
-            line = line.strip()
-            if not line:
-                continue
-            if line.startswith(">"):
-                if current_id is not None:
-                    sequences.append((current_id, "".join(current_seq)))
-                current_id = line[1:].split()[0]  # Take first word after >
-                current_seq = []
-            else:
-                current_seq.append(line)
-
-    if current_id is not None:
-        sequences.append((current_id, "".join(current_seq)))
-
-    return sequences
-
-
-def write_fasta(sequences, filepath):
-    """Write sequences to FASTA file."""
-    with open(filepath, "w") as f:
-        for seq_id, seq in sequences:
-            f.write(f">{seq_id}\n")
-            # Wrap at 60 characters
-            for i in range(0, len(seq), 60):
-                f.write(seq[i:i+60] + "\n")
-
-
-def fasta_to_alphafold3_json(sequences, job_name="design", verbose=False):
-    """Convert FASTA sequences to AlphaFold3 JSON input format."""
-    af3_input = {
-        "name": job_name,
-        "sequences": [],
-        "modelSeeds": [1],
-    }
-
-    for i, (seq_id, seq) in enumerate(sequences):
-        chain_id = chr(65 + i) if i < 26 else f"X{i}"
-        af3_input["sequences"].append({
-            "protein": {
-                "id": chain_id,
-                "sequence": seq,
-            }
-        })
-
-    return af3_input
 
 
 def fasta_to_boltz_yaml(sequences, ligands=None, verbose=False):

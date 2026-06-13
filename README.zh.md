@@ -13,8 +13,8 @@
 | 层 | 说明 | 数量 | 位置 |
 |----|------|------|------|
 | **Skills** | 面向 LLM 的 Markdown 知识 | 79 | `skills/` |
-| **Hooks** | 自动化脚本 | 24 | `protein_design/hooks/` |
-| **Scripts** | 独立执行脚本 | 16 | `scripts/` |
+| **Hooks** | 自动化脚本 | 22 | `protein_design/hooks/` |
+| **Scripts** | 独立执行脚本 | 19 | `scripts/` |
 
 **工作原理：** Skills 教导智能体 → Hooks 自动触发 → Scripts 直接运行工具。
 
@@ -26,8 +26,8 @@
 - **Stage 3 — 结构验证**：AlphaFold3、Boltz-1、Chai-1、OmegaFold、ESMFold、Protenix、OpenFold3
 - **Stage 4 — 过滤与排序**：质量指标、交叉验证共识、评分优先筛选
 - **79 个技能**：覆盖 30+ 设计流水线，从快速筛选到完整验证
-- **24 个钩子**：上下文注入、GPU 安全检查、工具推荐、流水线编排、错误恢复
-- **16 个独立脚本**：所有流水线阶段的直接命令行执行
+- **22 个钩子**：上下文注入、GPU 安全检查、工具推荐、流水线编排、错误恢复
+- **19 个独立脚本**：所有流水线阶段的直接命令行执行
 
 ## 15+ 设计流水线
 
@@ -269,10 +269,10 @@ python scripts/project_dashboard.py --output-dir outputs/ \
 | 智能体 | 配置位置 | 钩子格式 | 状态 |
 |--------|---------|---------|------|
 | **Claude Code** | `~/.claude/settings.json` | JSON | ✅ 完全支持 |
-| **Codex CLI** | `~/.codex/settings.json` | JSON | ✅ 完全支持 |
+| **Codex CLI** | `~/.codex/hooks.json` | JSON | ✅ 完全支持 |
 | **Kimi Code** | `~/.kimi-code/config.toml` | TOML | ✅ 完全支持 |
 
-所有智能体都获得相同的 24 个钩子和 79 个技能。插件会自动检测已安装的智能体。
+所有智能体都获得相同的 22 个钩子和 79 个技能（76 个工作流技能 + 3 个项目级文档维护技能）。插件会自动检测已安装的智能体。
 
 ## 系统要求
 
@@ -291,7 +291,7 @@ python scripts/project_dashboard.py --output-dir outputs/ \
 ```bash
 # 检查钩子是否注册成功
 cat ~/.claude/settings.json | grep protein  # Claude Code
-cat ~/.codex/settings.json | grep protein   # Codex CLI
+cat ~/.codex/hooks.json | grep protein   # Codex CLI
 
 # 重新安装钩子（强制覆盖）
 python protein_design/hooks/install-hooks.py claude --force

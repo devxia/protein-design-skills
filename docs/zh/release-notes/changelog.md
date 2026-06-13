@@ -16,7 +16,7 @@
 
 ### 新功能
 
-- **新增 5 个 skills**（共 54 个）：
+- **技能总数扩展至 79 个** —— `skills/` 下 76 个工作流技能，加上 `.agents/skills/` 下 3 个项目级文档维护技能（`gen-docs`、`sync-changelog`、`translate-docs`）。值得关注的新增包括：
   - `rfpeptides-macrocycle` —— RFpeptides 大环环化多肽设计流程
   - `cross-validation` —— 多验证器共识排序（AlphaFold3 + Boltz-1 + Chai-1）
   - `score-first-screening` —— ProteinMPNN `score_only` 预筛选策略
@@ -30,7 +30,6 @@
 - **重写入口 skills**，提升可发现性：
   - `protein-design-context` —— 现提供显式 Main Entrance，含 10 种场景快速匹配表
   - `pipeline-selection` —— 新增 Immediate Match 快速参考表
-- **更新 hooks**：`install-hooks.py` 现支持所有智能体的 `--mcp-free` 标志。生成 `.mcp-free.json` 模板。
 - **重写文档**，从 MCP 中心架构改为 skills-first 架构：
   - `docs/en/guides/installation.md` —— 移除 MCP 配置，添加 hooks 安装
   - `docs/en/guides/pipeline.md` —— 更新架构图，添加 hook 参考表
@@ -39,8 +38,8 @@
 
 ### 架构
 
-- **主要执行方式**：`scripts/` 中的 standalone scripts（12 个脚本）
-- **指导层**：`skills/` 中的 skills（54 个）
+- **主要执行方式**：`scripts/` 中的 standalone scripts（19 个脚本）
+- **指导层**：`skills/` 中的工作流 skills 加上 `.agents/skills/` 中的项目级 skills（共 79 个：76 个工作流 + 3 个文档维护）
 - **自动化层**：`protein_design/hooks/` 中的 hooks（22 个）
 - **已弃用**：所有 MCP 基础设施（本版本中已移除）
 

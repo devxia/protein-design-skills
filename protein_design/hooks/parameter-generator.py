@@ -4,11 +4,11 @@
 Analyzes user prompts for design goals and returns pre-configured parameter
 dicts — reducing the need for manual parameter research.
 """
-
+import traceback
 import json
 import re
-import sys
 from typing import Any
+import sys
 
 
 def _detect_design_params(text: str) -> dict[str, Any]:
@@ -262,9 +262,12 @@ def _detect_design_params(text: str) -> dict[str, Any]:
 def main() -> int:
     """Main entry point."""
     try:
-        user_prompt = sys.stdin.read()
+        text = sys.stdin.read()
+    except KeyboardInterrupt:
+        return 130
     except Exception:
-        user_prompt = ""
+        traceback.print_exc()
+        return 1
 
     if not user_prompt.strip():
         return 0

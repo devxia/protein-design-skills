@@ -7,7 +7,6 @@ Exit codes:
   2 = block execution (stderr explains why)
   other = fail-open (allow execution with warning)
 """
-
 import shutil
 import subprocess
 import sys

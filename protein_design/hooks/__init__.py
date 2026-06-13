@@ -5,3 +5,4 @@ These scripts are meant to be installed by the user into their
 
 Run install-hooks.py to perform the installation automatically.
 """
+

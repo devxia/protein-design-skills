@@ -90,6 +90,24 @@ Selects best designs by quality thresholds.
 - **Input**: Metrics from Stage 3
 - **Output**: Ranked list of passing designs
 
+## Automation Hooks / 自动化钩子
+
+When hooks are installed, the pipeline gets automatic orchestration support:
+
+| Hook | File | Trigger | What it does |
+|------|------|---------|--------------|
+| `pipeline-orchestrator` | `protein_design/hooks/pipeline-orchestrator.py` | Stage completion | Suggests the next stage and command |
+| `progress-reporter` | `protein_design/hooks/progress-reporter.py` | Stage / notification | Reports artifact counts and quality distribution |
+| `quality-gate` | `protein_design/hooks/quality-gate.py` | Validation results | Pass/fail decisions against thresholds |
+| `design-complete-notify` | `protein_design/hooks/design-complete-notify.py` | Stage completion | Notification with summary |
+| `batch-orchestrator` | `protein_design/hooks/batch-orchestrator.py` | Batch job setup | Helps coordinate multi-design batches |
+| `error-recovery` | `protein_design/hooks/error-recovery.py` | Tool failure | Suggests recovery commands |
+
+Install hooks with:
+```bash
+python protein_design/hooks/install-hooks.py
+```
+
 ## Progress Monitoring & Output Summaries
 
 At any point during or after the pipeline, get a live summary of artifacts and quality metrics:
@@ -153,9 +171,9 @@ python scripts/summarize_outputs.py --output-dir outputs/ --expected-backbones 5
 python scripts/run_proteinmpnn.py \
   --pdb-path "outputs/binder_*.pdb" \
   --out-folder outputs/seqs/ \
-  --pdb-path-chains B \
-  --num-seq-per-target 8 \
-  --sampling-temp 0.1
+  --chains B \
+  --num-seq 8 \
+  --temp 0.1
 ```
 
 ### Step 3a: Convert FASTA to AlphaFold3 JSON
@@ -182,13 +200,13 @@ python scripts/run_alphafold3.py \
 >    ```yaml
 >    db_dir: ~/public_databases
 >    ```
-> 3. Or skip MSA (faster, less accurate): pass `--run-data-pipeline false`
+> 3. Or skip MSA (faster, less accurate): pass `--no-msa`
 > 4. Or pass `--db-dir` explicitly in each `run_alphafold3.py` call
 
 ### Step 4: Filter results
 ```bash
 python scripts/run_filtering.py \
-  --results-dir outputs/af3/ \
+  --output-dir outputs/af3/ \
   --min-plddt 75 \
   --min-iptm 0.75
 ```
@@ -225,7 +243,7 @@ Skip MSA for faster inference (moderate accuracy):
 python scripts/run_alphafold3.py \
   --json design.json \
   --output-dir outputs/af3_fast \
-  --run-data-pipeline false \
+  --no-msa \
   --num-seeds 1 \
   --num-samples 1
 ```
@@ -280,4 +298,3 @@ Single-stage failures do not affect completed stages. Results are preserved in t
 
 - Plugin changes require restarting the session
 - Hooks (context injection, GPU check, notifications) are recommended for best experience — run `python protein_design/hooks/install-hooks.py`
-

@@ -124,7 +124,7 @@ To skip MSA for faster inference:
 python scripts/run_alphafold3.py \
   --json inputs/design_af3_input.json \
   --output-dir outputs/af3_fast \
-  --run-data-pipeline false \
+  --no-msa \
   --num-seeds 1 \
   --num-samples 1
 ```
@@ -139,7 +139,7 @@ python scripts/run_alphafold3.py \
 | `db_dir` | `--db-dir` | ❌ | `~/public_databases` | Genetic databases directory |
 | `num_seeds` | `--num-seeds` | ❌ | 1 | Number of random seeds |
 | `num_samples` | `--num-samples` | ❌ | 5 | Samples per seed |
-| `run_data_pipeline` | `--run-data-pipeline` | ❌ | true | Run MSA search (slow, CPU-only) |
+| `no_msa` | `--no-msa` | ❌ | false | Skip MSA search (faster, no databases) |
 | `save_embeddings` | `--save-embeddings` | ❌ | false | Save structure embeddings |
 | `save_distogram` | `--save-distogram` | ❌ | false | Save distogram predictions |
 
@@ -152,8 +152,8 @@ AlphaFold3 requires **genetic databases** (~2.6TB) for MSA search. The plugin ha
 | `--db-dir` passed explicitly | Uses the provided path |
 | `db_dir` set in `~/.protein-design/config.yaml` | Uses the configured path |
 | `~/public_databases` exists and looks valid | Auto-detected |
-| No databases found + `--run-data-pipeline true` | Logs warning, MSA may fail |
-| No databases found + `--run-data-pipeline false` | Skips MSA, runs inference only |
+| No databases found + default run | Logs warning, MSA may fail |
+| No databases found + `--no-msa` | Skips MSA, runs inference only |
 
 **To configure databases:**
 
@@ -280,7 +280,7 @@ Skip MSA for rapid screening (less accurate):
 python scripts/run_alphafold3.py \
   --json inputs/design.json \
   --output-dir outputs/af3_fast \
-  --run-data-pipeline false \
+  --no-msa \
   --num-seeds 1 \
   --num-samples 1
 ```
@@ -422,7 +422,7 @@ python scripts/run_omegafold.py --input outputs/seqs/seqs.fa --output-dir output
 **Quick start with Boltz-1 (MIT license, good for complexes):**
 ```bash
 pip install boltz
-python scripts/run_boltz.py --input outputs/seqs/seqs.fa --output-dir outputs/validation/ --verbose
+python scripts/run_boltz.py --input outputs/seqs/seqs.fa --out-dir outputs/validation/ --verbose
 ```
 
 See `install-guide` skill for full AlphaFold3 installation instructions.

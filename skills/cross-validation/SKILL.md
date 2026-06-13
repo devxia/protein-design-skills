@@ -65,9 +65,9 @@ Run all validators in parallel on the same designs, then aggregate:
 
 # Run all validators in parallel (background jobs)
 nohup python scripts/run_boltz.py --input outputs/seqs.fa --out-dir outputs/boltz/ > logs/boltz.log 2>&1 &
-nohup python scripts/run_chai1.py --input outputs/seqs.fa --out-dir outputs/chai1/ > logs/chai1.log 2>&1 &
-nohup python scripts/run_omegafold.py --input outputs/seqs.fa --out-dir outputs/omegafold/ > logs/omegafold.log 2>&1 &
-nohup python scripts/run_esmfold.py --input outputs/seqs.fa --out-dir outputs/esmfold/ > logs/esmfold.log 2>&1 &
+nohup python scripts/run_chai1.py --input outputs/seqs.fa --output-dir outputs/chai1/ > logs/chai1.log 2>&1 &
+nohup python scripts/run_omegafold.py --input outputs/seqs.fa --output-dir outputs/omegafold/ > logs/omegafold.log 2>&1 &
+nohup python scripts/run_esmfold.py --input outputs/seqs.fa --output-dir outputs/esmfold/ > logs/esmfold.log 2>&1 &
 
 # Wait for all to complete
 wait
@@ -171,7 +171,7 @@ python scripts/run_chai1.py \
 
 # Stage 4: Cross-validation filtering
 python scripts/run_filtering.py \
-    --results-dir outputs/ \
+    --output-dir outputs/ \
     --validators esmfold boltz chai1 \
     --min-plddt 75 --min-agreement 0.7 \
     --top-n 20 --verbose
@@ -186,7 +186,7 @@ For projects requiring permissive licenses (no AlphaFold3):
 # No AlphaFold3, no database downloads needed
 
 python scripts/run_boltz.py --input seqs.fa --out-dir outputs/boltz/
-python scripts/run_chai1.py --input seqs.fa --out-dir outputs/chai1/
+python scripts/run_chai1.py --input seqs.fa --output-dir outputs/chai1/
 python scripts/run_omegafold.py --input seqs.fa --output-dir outputs/omegafold/
 
 # Consensus: design must have pLDDT > 75 on ALL THREE
@@ -202,7 +202,7 @@ For binder designs (requires interface metrics like ipTM):
 # Stage 3: Validate complexes with Boltz-1 + Chai-1 + AlphaFold3
 
 python scripts/run_boltz.py --input seqs.fa --out-dir outputs/boltz/
-python scripts/run_chai1.py --input seqs.fa --out-dir outputs/chai1/
+python scripts/run_chai1.py --input seqs.fa --output-dir outputs/chai1/
 
 # Cross-validate interface metrics
 python -c "

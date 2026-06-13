@@ -4,12 +4,12 @@
 When the session starts or user sends a protein-related message, this hook
 silently checks environment health and injects the results into context.
 """
-
+import traceback
 import json
 import re
 import subprocess
-import sys
 from typing import Any
+import sys
 
 
 def _check_tools() -> dict[str, Any]:
@@ -63,9 +63,12 @@ def _check_disk() -> dict[str, Any]:
 def main() -> int:
     """Main entry point."""
     try:
-        user_prompt = sys.stdin.read()
+        text = sys.stdin.read()
+    except KeyboardInterrupt:
+        return 130
     except Exception:
-        user_prompt = ""
+        traceback.print_exc()
+        return 1
 
     # Only activate for protein design keywords
     protein_keywords = re.compile(

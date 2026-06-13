@@ -5,11 +5,11 @@ When a tool call fails, this hook intercepts the error and provides
 context-aware recovery suggestions — helping users diagnose and fix
 issues without manual debugging.
 """
-
+import traceback
 import json
 import re
-import sys
 from typing import Any
+import sys
 
 
 def _parse_error(error_text: str) -> dict[str, Any]:
@@ -212,8 +212,13 @@ def main() -> int:
     try:
         input_data = sys.stdin.read()
         data = json.loads(input_data) if input_data.strip() else {}
-    except Exception:
+    except json.JSONDecodeError:
         return 0
+    except KeyboardInterrupt:
+        return 130
+    except Exception:
+        traceback.print_exc()
+        return 1
 
     # Only process failed tool calls
     result = data.get("result", {})

@@ -9,40 +9,17 @@ summaries and long-running design campaigns.
 Replaces: periodic query_job polling across multiple tasks.
 """
 
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from protein_design.utils import parse_confidence_json
+
 import argparse
 import json
-import sys
 import time
 from collections import defaultdict
-from pathlib import Path
 from statistics import mean
-
-
-def parse_confidence_json(path: Path) -> dict:
-    """Parse confidence.json from any validation tool."""
-    try:
-        with open(path) as f:
-            data = json.load(f)
-    except Exception:
-        return {}
-
-    metrics: dict[str, float] = {}
-    if isinstance(data, dict):
-        if "confidence" in data and isinstance(data["confidence"], dict):
-            c = data["confidence"]
-            for key in ("plddt", "iptm", "ptm", "pae"):
-                val = c.get(key)
-                if val is not None:
-                    metrics[key] = float(val)
-        for key in ("plddt", "iptm", "ptm", "pae", "mean_plddt"):
-            val = data.get(key)
-            if val is not None and key not in metrics:
-                metrics[key] = float(val)
-        if "plddt" in data and isinstance(data["plddt"], list):
-            plddts = [float(x) for x in data["plddt"] if isinstance(x, (int, float))]
-            if plddts and "plddt" not in metrics:
-                metrics["plddt"] = sum(plddts) / len(plddts)
-    return metrics
 
 
 def quality_bucket(plddt: float) -> str:
@@ -125,7 +102,10 @@ def collect_validation_metrics(stage_dir: Path) -> dict[str, list[float]]:
     """Collect validation metrics from confidence.json files."""
     metrics: dict[str, list[float]] = defaultdict(list)
     for conf_path in stage_dir.rglob("confidence.json"):
-        conf = parse_confidence_json(conf_path)
+        try:
+            conf = parse_confidence_json(conf_path)
+        except Exception:
+            continue
         for key, val in conf.items():
             metrics[key].append(val)
     return dict(metrics)

@@ -8,10 +8,10 @@ in its context.
 Works with any coding agent that supports hook context injection (Claude Code,
 Kimi Code >= 0.6.0, Codex CLI).
 """
-
+import traceback
 import subprocess
-import sys
 from typing import Any
+import sys
 
 
 def check_tool(name: str, command: list[str]) -> str:
@@ -45,8 +45,11 @@ def main() -> int:
     """Main entry point. Reads prompt from stdin, prints context to stdout."""
     try:
         _ = sys.stdin.read()
+    except KeyboardInterrupt:
+        return 130
     except Exception:
-        pass
+        traceback.print_exc()
+        return 1
 
     gpu = get_gpu_info()
     tools = {

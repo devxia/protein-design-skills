@@ -117,8 +117,8 @@ pip install "colabfold[alphafold] @ git+https://github.com/sokrypton/ColabFold.g
 
 ### Usage
 ```bash
-# Predict from FASTA
-ccolabfold_batch input.fasta output_dir/ \
+# Predict from FASTA (native ColabFold CLI)
+colabfold_batch input.fasta output_dir/ \
     --num-models 3 \
     --num-recycle 3 \
     --model-type alphafold2
@@ -130,10 +130,10 @@ Same as standard pipeline, but use ColabFold instead of AlphaFold3:
 
 ```bash
 python scripts/run_colabfold.py \
-  --fasta inputs/designs.fa \
+  --input inputs/designs.fa \
   --output-dir outputs/colabfold \
   --num-models 3 \
-  --num-recycle 3
+  --recycle 3
 ```
 
 ## Stage 3 Alternative 3: AlphaFold3 No-MSA Mode
@@ -144,7 +144,7 @@ If you have AlphaFold3 installed but not the full databases, you can skip the MS
 python scripts/run_alphafold3.py \
   --json inputs/design.json \
   --output-dir outputs/af3 \
-  --run-data-pipeline false \
+  --no-msa \
   --num-seeds 1 \
   --num-samples 5
 ```

@@ -21,7 +21,7 @@ protein-design-skills/
 │   ├── pipeline-selection/       # 从 30+ 设计流程中选择
 │   └── ...                       # 更多专项 skills
 ├── protein_design/
-│   └── hooks/                    # 自动化脚本（24 hooks）
+│   └── hooks/                    # 自动化脚本（22 hooks + install-hooks.py）
 │       ├── install-hooks.py      # 一键安装器
 │       ├── protein-context-inject.py
 │       ├── gpu-check-hook.py

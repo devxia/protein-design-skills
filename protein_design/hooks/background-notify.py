@@ -3,47 +3,14 @@
 
 Supports macOS, Linux, and Windows desktop notifications.
 """
-
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+from protein_design.utils import send_notification
+import traceback
 import json
 import platform
 import subprocess
-import sys
-
-
-def _escape_applescript(s: str) -> str:
-    """Escape special characters for safe AppleScript string interpolation."""
-    return s.replace("\\", "\\\\").replace('"', '\\"')
-
-
-def _escape_powershell(s: str) -> str:
-    """Escape special characters for safe PowerShell string interpolation."""
-    return s.replace('"', '`"').replace("\\", "\\\\")
-
-
-def send_notification(title: str, message: str) -> None:
-    """Send cross-platform desktop notification."""
-    system = platform.system()
-
-    if system == "Darwin":
-        safe_title = _escape_applescript(title)
-        safe_message = _escape_applescript(message)
-        script = f'display notification "{safe_message}" with title "{safe_title}"'
-        subprocess.run(["osascript", "-e", script], capture_output=True, check=False)
-    elif system == "Linux":
-        subprocess.run(
-            ["notify-send", title, message],
-            capture_output=True,
-            check=False,
-        )
-    elif system == "Windows":
-        safe_title = _escape_powershell(title)
-        safe_message = _escape_powershell(message)
-        ps_script = f'Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.MessageBox]::Show("{safe_message}", "{safe_title}")'
-        subprocess.run(
-            ["powershell", "-Command", ps_script],
-            capture_output=True,
-            check=False,
-        )
 
 
 def main() -> int:
@@ -51,8 +18,13 @@ def main() -> int:
     try:
         input_data = sys.stdin.read()
         data = json.loads(input_data) if input_data.strip() else {}
+    except json.JSONDecodeError:
+        return 0
+    except KeyboardInterrupt:
+        return 130
     except Exception:
-        data = {}
+        traceback.print_exc()
+        return 1
 
     event = data.get("event", "")
     task_id = data.get("task_id", "unknown")

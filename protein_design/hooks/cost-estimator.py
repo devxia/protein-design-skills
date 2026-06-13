@@ -4,14 +4,13 @@
 When users describe a design goal, this hook estimates GPU time, memory,
 and cost for different pipeline options — helping them make informed decisions.
 """
-
+import traceback
 import json
 import re
-import sys
 from typing import Any
+import sys
 
 
-# Cost estimates (minutes on A100 80GB, approximate)
 COST_TABLE: dict[str, dict[str, Any]] = {
     "rfdiffusion": {
         "time_per_design": 2,  # minutes
@@ -191,8 +190,11 @@ def main() -> int:
     """Main entry point."""
     try:
         text = sys.stdin.read()
+    except KeyboardInterrupt:
+        return 130
     except Exception:
-        return 0
+        traceback.print_exc()
+        return 1
 
     if not text.strip():
         return 0

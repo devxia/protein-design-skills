@@ -246,7 +246,7 @@ python -m rf2aa.run_inference --config-name protein_sm \
   sm_inputs.B.input_type=sdf
 
 # Stage 4
-python scripts/run_filtering.py --results-dir outputs/rfaa/ --custom-metric pae_inter --threshold 10.0
+python scripts/run_filtering.py --results-dir outputs/rfaa/
 ```
 
 ## Quality Thresholds

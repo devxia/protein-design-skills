@@ -9,6 +9,25 @@ Welcome to the Protein Design plugin. **This is your starting point.**
 
 > **First-time setup / 首次使用：** If you installed via Kimi Code marketplace, run `python protein_design/hooks/install-hooks.py kimi` once to enable automation hooks. Claude Code and Codex CLI marketplace installs already include hooks.
 
+## Automation Hooks / 自动化钩子
+
+When hooks are installed, the following automation hooks fire automatically on protein-related prompts and stage transitions:
+
+| Hook | File | Trigger | What it does |
+|------|------|---------|--------------|
+| `user-onboarding` | `protein_design/hooks/user-onboarding.py` | First protein prompt | Welcome + tool status + quick start |
+| `session-health-check` | `protein_design/hooks/session-health-check.py` | Protein prompts | Check installed tools and suggest alternatives |
+| `protein-context-inject` | `protein_design/hooks/protein-context-inject.py` | Protein prompts | Inject relevant skill context |
+| `tool-recommender` | `protein_design/hooks/tool-recommender.py` | Design requests | Recommend scripts and parameters |
+| `auto-parameter-tuner` | `protein_design/hooks/auto-parameter-tuner.py` | Design requests | Suggest parameter values |
+| `pipeline-orchestrator` | `protein_design/hooks/pipeline-orchestrator.py` | After stage completion | Suggest the next pipeline step |
+| `progress-reporter` | `protein_design/hooks/progress-reporter.py` | Notification events | Report progress after long tasks |
+
+Install or update hooks with:
+```bash
+python protein_design/hooks/install-hooks.py
+```
+
 ## What are you trying to do? Pick a scenario:
 
 | I want to... | Go Here | Skill |

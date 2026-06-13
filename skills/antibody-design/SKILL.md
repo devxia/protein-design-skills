@@ -5,6 +5,14 @@ description: Antibody design workflows including CDR design, humanization, and a
 
 # Antibody Design
 
+## When to use which / 何时用哪个
+
+| Task | Best skill | Why |
+|------|-----------|-----|
+| General antibody workflow (CDR grafting, humanization, affinity maturation) | `antibody-design` | End-to-end overview with RFdiffusion + ProteinMPNN |
+| De novo antibody variable domain / CDR H3 redesign / light chain pairing | `igdiff-antibody` | Specialized SE(3) diffusion for antibodies |
+| Antibody sequence completion / embeddings / residue likelihoods | `ablang-antibody` | Antibody-specific language model |
+
 ## When to Trigger
 
 - User says "antibody", "VHH", "nanobody", "Fab", "scFv", "CDR", "paratope"
@@ -58,7 +66,7 @@ python scripts/run_rfdiffusion.py \
   --contig "[H1-120/0 L1-110]" \
   --output-prefix outputs/antibody/design \
   --num-designs 50 \
-  --diffuser-T 50
+  --diffuser-t 50
 ```
 
 Option B: Design CDRs on fixed framework
@@ -68,7 +76,7 @@ python scripts/run_rfdiffusion.py \
   --contig "[H1-25/0 H10-20/H36-49/0 H10-20/H66-94/0 H10-15/H103-120]" \
   --output-prefix outputs/cdr_redesign/design \
   --num-designs 100 \
-  --diffuser-T 25 \
+  --diffuser-t 25 \
   --partial-T 10
 ```
 
@@ -91,8 +99,8 @@ python experiments/inference_se3_diffusion.py \
 python scripts/run_proteinmpnn.py \
   --pdb-path outputs/antibody/design_0.pdb \
   --out-folder outputs/antibody_seqs \
-  --num-seq-per-target 16 \
-  --sampling-temp 0.1 \
+  --num-seq 16 \
+  --temp 0.1 \
   --fixed-positions framework_positions.jsonl
 ```
 
@@ -126,7 +134,7 @@ python scripts/run_alphafold3.py \
 
 ```bash
 python scripts/run_filtering.py \
-  --results-dir outputs/af3/antibody \
+  --output-dir outputs/af3/antibody \
   --min-iptm 0.75 \
   --min-plddt 75
 ```

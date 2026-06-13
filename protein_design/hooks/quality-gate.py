@@ -5,13 +5,12 @@ After structure prediction completes, this hook checks confidence metrics
 against project-specific thresholds and provides clear pass/fail decisions
 with actionable next steps — reducing manual review overhead.
 """
-
+import traceback
 import json
-import sys
 from typing import Any
+import sys
 
 
-# Quality thresholds by design type
 THRESHOLDS: dict[str, dict[str, float]] = {
     "binder": {
         "min_plddt": 80.0,
@@ -100,8 +99,13 @@ def main() -> int:
     try:
         input_data = sys.stdin.read()
         data = json.loads(input_data) if input_data.strip() else {}
-    except Exception:
+    except json.JSONDecodeError:
         return 0
+    except KeyboardInterrupt:
+        return 130
+    except Exception:
+        traceback.print_exc()
+        return 1
 
     # Only process validation tool completions
     result = data.get("result") or {}

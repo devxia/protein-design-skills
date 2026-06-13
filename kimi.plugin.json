@@ -12,7 +12,7 @@
   "sessionStart": {
     "skill": "protein-design-context"
   },
-  "skillInstructions": "This plugin uses Skills + Hooks + Standalone Scripts only. Read SKILL_INDEX.md to find relevant skills. Use scripts/ directory for tool execution: run_pdbfixer.py, run_rfdiffusion.py, run_proteinmpnn.py, run_alphafold3.py, run_filtering.py, convert_format.py, batch_runner.py, job_manager.py. Install hooks for automation: python protein_design/hooks/install-hooks.py. For pipeline selection, read the pipeline-selection skill. For quick start, read the quickstart-guide skill.",
+  "skillInstructions": "This plugin uses Skills + Hooks + Standalone Scripts only. Read SKILL_INDEX.md to find relevant skills. Use scripts/ directory for tool execution: run_pdbfixer.py, run_rfdiffusion.py, run_proteinmpnn.py, run_alphafold3.py, run_boltz.py, run_chai1.py, run_esmfold.py, run_omegafold.py, run_openfold3.py, run_protenix.py, run_colabfold.py, run_esm_if1.py, run_ligandmpnn.py, run_filtering.py, convert_format.py, batch_runner.py, job_manager.py, summarize_outputs.py, project_dashboard.py. Install hooks for automation: python protein_design/hooks/install-hooks.py. For pipeline selection, read the pipeline-selection skill. For quick start, read the quickstart-guide skill.",
   "interface": {
     "displayName": "Protein Design",
     "shortDescription": "Protein design pipeline — skills + hooks + scripts",

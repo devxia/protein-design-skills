@@ -8,10 +8,9 @@ Priority:
 1. job_manager.py (standalone script)
 2. Direct log/process monitoring (fallback)
 """
-
+import traceback
 import json
 import sys
-from pathlib import Path
 
 
 def _find_job_manager() -> str:
@@ -25,10 +24,15 @@ def _find_job_manager() -> str:
 def main() -> int:
     """Main entry point."""
     try:
-        text = sys.stdin.read()
-        data = json.loads(text) if text.strip() else {}
-    except Exception:
+        input_data = sys.stdin.read()
+        data = json.loads(input_data) if input_data.strip() else {}
+    except json.JSONDecodeError:
         return 0
+    except KeyboardInterrupt:
+        return 130
+    except Exception:
+        traceback.print_exc()
+        return 1
 
     # Only intercept query_job calls
     if data.get("tool") != "query_job":

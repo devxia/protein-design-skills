@@ -4,11 +4,11 @@
 Analyzes user design goals and outputs tailored parameter sets for each pipeline
 stage, reducing trial-and-error in parameter selection.
 """
-
+import traceback
 import json
 import re
-import sys
 from typing import Any
+import sys
 
 
 def _parse_design_goal(text: str) -> dict[str, Any]:
@@ -180,8 +180,11 @@ def main() -> int:
     """Main entry point."""
     try:
         text = sys.stdin.read()
+    except KeyboardInterrupt:
+        return 130
     except Exception:
-        return 0
+        traceback.print_exc()
+        return 1
 
     if not text.strip():
         return 0

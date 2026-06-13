@@ -75,7 +75,7 @@ This adds:
 | Goal | Stage 2 Tool | Command |
 |------|--------------|---------|
 | General sequence design | ProteinMPNN | `python scripts/run_proteinmpnn.py --pdb-path "outputs/backbones/*.pdb" --out-folder outputs/seqs/ --num-seq 8` |
-| Ligand-aware sequences | LigandMPNN | `python scripts/run_ligandmpnn.py --pdb-path ... --out-folder ...` |
+| Ligand-aware sequences | LigandMPNN | `python scripts/run_ligandmpnn.py --pdb_path ... --out_folder ...` |
 | Fitness-conditional optimization | PRO-LDM | `python main.py --mode sample --dataset YOUR_DATASET --dif_sample_label 1 ...` |
 | Partial masking / variant scoring | ESM-IF1 | Follow `esm-if1-design` skill |
 
@@ -102,7 +102,7 @@ python scripts/convert_format.py \
 | Speed | Validator | Command |
 |-------|-----------|---------|
 | Slowest, best accuracy | AlphaFold3 | `python scripts/run_alphafold3.py --json outputs/af3_input.json --output-dir outputs/af3/` |
-| Medium, MIT license, complexes | Boltz-1 | `python scripts/run_boltz.py --input outputs/seqs/seqs.fa --output-dir outputs/boltz/` |
+| Medium, MIT license, complexes | Boltz-1 | `python scripts/run_boltz.py --input outputs/seqs/seqs.fa --out-dir outputs/boltz/` |
 | Medium, Apache 2.0 | Chai-1 | `python scripts/run_chai1.py ...` |
 | Fast, no DB | OmegaFold | `python scripts/run_omegafold.py --input outputs/seqs/seqs.fa --output-dir outputs/omegafold/` |
 | Fastest | ESMFold | `python scripts/run_esmfold.py --input outputs/seqs/seqs.fa --output-dir outputs/esmfold/` |
@@ -115,7 +115,7 @@ python scripts/convert_format.py \
 
 ```bash
 python scripts/run_filtering.py \
-  --results-dir outputs/af3/ \
+  --output-dir outputs/af3/ \
   --min-plddt 75 \
   --min-iptm 0.6 \
   --top-n 10

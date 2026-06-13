@@ -29,11 +29,11 @@ python scripts/run_rfdiffusion.py \
   --contig "[150-150]" \
   --output-prefix outputs/monomer_150/design \
   --num-designs 50 \
-  --diffuser-T 50
+  --diffuser-t 50
 ```
 
-→ ProteinMPNN: `--sampling-temp 0.1 --num-seq-per-target 8`
-→ AlphaFold3: `--num-samples 5 --run-data-pipeline false` (for screening)
+→ ProteinMPNN: `--temp 0.1 --num-seq 8`
+→ AlphaFold3: `--num-samples 5 --no-msa` (for screening)
 → Filtering: `--min-plddt 80 --min-ptm 0.7`
 
 **Expected:** 50 backbones × 8 seqs = 400 sequences → top 5-10 pass filter
@@ -56,10 +56,10 @@ python scripts/run_rfdiffusion.py \
   --hotspot-res A30 A33 A34 A56 \
   --output-prefix outputs/pd-l1_binder/design \
   --num-designs 100 \
-  --diffuser-T 50
+  --diffuser-t 50
 ```
 
-→ ProteinMPNN: `--pdb-path-chains B --sampling-temp 0.1 --num-seq-per-target 8`
+→ ProteinMPNN: `--chains B --temp 0.1 --num-seq 8`
 → convert_format with `--receptor-pdb outputs/pd-l1_fixed.pdb`
 → AlphaFold3: `--num-samples 5`
 → Filtering: `--min-iptm 0.8 --min-plddt 80`
@@ -84,10 +84,10 @@ python scripts/run_rfdiffusion.py \
   --contig "[20-40/A50-60/20-40]" \
   --output-prefix outputs/enzyme_scaffold/design \
   --num-designs 50 \
-  --diffuser-T 50
+  --diffuser-t 50
 ```
 
-→ ProteinMPNN: `--sampling-temp 0.1`, consider `--soluble`
+→ ProteinMPNN: `--temp 0.1`, consider `--soluble`
 → AlphaFold3: standard validation
 → Filtering: `--min-plddt 75 --min-ptm 0.6`
 
@@ -106,10 +106,10 @@ python scripts/run_rfdiffusion.py \
   --cyc-chains b \
   --output-prefix outputs/cyclic_binder/design \
   --num-designs 200 \
-  --diffuser-T 25
+  --diffuser-t 25
 ```
 
-→ ProteinMPNN: `--pdb-path-chains B --sampling-temp 0.1`
+→ ProteinMPNN: `--chains B --temp 0.1`
 → AlphaFold3: standard validation
 → Filtering: `--min-iptm 0.75 --min-plddt 70`
 
@@ -127,14 +127,14 @@ python scripts/run_rfdiffusion.py \
   --partial-T 10 \
   --output-prefix outputs/loop_redesign/design \
   --num-designs 20 \
-  --diffuser-T 25
+  --diffuser-t 25
 ```
 
 → ProteinMPNN: standard parameters
-→ AlphaFold3: `--run-data-pipeline false` (structure already known)
+→ AlphaFold3: `--no-msa` (structure already known)
 → Filtering: compare RMSD to original structure, keep pLDDT > 75
 
-**Tip:** Lower `--diffuser-T` (25) and `--partial-T` (10) for conservative redesign
+**Tip:** Lower `--diffuser-t` (25) and `--partial-T` (10) for conservative redesign
 
 ## Pattern 6: Sequence Inpainting (Variant Library)
 
@@ -147,10 +147,10 @@ python scripts/run_rfdiffusion.py \
   --inpaint-seq "[A30-40/A60-70]" \
   --output-prefix outputs/variant_library/design \
   --num-designs 50 \
-  --diffuser-T 50
+  --diffuser-t 50
 ```
 
-→ ProteinMPNN: `--sampling-temp 0.3 0.5` for maximum diversity
+→ ProteinMPNN: `--temp 0.3 0.5` for maximum diversity
 → AlphaFold3: standard validation
 → Filtering: standard thresholds
 
@@ -167,7 +167,7 @@ python scripts/run_rfdiffusion.py \
   --num-designs 50
 ```
 
-→ ProteinMPNN: `--num-seq-per-target 8` → 400 sequences
+→ ProteinMPNN: `--num-seq 8` → 400 sequences
 → **ESMFold** (not AlphaFold3): predict all 400 in ~1 hour
 → Filter: pLDDT > 75 → ~50 candidates
 → **AlphaFold3** (top 20 only): validate best candidates
@@ -184,7 +184,7 @@ python scripts/run_rfdiffusion.py \
   --symmetry c4 \
   --output-prefix outputs/c4_tetramer/design \
   --num-designs 50 \
-  --diffuser-T 50
+  --diffuser-t 50
 ```
 
 → ProteinMPNN: `tied_positions_jsonl` for symmetric positions
@@ -204,7 +204,7 @@ python scripts/run_rfdiffusion.py \
   --scaffold-dir path/to/tim_barrel_scaffolds \
   --output-prefix outputs/tim_barrel/design \
   --num-designs 50 \
-  --diffuser-T 50
+  --diffuser-t 50
 ```
 
 → ProteinMPNN: standard parameters
@@ -224,7 +224,7 @@ python scripts/run_rfdiffusion.py \
   --checkpoint models/ActiveSite_ckpt.pt \
   --output-prefix outputs/enzyme_scaffold/design \
   --num-designs 100 \
-  --diffuser-T 50
+  --diffuser-t 50
 ```
 
 → ProteinMPNN: standard parameters, consider `--fixed-positions` for catalytic residues
@@ -252,15 +252,15 @@ python scripts/run_rfdiffusion.py \
   --contig "[H95-100/0 10-20/H101-110]" \
   --output-prefix outputs/cdr_design/design \
   --num-designs 50 \
-  --diffuser-T 25 \
+  --diffuser-t 25 \
   --partial-T 10
 ```
 
-→ ProteinMPNN: `--pdb-path-chains "H L" --fixed-positions framework_positions.jsonl`
+→ ProteinMPNN: `--chains "H L" --fixed-positions framework_positions.jsonl`
 → AlphaFold3: validate with antigen present
 → Filtering: `--min-iptm 0.75 --min-plddt 75`
 
-**Tip:** Use partial diffusion with low --diffuser-T for conservative CDR redesign
+**Tip:** Use partial diffusion with low --diffuser-t for conservative CDR redesign
 
 ### Pattern 12: Membrane Protein Design
 
@@ -271,7 +271,7 @@ python scripts/run_rfdiffusion.py \
   --contig "[200-250]" \
   --output-prefix outputs/membrane/design \
   --num-designs 50 \
-  --diffuser-T 50
+  --diffuser-t 50
 ```
 
 → ProteinMPNN: omit `--soluble`, consider `--omit-aas` for charged residues
@@ -289,10 +289,10 @@ python scripts/run_rfdiffusion.py \
   --contig "[50-60/0 10-15/50-60] \
   --output-prefix outputs/multidomain/design \
   --num-designs 30 \
-  --diffuser-T 50
+  --diffuser-t 50
 ```
 
-→ ProteinMPNN: `--num-seq-per-target 8 --sampling-temp 0.1`
+→ ProteinMPNN: `--num-seq 8 --temp 0.1`
 → AlphaFold3: validate full structure
 → Filtering: `--min-plddt 75 --min-ptm 0.6`
 
@@ -315,7 +315,7 @@ python scripts/run_rfdiffusion.py \
   --contig "[A1-50/0 20-30/A71-150]" \
   --output-prefix outputs/ligand_interface/design \
   --num-designs 50 \
-  --diffuser-T 25
+  --diffuser-t 25
 ```
 
 → LigandMPNN: `--model-type ligand_mpnn --use-atom-context`
@@ -341,10 +341,10 @@ python scripts/run_rfdiffusion.py \
   --contig "[A1-30/0 10-20/A31-100]" \
   --output-prefix outputs/dna_interface/design \
   --num-designs 50 \
-  --diffuser-T 25
+  --diffuser-t 25
 ```
 
-→ ProteinMPNN: `--pdb-path-chains A` (fix DNA chains)
+→ ProteinMPNN: `--chains A` (fix DNA chains)
 → AlphaFold3: include DNA in JSON input
 → Filtering: `--min-iptm 0.7`
 

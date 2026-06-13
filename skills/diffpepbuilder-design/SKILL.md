@@ -57,7 +57,8 @@ conda install pyrosetta -c https://conda.pyrosetta.org
 Generate peptide binders for a target protein given binding hotspots:
 
 ```bash
-python scripts/design.py \
+# Run inside the DiffPepBuilder repository
+python DiffPepBuilder/scripts/design.py \
     --target_pdb target.pdb \
     --target_chain A \
     --hotspot_residues "A30 A33 A34" \
@@ -76,7 +77,8 @@ python scripts/design.py \
 Dock a known peptide sequence to a target protein:
 
 ```bash
-python scripts/dock.py \
+# Run inside the DiffPepBuilder repository
+python DiffPepBuilder/scripts/dock.py \
     --target_pdb target.pdb \
     --target_chain A \
     --peptide_sequence "CGVPAIQK" \

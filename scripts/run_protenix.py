@@ -12,51 +12,18 @@ Exit codes:
     4 = Invalid arguments
 """
 
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from protein_design.utils import get_config, log_history
+
 import argparse
 import json
 import os
 import subprocess
-import sys
 import time
 from datetime import datetime
-from pathlib import Path
-
-
-def get_config():
-    """Read protein-design config from YAML or return defaults."""
-    config_paths = [
-        Path.home() / ".protein-design" / "config.yaml",
-        Path.home() / ".kimi-protein-design" / "config.yaml",
-    ]
-    config = {
-        "output_dir": os.environ.get("PROTEIN_DESIGN_OUTPUT_DIR", "/tmp/protein-design"),
-    }
-    for path in config_paths:
-        if path.exists():
-            try:
-                import yaml
-                with open(path) as f:
-                    file_config = yaml.safe_load(f) or {}
-                config.update(file_config)
-            except ImportError:
-                pass
-            break
-    return config
-
-
-def log_history(tool_name, params, runtime, success, output_dir):
-    """Append execution record to history.jsonl for ETA estimation."""
-    history_file = Path.home() / ".protein-design" / "history.jsonl"
-    history_file.parent.mkdir(parents=True, exist_ok=True)
-    record = {
-        "tool": tool_name,
-        "params": params,
-        "runtime": runtime,
-        "success": success,
-        "timestamp": datetime.now().isoformat(),
-    }
-    with open(history_file, "a") as f:
-        f.write(json.dumps(record) + "\n")
 
 
 def find_protenix():
@@ -112,7 +79,7 @@ def find_protenix():
 
 def run_protenix(input_file, out_dir, num_recycling=3, verbose=False):
     """Run Protenix prediction."""
-    config = get_config()
+    config = get_config("protenix")
     protenix_cmd = find_protenix()
 
     if not protenix_cmd:
@@ -130,9 +97,7 @@ def run_protenix(input_file, out_dir, num_recycling=3, verbose=False):
     if protenix_cmd == "python_api":
         # Use Python API wrapper
         script_content = f'''
-import sys
 import json
-from pathlib import Path
 
 # Try importing protenix
 sys.path.insert(0, ".")
@@ -250,14 +215,17 @@ Examples:
 
     # Auto-convert FASTA to JSON if requested
     if args.from_fasta:
-        from scripts.convert_format import sequence_to_alphafold3_json
+        from protein_design.utils import read_fasta, fasta_to_alphafold3_json
+
         out_path = Path(args.output_dir)
         out_path.mkdir(parents=True, exist_ok=True)
         json_file = out_path / "protenix_input.json"
-        sequence_to_alphafold3_json(
-            args.input, str(json_file),
-            job_name="protenix_run", seed=1
+        sequences = read_fasta(args.input)
+        af3_input = fasta_to_alphafold3_json(
+            sequences, job_name="protenix_run"
         )
+        with open(json_file, "w") as f:
+            json.dump(af3_input, f, indent=2)
         input_file = str(json_file)
         if args.verbose:
             print(f"Converted FASTA to JSON: {input_file}")

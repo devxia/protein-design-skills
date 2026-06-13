@@ -11,8 +11,8 @@ This plugin uses **three layers** — no server needed:
 | Layer | What | Count | Location |
 |-------|------|-------|----------|
 | **Skills** | Markdown knowledge for the LLM | 79 | `skills/` |
-| **Hooks** | Automation scripts | 24 | `protein_design/hooks/` |
-| **Scripts** | Standalone execution | 16 | `scripts/` |
+| **Hooks** | Automation scripts | 22 | `protein_design/hooks/` |
+| **Scripts** | Standalone execution | 19 | `scripts/` |
 
 **How it works:** Skills teach the agent → Hooks fire automatically → Scripts run tools directly.
 
@@ -24,8 +24,8 @@ This plugin uses **three layers** — no server needed:
 - **Stage 3 — Validation**: AlphaFold3, Boltz-1, Chai-1, OmegaFold, ESMFold, Protenix, OpenFold3
 - **Stage 4 — Filtering**: Quality metrics, cross-validation consensus, score-first screening
 - **79 Skills**: Covering 30+ design pipelines from fast screening to full validation
-- **24 Hooks**: Auto-context injection, GPU checks, tool recommendation, pipeline orchestration, error recovery
-- **16 Scripts**: Direct command-line execution for all pipeline stages
+- **22 Hooks**: Auto-context injection, GPU checks, tool recommendation, pipeline orchestration, error recovery
+- **19 Scripts**: Direct command-line execution for all pipeline stages
 
 ## 15+ Design Pipelines Available
 
@@ -127,6 +127,30 @@ cat skills/protein-design-context/SKILL.md
 python scripts/run_rfdiffusion.py --contig "150-150" --num-designs 50
 ```
 
+### Batch Pipeline
+
+Run the full 5-stage pipeline from a YAML config:
+
+```bash
+# Create pipeline config
+cat > pipeline.yaml << 'EOF'
+stages:
+  - name: "Stage 0: PDBFixer"
+    command: [python, scripts/run_pdbfixer.py, --input, target.pdb, --output, outputs/fixed.pdb]
+  - name: "Stage 1: RFdiffusion"
+    command: [python, scripts/run_rfdiffusion.py, --input-pdb, outputs/fixed.pdb, --contig, "[150-150]", --num-designs, "50"]
+  - name: "Stage 2: ProteinMPNN"
+    command: [python, scripts/run_proteinmpnn.py, --pdb-path, "outputs/design_*.pdb", --out-folder, outputs/seqs/, --num-seq, "8"]
+  - name: "Stage 3: OmegaFold"
+    command: [python, scripts/run_omegafold.py, --input, outputs/seqs/seqs.fa, --output-dir, outputs/validation/]
+  - name: "Stage 4: Filtering"
+    command: [python, scripts/run_filtering.py, --results-dir, outputs/validation/, --min-plddt, "75", --top-n, "10"]
+EOF
+
+# Run the whole pipeline
+python scripts/batch_runner.py --config pipeline.yaml
+```
+
 ### Verify Everything Works
 
 ```bash
@@ -166,14 +190,18 @@ No manual setup needed — hooks fire automatically when you talk about protein 
 | **Codex CLI** | `~/.codex/hooks.json` (or `.codex/hooks.json` with `--local`) | JSON | ✅ Fully supported |
 | **Kimi Code** | `~/.kimi-code/config.toml` | TOML | ✅ Fully supported |
 
-All agents get the same 24 hooks and 79 skills. The plugin auto-detects which agents are installed.
+All agents get the same 22 hooks and 79 skills (76 workflow skills + 3 project-level doc-maintenance skills). The plugin auto-detects which agents are installed.
 
 ## System Requirements
 
-- Python >= 3.9
-- CUDA-capable GPU with >= 16GB VRAM (recommended)
-- Conda (miniconda or anaconda)
-- Separately installed: RFdiffusion, ProteinMPNN, AlphaFold3, PDBFixer + OpenMM
+| Component | Minimum | Recommended |
+|-----------|---------|-------------|
+| GPU | NVIDIA 8GB VRAM | NVIDIA A100/V100 16GB+ |
+| CPU | 8 cores | 16+ cores |
+| RAM | 32GB | 64GB+ |
+| Disk | 100GB | 3TB (with databases) |
+| OS | Linux | Linux (Ubuntu 20.04+) |
+| Python | 3.9 | 3.10+ |
 
 > **Note:** This plugin does not bundle ML models. It provides the orchestration layer (skills + hooks + scripts) that calls your installed tools.
 
@@ -187,6 +215,24 @@ export ALPHAFOLD_PATH="~/alphafold3"
 
 # Or use config file
 cat ~/.protein-design/config.yaml
+```
+
+## Progress Tracking
+
+Monitor a running campaign without blocking the session:
+
+```bash
+# One-shot summary
+python scripts/summarize_outputs.py --output-dir outputs/
+
+# Live dashboard (refreshes every 30 seconds)
+python scripts/summarize_outputs.py --output-dir outputs/ --watch
+
+# Project-wide dashboard with expected counts
+python scripts/project_dashboard.py --output-dir outputs/ \
+  --expected-backbones 50 \
+  --expected-sequences 400 \
+  --expected-validations 50
 ```
 
 ## Documentation
@@ -215,7 +261,7 @@ cat ~/.protein-design/config.yaml
 ```bash
 # Check if hooks are registered
 cat ~/.claude/settings.json | grep protein  # Claude Code
-cat ~/.codex/settings.json | grep protein   # Codex CLI
+cat ~/.codex/hooks.json | grep protein   # Codex CLI
 
 # Re-install hooks (force overwrite)
 python protein_design/hooks/install-hooks.py claude --force

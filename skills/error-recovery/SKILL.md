@@ -9,6 +9,19 @@ description: Recover from failed protein design pipeline jobs and common errors 
 
 ---
 
+## Automation Hooks / 自动化钩子
+
+When hooks are installed, failure recovery is assisted automatically by:
+
+| Hook | File | Trigger | What it does |
+|------|------|---------|--------------|
+| `error-recovery` | `protein_design/hooks/error-recovery.py` | Tool failure | Suggest fixes, alternatives, and install commands |
+| `alternative-tool-recommender` | `protein_design/hooks/alternative-tool-recommender.py` | Before tool use | Recommend alternative tools if the current one may fail |
+| `gpu-check-hook` | `protein_design/hooks/gpu-check-hook.py` | Before GPU jobs | Warn if VRAM is insufficient |
+| `session-health-check` | `protein_design/hooks/session-health-check.py` | Protein prompts | Check tool status before you start |
+
+---
+
 ## Quick Recovery Checklist
 
 When a stage fails, run through this checklist in order:
@@ -43,7 +56,7 @@ python scripts/run_omegafold.py --subbatch-size 1
 python scripts/run_rfdiffusion.py --contig "100-100"  # was 300-300
 
 # Use CPU fallback for small validations
-python scripts/run_omegafold.py --cpu
+python scripts/run_omegafold.py
 ```
 
 ---
@@ -59,7 +72,7 @@ conda run: environment RFdiffusion not found
 **Fixes:**
 ```bash
 # Register the tool path
-python scripts/run_rfdiffusion.py --configure
+python scripts/run_rfdiffusion.py
 
 # Or set environment variable
 export RFDIFFUSION_PATH=/path/to/RFdiffusion
@@ -132,10 +145,10 @@ See `structure-generation` skill for contig syntax.
 python scripts/run_alphafold3.py --json remaining.json --output-dir outputs/af3/
 
 # Use local MSA instead of remote
-python scripts/run_alphafold3.py --msa-mode local
+python scripts/run_alphafold3.py
 
 # Switch to faster validator temporarily
-python scripts/run_boltz.py --input remaining.fasta --output-dir outputs/boltz/
+python scripts/run_boltz.py --input remaining.fasta --out-dir outputs/boltz/
 ```
 
 ---
@@ -179,7 +192,7 @@ python scripts/job_manager.py cancel <job_id>
 | 1. RFdiffusion | OOM | Reduce `--num-designs` or contig length |
 | 1. RFdiffusion3 | Missing checkpoint | `foundry install rfd3` |
 | 2. ProteinMPNN | Too many sequences | Split FASTA and run batches |
-| 3. AlphaFold3 | MSA timeout | Use `--msa-mode local` or switch to Boltz-1 |
+| 3. AlphaFold3 | MSA timeout | Use `--no-msa` or switch to Boltz-1 |
 | 3. Boltz-1 | Model download fails | Re-run with internet, check `~/.boltz` |
 | 4. Filtering | Empty results | Lower `--min-plddt` threshold |
 

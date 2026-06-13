@@ -1,0 +1,18 @@
+# 5-stage binder design pipeline using Boltz-1 for interface validation.
+# Run with: python scripts/batch_runner.py --config examples/binder_pipeline.yaml
+
+stages:
+  - name: "Stage 0: PDBFixer"
+    command: [python, scripts/run_pdbfixer.py, --input, target.pdb, --output, outputs/fixed.pdb, --verbose]
+
+  - name: "Stage 1: RFdiffusion binder"
+    command: [python, scripts/run_rfdiffusion.py, --input-pdb, outputs/fixed.pdb, --contig, "[B1-100/0 100-100]", --hotspot-res, A30,A33,A34, --num-designs, "50", --output-prefix, outputs/binder, --verbose]
+
+  - name: "Stage 2: ProteinMPNN"
+    command: [python, scripts/run_proteinmpnn.py, --pdb-path, "outputs/binder_*.pdb", --out-folder, outputs/seqs/, --chains, B, --num-seq, "8", --verbose]
+
+  - name: "Stage 3: Boltz-1"
+    command: [python, scripts/run_boltz.py, --input, outputs/seqs/seqs.fa, --out-dir, outputs/boltz/, --verbose]
+
+  - name: "Stage 4: Filtering"
+    command: [python, scripts/run_filtering.py, --results-dir, outputs/boltz/, --min-plddt, "75", --min-iptm, "0.75", --top-n, "10", --verbose]

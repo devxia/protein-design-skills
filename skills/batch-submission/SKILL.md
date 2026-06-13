@@ -30,7 +30,7 @@ for design_json in outputs/seqs/*_af3_input.json; do
     -- python scripts/run_alphafold3.py \
       --json "$design_json" \
       --output-dir "outputs/af3/$(basename "$design_json" .json)" \
-      --run-data-pipeline false
+      --no-msa
 done
 ```
 
@@ -73,7 +73,7 @@ for i in $(seq 1 50); do
     -- python scripts/run_alphafold3.py \
       --json "inputs/design_${i}.json" \
       --output-dir "outputs/af3/design_${i}" \
-      --run-data-pipeline false
+      --no-msa
 done
 ```
 
@@ -83,13 +83,13 @@ done
 # Schedule a summary every 10 minutes (example cron expression)
 # Using Claude Code CronCreate or your system cron
 */10 * * * * cd /path/to/protein-design-skills && \
-  python scripts/summarize_outputs.py --results-dir outputs/af3/ --expected 50
+  python scripts/summarize_outputs.py --output-dir outputs/af3/ --expected-validations 50
 ```
 
 Or from inside Claude Code, use `/schedule` or `CronCreate` to run:
 
 ```
-python scripts/summarize_outputs.py --results-dir outputs/af3/ --expected 50 --json
+python scripts/summarize_outputs.py --output-dir outputs/af3/ --expected-validations 50 --json
 ```
 
 ### When all complete, stop the schedule
@@ -123,7 +123,7 @@ done
 ```bash
 # Collect all ESMFold results
 python scripts/run_filtering.py \
-  --results-dir outputs/esm/ \
+  --output-dir outputs/esm/ \
   --min-plddt 75 \
   --top-n 20 \
   --output outputs/esm_top20.json
@@ -140,7 +140,7 @@ for design in $(cat outputs/esm_top20.json | jq -r '.filtered_designs[].name'); 
     -- python scripts/run_alphafold3.py \
       --json "inputs/${design}.json" \
       --output-dir "outputs/af3/${design}" \
-      --run-data-pipeline true  # Full accuracy
+      --num-seeds 1 --num-samples 5  # Full accuracy
 done
 ```
 
@@ -200,17 +200,17 @@ done
 
 ```bash
 # Collect all results including failures
-python scripts/job_manager.py list --json > outputs/job_status.json
+python scripts/job_manager.py list > outputs/job_status.json
 
 # Inspect failures
-python scripts/summarize_outputs.py --results-dir outputs/af3/ --json | \
+python scripts/summarize_outputs.py --output-dir outputs/af3/ --json | \
   jq '.failures[] | {name, error}'
 ```
 
 ## Tips
 
 - Always use `scripts/job_manager.py list` instead of checking individual job files
-- Set `--run-data-pipeline false` for initial screening, `true` for final validation
+- Set `--no-msa` for initial screening, `true` for final validation
 - Use `PROTEIN_DESIGN_MAX_JOBS` env var to control parallelism
 - Failed jobs don't affect other jobs in the batch
 - Job outputs are preserved even if the session closes

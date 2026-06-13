@@ -93,7 +93,7 @@ python scripts/run_omegafold.py \
 
 # Filter top designs
 python scripts/run_filtering.py \
-    --results-dir outputs/monomer/validation/ \
+    --output-dir outputs/monomer/validation/ \
     --min-plddt 75 \
     --top-n 5 \
     --verbose

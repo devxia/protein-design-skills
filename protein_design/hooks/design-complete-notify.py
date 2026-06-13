@@ -4,47 +4,14 @@
 Triggered after tool execution completes.
 Supports macOS (osascript), Linux (notify-send), and Windows (powershell).
 """
-
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+from protein_design.utils import send_notification
+import traceback
 import json
 import platform
 import subprocess
-import sys
-
-
-def _escape_applescript(s: str) -> str:
-    """Escape special characters for safe AppleScript string interpolation."""
-    return s.replace("\\", "\\\\").replace('"', '\\"')
-
-
-def _escape_powershell(s: str) -> str:
-    """Escape special characters for safe PowerShell string interpolation."""
-    return s.replace('"', '`"').replace("\\", "\\\\")
-
-
-def send_notification(title: str, message: str) -> None:
-    """Send cross-platform desktop notification."""
-    system = platform.system()
-
-    if system == "Darwin":
-        safe_title = _escape_applescript(title)
-        safe_message = _escape_applescript(message)
-        script = f'display notification "{safe_message}" with title "{safe_title}"'
-        subprocess.run(["osascript", "-e", script], capture_output=True, check=False)
-    elif system == "Linux":
-        subprocess.run(
-            ["notify-send", title, message],
-            capture_output=True,
-            check=False,
-        )
-    elif system == "Windows":
-        safe_title = _escape_powershell(title)
-        safe_message = _escape_powershell(message)
-        ps_script = f'Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.MessageBox]::Show("{safe_message}", "{safe_title}")'
-        subprocess.run(
-            ["powershell", "-Command", ps_script],
-            capture_output=True,
-            check=False,
-        )
 
 
 def extract_metrics(result_text: str) -> dict:
@@ -66,8 +33,13 @@ def main() -> int:
     try:
         input_data = sys.stdin.read()
         data = json.loads(input_data) if input_data.strip() else {}
+    except json.JSONDecodeError:
+        return 0
+    except KeyboardInterrupt:
+        return 130
     except Exception:
-        data = {}
+        traceback.print_exc()
+        return 1
 
     # Check if this is a query_job response with completed status
     result = data.get("result") or {}
@@ -75,8 +47,13 @@ def main() -> int:
     result_text = content[0].get("text", "") if content else ""
     try:
         result_json = json.loads(result_text)
-    except Exception:
+    except json.JSONDecodeError:
         return 0
+    except KeyboardInterrupt:
+        return 130
+    except Exception:
+        traceback.print_exc()
+        return 1
 
     status = result_json.get("status", "")
     if status != "completed":

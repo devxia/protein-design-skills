@@ -56,7 +56,7 @@ python scripts/run_rfdiffusion.py \
   --output-prefix outputs/design \
   --contig "[150-150]" \
   --num-designs 10 \
-  --diffuser-T 50
+  --diffuser-t 50
 ```
 
 For motif/binder/partial designs, provide `--input-pdb`:
@@ -68,7 +68,7 @@ python scripts/run_rfdiffusion.py \
   --contig "[B1-100/0 100-100]" \
   --num-designs 50 \
   --hotspot-res A30 A33 A34 \
-  --diffuser-T 50
+  --diffuser-t 50
 ```
 
 ## Basic Parameters
@@ -81,7 +81,7 @@ python scripts/run_rfdiffusion.py \
 | `input_pdb` | `--input-pdb` | ❌ | — | Required for motif/binder/partial |
 | `hotspot_res` | `--hotspot-res` | ❌ | — | Hotspot residues (binder design) |
 | `symmetry` | `--symmetry` | ❌ | — | `c2`, `d2`, `tetrahedral`, `octahedral`, `icosahedral` |
-| `diffuser_T` | `--diffuser-T` | ❌ | 50 | Diffusion timesteps (lower=faster) |
+| `diffuser_T` | `--diffuser-t` | ❌ | 50 | Diffusion timesteps (lower=faster) |
 | `ckpt_override_path` | `--checkpoint` | ❌ | — | Custom model checkpoint |
 | `skip_preprocessing` | `--skip-preprocessing` | ❌ | false | Skip auto PDBFixer |
 | `keep_chains` | `--keep-chains` | ❌ | — | Chains to keep in preprocessing |
@@ -142,7 +142,7 @@ python scripts/run_rfdiffusion.py \
   --contig "[A1-50/0 10-20/A71-150]" \
   --output-prefix outputs/partial \
   --num-designs 5 \
-  --diffuser-T 25
+  --diffuser-t 25
 ```
 
 ## Advanced Design Patterns
@@ -307,22 +307,23 @@ Based on the RFdiffusion GitHub documentation, these parameters can improve qual
 
 ```bash
 # Fast screening (lower quality, much faster)
-conda run -n SE3nv python scripts/run_inference.py \
-    'contigmap.contigs=[150-150]' \
-    inference.output_prefix=outputs/fast \
-    inference.num_designs=100 \
-    diffuser.T=25 \
-    inference.final_step=20
+python scripts/run_rfdiffusion.py \
+    --contig "150-150" \
+    --num-designs 100 \
+    --diffuser-t 25 \
+    --output-prefix outputs/fast \
+    --verbose
 
 # High quality (slower, better structures)
-conda run -n SE3nv python scripts/run_inference.py \
-    'contigmap.contigs=[150-150]' \
-    inference.output_prefix=outputs/highq \
-    inference.num_designs=10 \
-    diffuser.T=50 \
-    denoiser.noise_scale_ca=0.5 \
-    denoiser.noise_scale_frame=0.5
+python scripts/run_rfdiffusion.py \
+    --contig "150-150" \
+    --num-designs 10 \
+    --diffuser-t 50 \
+    --output-prefix outputs/highq \
+    --verbose
 ```
+
+> **Direct RFdiffusion tuning:** For finer control, invoke `RFdiffusion/scripts/run_inference.py` directly with Hydra overrides such as `inference.final_step=20`, `denoiser.noise_scale_ca=0.5`, and `denoiser.noise_scale_frame=0.5`.
 
 ## Key Tips
 

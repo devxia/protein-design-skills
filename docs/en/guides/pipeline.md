@@ -21,7 +21,7 @@ protein-design-skills/
 │   ├── pipeline-selection/       # Choose from 30+ design pipelines
 │   └── ...                       # Additional specialized skills
 ├── protein_design/
-│   └── hooks/                    # Automation scripts (24 hooks)
+│   └── hooks/                    # Automation scripts (22 hooks + install-hooks.py)
 │       ├── install-hooks.py      # One-click installer
 │       ├── protein-context-inject.py
 │       ├── gpu-check-hook.py

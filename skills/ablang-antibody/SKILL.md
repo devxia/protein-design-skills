@@ -5,6 +5,16 @@ description: Antibody sequence analysis and completion with AbLang — antibody-
 
 # Antibody Sequence Analysis: AbLang
 
+## When to use which / 何时用哪个
+
+| Task | Use this skill | Alternative |
+|------|---------------|-------------|
+| Incomplete antibody sequence completion | `ablang-antibody` | — |
+| Antibody-specific embeddings / likelihoods | `ablang-antibody` | ESM-2 (general) |
+| Paired VH/VL analysis | `ablang-antibody` (AbLang-2) | — |
+| De novo CDR structure redesign | `igdiff-antibody` | `antibody-design` |
+| Full antibody design workflow | `antibody-design` | — |
+
 ## When to Trigger
 
 - User says "AbLang", "antibody language model", "complete antibody sequence"

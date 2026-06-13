@@ -1,0 +1,18 @@
+# Standard 5-stage protein design pipeline for monomer or scaffold design.
+# Run with: python scripts/batch_runner.py --config examples/pipeline.yaml
+
+stages:
+  - name: "Stage 0: PDBFixer"
+    command: [python, scripts/run_pdbfixer.py, --input, target.pdb, --output, outputs/fixed.pdb, --verbose]
+
+  - name: "Stage 1: RFdiffusion"
+    command: [python, scripts/run_rfdiffusion.py, --contig, "[150-150]", --num-designs, "50", --output-prefix, outputs/design, --verbose]
+
+  - name: "Stage 2: ProteinMPNN"
+    command: [python, scripts/run_proteinmpnn.py, --pdb-path, "outputs/design_*.pdb", --out-folder, outputs/seqs/, --num-seq, "8", --verbose]
+
+  - name: "Stage 3: OmegaFold"
+    command: [python, scripts/run_omegafold.py, --input, outputs/seqs/seqs.fa, --output-dir, outputs/validation/, --verbose]
+
+  - name: "Stage 4: Filtering"
+    command: [python, scripts/run_filtering.py, --results-dir, outputs/validation/, --min-plddt, "75", --top-n, "10", --verbose]

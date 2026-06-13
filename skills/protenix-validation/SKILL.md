@@ -67,6 +67,25 @@ pip install protenix-mini
 
 ## Usage
 
+### Standalone Wrapper (`scripts/run_protenix.py`)
+
+```bash
+# Predict from JSON
+python scripts/run_protenix.py \
+    --input protenix_input.json \
+    --output-dir outputs/protenix/ \
+    --num-recycling 3 \
+    --verbose
+
+# Predict from FASTA (auto-converted to Protenix JSON)
+python scripts/run_protenix.py \
+    --input sequences.fa \
+    --output-dir outputs/protenix/ \
+    --from-fasta \
+    --num-recycling 3 \
+    --verbose
+```
+
 ### Inference
 
 ```python

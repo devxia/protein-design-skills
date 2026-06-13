@@ -15,51 +15,18 @@ Note: OpenFold3 is an open-source reimplementation of AlphaFold3.
 It may require manual model weight downloads and database setup.
 """
 
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from protein_design.utils import get_config, log_history
+
 import argparse
 import json
 import os
 import subprocess
-import sys
 import time
 from datetime import datetime
-from pathlib import Path
-
-
-def get_config():
-    """Read protein-design config from YAML or return defaults."""
-    config_paths = [
-        Path.home() / ".protein-design" / "config.yaml",
-        Path.home() / ".kimi-protein-design" / "config.yaml",
-    ]
-    config = {
-        "output_dir": os.environ.get("PROTEIN_DESIGN_OUTPUT_DIR", "/tmp/protein-design"),
-    }
-    for path in config_paths:
-        if path.exists():
-            try:
-                import yaml
-                with open(path) as f:
-                    file_config = yaml.safe_load(f) or {}
-                config.update(file_config)
-            except ImportError:
-                pass
-            break
-    return config
-
-
-def log_history(tool_name, params, runtime, success, output_dir):
-    """Append execution record to history.jsonl for ETA estimation."""
-    history_file = Path.home() / ".protein-design" / "history.jsonl"
-    history_file.parent.mkdir(parents=True, exist_ok=True)
-    record = {
-        "tool": tool_name,
-        "params": params,
-        "runtime": runtime,
-        "success": success,
-        "timestamp": datetime.now().isoformat(),
-    }
-    with open(history_file, "a") as f:
-        f.write(json.dumps(record) + "\n")
 
 
 def find_openfold3():
@@ -128,7 +95,7 @@ def find_openfold3():
 def run_openfold3(input_file, out_dir, model_dir=None, db_dir=None,
                   num_recycling=3, verbose=False):
     """Run OpenFold3 prediction."""
-    config = get_config()
+    config = get_config("openfold3")
     openfold_cmd = find_openfold3()
 
     if not openfold_cmd:
@@ -148,9 +115,7 @@ def run_openfold3(input_file, out_dir, model_dir=None, db_dir=None,
     if openfold_cmd == "python_api":
         # Use Python API with a wrapper script
         script_content = f'''
-import sys
 import torch
-from pathlib import Path
 
 sys.path.insert(0, ".")
 

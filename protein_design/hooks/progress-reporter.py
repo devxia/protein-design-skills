@@ -5,10 +5,12 @@ Monitors output directories by counting files (PDB backbones, FASTA sequences,
 validation results) and prints user-friendly progress summaries with
 filesystem-aware progress tracking.
 """
-
-import json
 import sys
 from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+from protein_design.utils import parse_confidence_json
+import traceback
+import json
 from typing import Any
 
 
@@ -70,40 +72,6 @@ def _find_confidence_files(root: Path) -> list[Path]:
         return []
 
 
-def _parse_confidence(path: Path) -> dict[str, float]:
-    """Parse a confidence.json file for pLDDT, ipTM, pTM."""
-    try:
-        with open(path, "r", encoding="utf-8") as f:
-            data = json.load(f)
-    except Exception:
-        return {}
-
-    metrics: dict[str, float] = {}
-    if not isinstance(data, dict):
-        return metrics
-
-    # AlphaFold3 nested schema
-    if "confidence" in data and isinstance(data["confidence"], dict):
-        c = data["confidence"]
-        for k in ("plddt", "iptm", "ptm"):
-            v = c.get(k)
-            if isinstance(v, (int, float)):
-                metrics[k] = float(v)
-
-    # Flat schemas (Boltz, Chai, etc.)
-    for k in ("plddt", "iptm", "ptm", "confidence_score"):
-        if k not in metrics and isinstance(data.get(k), (int, float)):
-            metrics[k] = float(data[k])
-
-    # Per-residue pLDDT list → mean
-    if "plddt" in data and isinstance(data["plddt"], list):
-        vals = [float(x) for x in data["plddt"] if isinstance(x, (int, float))]
-        if vals and "plddt" not in metrics:
-            metrics["plddt"] = sum(vals) / len(vals)
-
-    return metrics
-
-
 def _quality_distribution(plddts: list[float]) -> dict[str, int]:
     """Bucket designs by pLDDT quality ranges."""
     buckets = {"excellent": 0, "good": 0, "acceptable": 0, "poor": 0}
@@ -163,7 +131,10 @@ def _summarize(out_dir: Path, stage: str) -> str:
         top_designs: list[dict[str, Any]] = []
 
         for conf_path in confidence_files:
-            metrics = _parse_confidence(conf_path)
+            try:
+                metrics = parse_confidence_json(conf_path)
+            except Exception:
+                continue
             plddt = metrics.get("plddt")
             if plddt is None:
                 continue
@@ -214,8 +185,13 @@ def main() -> int:
     try:
         input_data = sys.stdin.read()
         data = json.loads(input_data) if input_data.strip() else {}
-    except Exception:
+    except json.JSONDecodeError:
         return 0
+    except KeyboardInterrupt:
+        return 130
+    except Exception:
+        traceback.print_exc()
+        return 1
 
     tool_name = str(data.get("tool", "")).lower()
     tool_input = data.get("tool_input", {})

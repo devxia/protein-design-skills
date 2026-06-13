@@ -8,15 +8,14 @@ Priority order:
 1. Standalone scripts (scripts/run_*.py) — preferred
 2. Direct conda execution — fallback
 """
-
+import traceback
 import json
 import os
+from typing import Any
 import sys
 from pathlib import Path
-from typing import Any
 
 
-# Project root for finding standalone scripts
 PROJECT_ROOT = Path(__file__).parent.parent.parent
 SCRIPTS_DIR = PROJECT_ROOT / "scripts"
 
@@ -215,10 +214,15 @@ def _build_direct_command(tool: str, params: dict[str, Any]) -> str:
 def main() -> int:
     """Main entry point."""
     try:
-        text = sys.stdin.read()
-        data = json.loads(text) if text.strip() else {}
-    except Exception:
+        input_data = sys.stdin.read()
+        data = json.loads(input_data) if input_data.strip() else {}
+    except json.JSONDecodeError:
         return 0
+    except KeyboardInterrupt:
+        return 130
+    except Exception:
+        traceback.print_exc()
+        return 1
 
     tool = data.get("params", {}).get("tool", "")
     params = data.get("params", {}).get("params", {})

@@ -4,19 +4,24 @@
 When designs are validated with multiple tools (e.g., AlphaFold3 + Boltz-1 + Chai-1),
 this hook automatically compares confidence metrics and highlights agreements/disagreements.
 """
-
+import traceback
 import json
-import sys
 from typing import Any
+import sys
 
 
 def main() -> int:
     """Main entry point."""
     try:
-        text = sys.stdin.read()
-        data = json.loads(text) if text.strip() else {}
-    except Exception:
+        input_data = sys.stdin.read()
+        data = json.loads(input_data) if input_data.strip() else {}
+    except json.JSONDecodeError:
         return 0
+    except KeyboardInterrupt:
+        return 130
+    except Exception:
+        traceback.print_exc()
+        return 1
 
     # Only activate for validation tool completions
     tool_name = str(data.get("tool", "")).lower()

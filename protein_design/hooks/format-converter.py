@@ -4,10 +4,10 @@
 When ProteinMPNN outputs FASTA that needs conversion for AlphaFold3/Boltz/Chai-1,
 this hook provides the exact convert_format parameters or direct CLI commands.
 """
-
+import traceback
 import json
-import sys
 from typing import Any
+import sys
 
 
 def _detect_conversion_need(data: dict[str, Any]) -> dict[str, Any] | None:
@@ -43,8 +43,13 @@ def main() -> int:
     try:
         input_data = sys.stdin.read()
         data = json.loads(input_data) if input_data.strip() else {}
-    except Exception:
+    except json.JSONDecodeError:
         return 0
+    except KeyboardInterrupt:
+        return 130
+    except Exception:
+        traceback.print_exc()
+        return 1
 
     need = _detect_conversion_need(data)
     if not need:

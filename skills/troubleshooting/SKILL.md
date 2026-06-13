@@ -131,7 +131,7 @@ If still failing → adjust parameters → retry
 ### Error: "MSA timeout"
 **Symptom**: Process hangs for hours at "Running MSA"
 **Solutions**:
-1. Skip MSA: add `--run-data-pipeline false` (faster, less accurate)
+1. Skip MSA: add `--no-msa` (faster, less accurate)
 2. Check database dir is configured: `database_dir: ~/public_databases` in `~/.protein-design/config.yaml`
 3. Verify `~/public_databases` exists and contains bfd/, uniref90/, etc.
 4. Check disk space: need ~100GB free for MSA temp files

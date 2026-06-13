@@ -16,6 +16,9 @@ These scripts provide direct CLI-based execution for all protein design pipeline
 | `run_esmfold.py` | ESMFold validation — fastest |
 | `run_protenix.py` | Protenix validation — training + inference |
 | `run_openfold3.py` | OpenFold3 validation — pip install, AF3 reimplementation |
+| `run_colabfold.py` | ColabFold validation — MMseqs2 MSA server |
+| `run_esm_if1.py` | ESM-IF1 inverse folding — sequence design from structure |
+| `run_ligandmpnn.py` | LigandMPNN — ligand-aware sequence design |
 | `run_filtering.py` | Result filtering and ranking (Stage 4) |
 | `convert_format.py` | File format conversion |
 | `job_manager.py` | Background job tracking |
@@ -23,7 +26,7 @@ These scripts provide direct CLI-based execution for all protein design pipeline
 | `summarize_outputs.py` | Progress summary + quality report |
 | `project_dashboard.py` | Project-wide dashboard with stage progress |
 
-**Total: 16 scripts** — All major pipeline stages + job management + progress reporting covered.
+**Total: 19 scripts** — All major pipeline stages + job management + progress reporting covered.
 
 ## Design Principles
 
@@ -214,4 +217,4 @@ python scripts/batch_runner.py --config pipeline.yaml
 
 ## All Scripts Reference
 
-See [API Reference — Scripts](../docs/en/api-reference/scripts.md) for complete parameter documentation for all 16 scripts.
+See [API Reference — Scripts](../docs/en/api-reference/scripts.md) for complete parameter documentation for all 19 scripts.

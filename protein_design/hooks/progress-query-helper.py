@@ -12,14 +12,15 @@ Enhancements over base version:
 - Shows progress bars against detected or default expectations
 - Bilingual keyword support (English + Chinese)
 """
-
-import json
 import sys
 from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+from protein_design.utils import parse_confidence_json
+import traceback
+import json
 from typing import Any
 
 
-# Keywords that indicate the user wants a progress summary
 PROGRESS_KEYWORDS = [
     "progress", "status", "summary", "summarize", "how many", "count of",
     "how many designs", "how many backbones", "how many sequences",
@@ -109,37 +110,6 @@ def _find_confidence_files(root: Path) -> list[Path]:
         return []
 
 
-def _parse_confidence(path: Path) -> dict[str, float]:
-    """Parse a confidence.json file for pLDDT, ipTM, pTM."""
-    try:
-        with open(path, "r", encoding="utf-8") as f:
-            data = json.load(f)
-    except Exception:
-        return {}
-
-    metrics: dict[str, float] = {}
-    if not isinstance(data, dict):
-        return metrics
-
-    if "confidence" in data and isinstance(data["confidence"], dict):
-        c = data["confidence"]
-        for k in ("plddt", "iptm", "ptm"):
-            v = c.get(k)
-            if isinstance(v, (int, float)):
-                metrics[k] = float(v)
-
-    for k in ("plddt", "iptm", "ptm", "confidence_score"):
-        if k not in metrics and isinstance(data.get(k), (int, float)):
-            metrics[k] = float(data[k])
-
-    if "plddt" in data and isinstance(data["plddt"], list):
-        vals = [float(x) for x in data["plddt"] if isinstance(x, (int, float))]
-        if vals and "plddt" not in metrics:
-            metrics["plddt"] = sum(vals) / len(vals)
-
-    return metrics
-
-
 def _quality_distribution(plddts: list[float]) -> dict[str, int]:
     """Bucket designs by pLDDT quality ranges."""
     buckets = {"excellent": 0, "good": 0, "acceptable": 0, "poor": 0}
@@ -221,7 +191,10 @@ def _build_response(output_dir: Path, counts: dict[str, int]) -> str:
             plddts: list[float] = []
             iptms: list[float] = []
             for conf_path in conf_files:
-                metrics = _parse_confidence(conf_path)
+                try:
+                    metrics = parse_confidence_json(conf_path)
+                except Exception:
+                    continue
                 plddt = metrics.get("plddt")
                 if plddt is not None:
                     plddts.append(plddt)
@@ -290,10 +263,15 @@ def _build_response(output_dir: Path, counts: dict[str, int]) -> str:
 def main() -> int:
     """Main entry point."""
     try:
-        text = sys.stdin.read()
-        data = json.loads(text) if text.strip() else {}
-    except Exception:
+        input_data = sys.stdin.read()
+        data = json.loads(input_data) if input_data.strip() else {}
+    except json.JSONDecodeError:
         return 0
+    except KeyboardInterrupt:
+        return 130
+    except Exception:
+        traceback.print_exc()
+        return 1
 
     prompt = str(data.get("user_prompt", ""))
     if not prompt or not _should_respond(prompt):

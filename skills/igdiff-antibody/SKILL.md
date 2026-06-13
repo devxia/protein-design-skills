@@ -5,6 +5,16 @@ description: De novo antibody design with IgDiff — SE(3) diffusion model speci
 
 # Specialized Antibody Design: IgDiff
 
+## When to use which / 何时用哪个
+
+| Task | Use this skill | Alternative |
+|------|---------------|-------------|
+| De novo antibody variable domain | `igdiff-antibody` | `antibody-design` |
+| CDR H3 redesign (especially long loops) | `igdiff-antibody` | `antibody-design` |
+| Light chain pairing for an existing heavy chain | `igdiff-antibody` | — |
+| Antibody sequence completion / embeddings | `ablang-antibody` | ESM-2 (general) |
+| Humanization / CDR grafting workflow | `antibody-design` | — |
+
 ## When to Trigger
 
 - User says "IgDiff", "antibody diffusion", "design antibody"

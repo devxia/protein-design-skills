@@ -8,12 +8,12 @@ users to manually decide what to do next.
 This hook embeds pipeline orchestration logic directly into the agent's
 context and provides standalone script commands for each stage transition.
 """
-
+import traceback
 import json
 import os
+from typing import Any
 import sys
 from pathlib import Path
-from typing import Any
 
 
 def _get_scripts_dir() -> Path:
@@ -224,8 +224,13 @@ def main() -> int:
     try:
         input_data = sys.stdin.read()
         data = json.loads(input_data) if input_data.strip() else {}
-    except Exception:
+    except json.JSONDecodeError:
         return 0
+    except KeyboardInterrupt:
+        return 130
+    except Exception:
+        traceback.print_exc()
+        return 1
 
     # Only process successful tool completions
     result = data.get("result", {})

@@ -36,7 +36,7 @@ The filtering stage evaluates AlphaFold3 confidence metrics and ranks designs by
 
 ```bash
 python scripts/run_filtering.py \
-  --results-dir outputs/validation/ \
+  --output-dir outputs/validation/ \
   --min-plddt 70 \
   --min-iptm 0.6 \
   --min-ptm 0.5 \
@@ -48,7 +48,7 @@ python scripts/run_filtering.py \
 
 | Parameter | CLI Flag | Required | Default | Description |
 |-----------|----------|----------|---------|-------------|
-| `results_dir` | `--results-dir` / `-d` | ✅ | — | Directory containing validation outputs |
+| `results_dir` | `--output-dir` / `-d` | ✅ | — | Directory containing validation outputs |
 | `criteria.min_plddt` | `--min-plddt` | ❌ | 70 | Minimum mean pLDDT (0–100) |
 | `criteria.min_iptm` | ❌ | 0.6 | Minimum ipTM (0–1) |
 | `criteria.min_ptm` | ❌ | 0.5 | Minimum pTM (0–1) |

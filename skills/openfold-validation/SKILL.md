@@ -66,7 +66,26 @@ pip install openfold3-mlx  # Use MLX fork
 
 ## Usage
 
-### Command Line
+### Standalone Wrapper (`scripts/run_openfold3.py`)
+
+```bash
+# Predict from FASTA
+python scripts/run_openfold3.py \
+    --input sequences.fasta \
+    --output-dir outputs/openfold3/ \
+    --num-recycling 3 \
+    --verbose
+
+# Predict from AlphaFold3-style JSON
+python scripts/run_openfold3.py \
+    --input design.json \
+    --output-dir outputs/openfold3/ \
+    --model-dir /path/to/model/weights \
+    --db-dir /path/to/databases \
+    --verbose
+```
+
+### Native OpenFold3 CLI
 
 ```bash
 # Run prediction

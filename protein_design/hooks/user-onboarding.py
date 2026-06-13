@@ -5,13 +5,12 @@ When a user starts a conversation about protein design, this hook prints a
 warm welcome, summarizes available workflows, and reminds them of progress
 monitoring tools.
 """
-
+import traceback
 import json
 import subprocess
 import sys
 
 
-# Triggers that suggest this is a protein design session
 TRIGGER_KEYWORDS = [
     "protein design",
     "design a protein",
@@ -204,10 +203,15 @@ python protein_design/hooks/install-hooks.py
 def main() -> int:
     """Main entry point."""
     try:
-        text = sys.stdin.read()
-        data = json.loads(text) if text.strip() else {}
-    except Exception:
+        input_data = sys.stdin.read()
+        data = json.loads(input_data) if input_data.strip() else {}
+    except json.JSONDecodeError:
         return 0
+    except KeyboardInterrupt:
+        return 130
+    except Exception:
+        traceback.print_exc()
+        return 1
 
     prompt = str(data.get("user_prompt", ""))
     if not prompt or not _should_welcome(prompt):

@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+from __future__ import annotations
 """Summarize protein design pipeline outputs.
 
 Scans an output directory and reports counts of backbones, sequences,
@@ -17,13 +18,16 @@ Examples:
         --expected-backbones 50 --expected-sequences 200
 """
 
-from __future__ import annotations
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from protein_design.utils import parse_confidence_json as _parse_confidence_json
+
 
 import argparse
 import json
-import sys
 import time
-from pathlib import Path
 from typing import Any
 
 
@@ -43,44 +47,6 @@ def _find_metrics_files(root: Path) -> list[Path]:
     metrics.extend(root.rglob("*result_summary*.csv"))
     metrics.extend(root.rglob("*_ranking.json"))
     return metrics
-
-
-def _parse_confidence_json(path: Path) -> dict[str, Any]:
-    """Parse AlphaFold3/Boltz/Chai confidence.json for key metrics."""
-    try:
-        with open(path, "r", encoding="utf-8") as f:
-            data = json.load(f)
-    except Exception:
-        return {}
-
-    # Try multiple known schema variants
-    metrics: dict[str, Any] = {}
-
-    # AlphaFold3 schema
-    if isinstance(data, dict):
-        if "confidence" in data and isinstance(data["confidence"], dict):
-            c = data["confidence"]
-            metrics["plddt"] = c.get("plddt")
-            metrics["iptm"] = c.get("iptm")
-            metrics["ptm"] = c.get("ptm")
-        if "ranking_score" in data:
-            metrics["ranking_score"] = data["ranking_score"]
-        if "model" in data and isinstance(data["model"], int):
-            metrics["model"] = data["model"]
-
-        # Boltz/Chai variants
-        metrics.setdefault("plddt", data.get("plddt"))
-        metrics.setdefault("iptm", data.get("iptm"))
-        metrics.setdefault("ptm", data.get("ptm"))
-        metrics.setdefault("confidence_score", data.get("confidence_score"))
-
-    # Per-chain pLDDT list
-    if "plddt" in data and isinstance(data["plddt"], list):
-        plddts = [float(x) for x in data["plddt"] if isinstance(x, (int, float))]
-        if plddts and metrics.get("plddt") is None:
-            metrics["plddt"] = sum(plddts) / len(plddts)
-
-    return {k: v for k, v in metrics.items() if v is not None}
 
 
 def _count_by_suffix(root: Path, suffixes: tuple[str, ...]) -> int:
@@ -118,7 +84,10 @@ def _collect_top_designs(root: Path, top_n: int = 5) -> list[dict[str, Any]]:
     seen: set[str] = set()
 
     for conf_path in _find_metrics_files(root):
-        metrics = _parse_confidence_json(conf_path)
+        try:
+            metrics = _parse_confidence_json(conf_path)
+        except Exception:
+            continue
         if not metrics or metrics.get("plddt") is None:
             continue
 

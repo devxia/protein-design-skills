@@ -12,46 +12,16 @@ Exit codes:
     2 = No valid results found
 """
 
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from protein_design.utils import parse_confidence_json
+
 import argparse
 import json
 import os
-import sys
-from pathlib import Path
 from statistics import mean, stdev
-
-
-def parse_confidence_json(filepath):
-    """Parse confidence.json from various validation tools."""
-    with open(filepath) as f:
-        data = json.load(f)
-
-    result = {
-        "path": str(filepath),
-        "name": filepath.parent.name if filepath.parent != Path(".") else filepath.stem,
-    }
-
-    # AlphaFold3 / OpenFold3 format
-    if "plddt" in data:
-        result["plddt"] = float(data["plddt"])
-    if "ptm" in data:
-        result["ptm"] = float(data["ptm"])
-    if "iptm" in data:
-        result["iptm"] = float(data["iptm"])
-    if "pae" in data:
-        result["pae"] = float(data["pae"])
-
-    # Boltz-1 / Chai-1 format variations
-    if "confidence" in data and isinstance(data["confidence"], dict):
-        conf = data["confidence"]
-        result.setdefault("plddt", conf.get("plddt", conf.get("mean_plddt", 0)))
-        result.setdefault("ptm", conf.get("ptm", conf.get("pTM", 0)))
-        result.setdefault("iptm", conf.get("iptm", conf.get("ipTM", 0)))
-
-    # Protenix format
-    if "mean_plddt" in data:
-        result.setdefault("plddt", float(data["mean_plddt"]))
-
-    return result
 
 
 def parse_pdb_bfactor(filepath):
@@ -113,7 +83,8 @@ def filter_designs(results_dir, min_plddt=70, min_iptm=0.6, min_ptm=0.7,
     # Search for confidence.json files
     for conf_file in results_path.rglob("confidence.json"):
         try:
-            design = parse_confidence_json(conf_file)
+            design = {"path": str(conf_file), "name": conf_file.parent.name if conf_file.parent != Path(".") else conf_file.stem}
+            design.update(parse_confidence_json(conf_file))
             designs.append(design)
         except Exception as e:
             if verbose:

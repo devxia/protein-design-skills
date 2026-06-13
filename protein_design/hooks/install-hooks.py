@@ -15,7 +15,6 @@ Run this after installing the plugin:
 
 This installer uses Skills + Hooks + Standalone Scripts only.
 """
-
 import argparse
 import json
 import os
@@ -23,7 +22,6 @@ import shutil
 import sys
 from pathlib import Path
 
-# ── Configuration ────────────────────────────────────────────────────────
 
 PYTHON = sys.executable
 HOOKS_SOURCE = "hooks/hooks.json"
@@ -442,7 +440,6 @@ def _uninstall_codex(config_path: Path) -> bool:
                 print(f"  ✅ Removed legacy hook file: {f}")
                 removed = True
 
-    return removed
     return removed
 
 

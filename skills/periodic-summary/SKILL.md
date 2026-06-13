@@ -76,6 +76,19 @@ python scripts/project_dashboard.py --output-dir outputs/ --watch
 
 ---
 
+## Automation Hooks / 自动化钩子
+
+Periodic summaries are driven by these hooks:
+
+| Hook | File | Trigger | What it does |
+|------|------|---------|--------------|
+| `progress-reporter` | `protein_design/hooks/progress-reporter.py` | Notification / stage completion | Artifact counts + quality distribution + next-step hint |
+| `pipeline-orchestrator` | `protein_design/hooks/pipeline-orchestrator.py` | Post-tool use | Suggest the next command after a stage finishes |
+| `progress-query-helper` | `protein_design/hooks/progress-query-helper.py` | Progress questions | Command suggestions + quick snapshot |
+| `background-notify` | `protein_design/hooks/background-notify.py` | Background task finishes | Desktop / agent notification |
+
+---
+
 ## Hook-Based Automatic Summaries
 
 If you installed hooks, progress summaries fire automatically:

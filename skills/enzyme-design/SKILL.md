@@ -58,7 +58,7 @@ python scripts/run_rfdiffusion.py \
   --checkpoint models/ActiveSite_ckpt.pt \
   --output-prefix outputs/enzyme_scaffold/design \
   --num-designs 100 \
-  --diffuser-T 50
+  --diffuser-t 50
 ```
 
 **Important:** Use `ActiveSite_ckpt.pt` for small motifs (<10 residues).
@@ -69,8 +69,8 @@ python scripts/run_rfdiffusion.py \
 python scripts/run_proteinmpnn.py \
   --pdb-path outputs/enzyme_scaffold/design_0.pdb \
   --out-folder outputs/enzyme_seqs \
-  --num-seq-per-target 8 \
-  --sampling-temp 0.1 \
+  --num-seq 8 \
+  --temp 0.1 \
   --fixed-positions catalytic_residues.jsonl
 ```
 
@@ -134,7 +134,7 @@ python scripts/run_rfdiffusion.py \
   --inpaint-str "[B1-20]" \
   --output-prefix outputs/binding_pocket/design \
   --num-designs 50 \
-  --diffuser-T 25
+  --diffuser-t 25
 ```
 
 ### Step 3: Validate with new substrate

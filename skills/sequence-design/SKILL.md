@@ -34,8 +34,8 @@ ProteinMPNN assigns amino acid sequences to given backbone structures. It uses a
 python scripts/run_proteinmpnn.py \
   --pdb-path designs/design_0.pdb \
   --out-folder outputs/seqs \
-  --num-seq-per-target 8 \
-  --sampling-temp 0.1 \
+  --num-seq 8 \
+  --temp 0.1 \
   --seed 37
 ```
 
@@ -45,10 +45,10 @@ python scripts/run_proteinmpnn.py \
 |-----------|----------|----------|---------|-------------|
 | `pdb_path` | `--pdb-path` | ✅ | — | Input PDB file path |
 | `output_folder` | `--out-folder` | ✅ | — | Output folder path |
-| `num_seq_per_target` | `--num-seq-per-target` | ❌ | 8 | Sequences to generate per backbone |
-| `sampling_temp` | `--sampling-temp` | ❌ | `0.1` | Temperature: `0.1` conservative, `0.3` moderate, `0.5` diverse |
+| `num_seq_per_target` | `--num-seq` | ❌ | 8 | Sequences to generate per backbone |
+| `sampling_temp` | `--temp` | ❌ | `0.1` | Temperature: `0.1` conservative, `0.3` moderate, `0.5` diverse |
 | `model_name` | `--model-name` | ❌ | `v_48_020` | Model variant: `v_48_002`, `v_48_010`, `v_48_020`, `v_48_030` |
-| `pdb_path_chains` | `--pdb-path-chains` | ❌ | — | Chains to design, e.g. `B` (binder-only) |
+| `pdb_path_chains` | `--chains` | ❌ | — | Chains to design, e.g. `B` (binder-only) |
 | `fixed_positions_jsonl` | `--fixed-positions` | ❌ | — | Path to fixed positions JSONL |
 | `use_soluble_model` | `--soluble` | ❌ | false | Use soluble protein model |
 | `seed` | `--seed` | ❌ | 37 | Random seed (0=random) |
@@ -91,8 +91,8 @@ Multiple temperatures: `"sampling_temp": "0.1 0.2 0.3"`
 python scripts/run_proteinmpnn.py \
   --pdb-path designs/design_0.pdb \
   --out-folder outputs/seqs \
-  --num-seq-per-target 8 \
-  --sampling-temp 0.1
+  --num-seq 8 \
+  --temp 0.1
 ```
 
 ### Binder Design: Fixing Target Chain
@@ -101,9 +101,9 @@ When the input is a binder-target complex (from RFdiffusion binder mode):
 python scripts/run_proteinmpnn.py \
   --pdb-path binder_complex.pdb \
   --out-folder outputs/binder_seqs \
-  --pdb-path-chains B \
-  --num-seq-per-target 8 \
-  --sampling-temp 0.1
+  --chains B \
+  --num-seq 8 \
+  --temp 0.1
 ```
 This fixes chain A (target) and redesigns only chain B (binder).
 
@@ -112,8 +112,8 @@ This fixes chain A (target) and redesigns only chain B (binder).
 python scripts/run_proteinmpnn.py \
   --pdb-path designs/design_0.pdb \
   --out-folder outputs/soluble_seqs \
-  --num-seq-per-target 8 \
-  --sampling-temp 0.1 \
+  --num-seq 8 \
+  --temp 0.1 \
   --soluble
 ```
 
@@ -124,8 +124,8 @@ python scripts/run_proteinmpnn.py \
   --jsonl-path parsed_chains/pdbs.jsonl \
   --chain-id-jsonl chain_assignments.jsonl \
   --out-folder outputs/seqs \
-  --num-seq-per-target 8 \
-  --sampling-temp 0.1
+  --num-seq 8 \
+  --temp 0.1
 ```
 
 **Preparing JSONL files:**
@@ -149,8 +149,8 @@ python scripts/run_proteinmpnn.py \
   --pdb-path designs/design_0.pdb \
   --out-folder outputs/fixed_seqs \
   --fixed-positions fixed_positions.jsonl \
-  --num-seq-per-target 8 \
-  --sampling-temp 0.1
+  --num-seq 8 \
+  --temp 0.1
 ```
 
 **Creating fixed positions JSONL:**
@@ -174,7 +174,7 @@ python scripts/run_proteinmpnn.py \
   --pdb-path symmetric_design.pdb \
   --out-folder outputs/sym_seqs \
   --tied-positions tied_positions.jsonl \
-  --num-seq-per-target 8
+  --num-seq 8
 ```
 
 **Creating tied positions JSONL:**
@@ -200,7 +200,7 @@ python scripts/run_proteinmpnn.py \
   --pdb-path designs/design_0.pdb \
   --out-folder outputs/biased_seqs \
   --bias-aa-jsonl aa_bias.jsonl \
-  --num-seq-per-target 8
+  --num-seq 8
 ```
 
 **Creating AA bias JSONL:**
@@ -228,7 +228,7 @@ python scripts/run_proteinmpnn.py \
   --pdb-path designs/design_0.pdb \
   --out-folder outputs/noisy_seqs \
   --backbone-noise 0.1 \
-  --num-seq-per-target 16
+  --num-seq 16
 ```
 
 ## Output Format
@@ -318,7 +318,7 @@ You have alternatives:
 **Quick start with ESM-IF1:**
 ```bash
 pip install fair-esm
-python scripts/run_esm_if1.py --pdb-path design.pdb --out-folder outputs/seqs/ --num-seq 8
+python scripts/run_esm_if1.py --pdb-path design.pdb --output-path outputs/seqs/ --num-sequences 8
 ```
 
 See `install-guide` skill for full ProteinMPNN installation instructions.

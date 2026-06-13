@@ -4,10 +4,10 @@
 When multiple designs need validation, this hook suggests batching strategies
 and provides ready-to-use batch submission patterns.
 """
-
+import traceback
 import json
-import sys
 from typing import Any
+import sys
 
 
 def _detect_batch_needs(context: str) -> dict[str, Any]:
@@ -129,8 +129,11 @@ def main() -> int:
     """Main entry point."""
     try:
         text = sys.stdin.read()
+    except KeyboardInterrupt:
+        return 130
     except Exception:
-        return 0
+        traceback.print_exc()
+        return 1
 
     if not text.strip():
         return 0

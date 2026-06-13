@@ -2,6 +2,8 @@
 
 Complete index of all available skills in the protein design plugin.
 
+> **Note:** The plugin has **79 skills** total — **76 workflow/tool skills** in `skills/` plus **3 project-level doc-maintenance skills** (`gen-docs`, `sync-changelog`, `translate-docs`) in `.agents/skills/`.
+
 ## Pipeline Selection & Orchestration
 
 | Skill | Purpose | When to Use |

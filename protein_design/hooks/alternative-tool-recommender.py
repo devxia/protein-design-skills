@@ -4,14 +4,13 @@
 When a user requests a protein design task, this hook analyzes their
 requirements and suggests the best tool combination from available options.
 """
-
+import traceback
 import json
 import os
-import sys
 from typing import Any
+import sys
 
 
-# Define pipeline options with their characteristics
 PIPELINE_OPTIONS: list[dict[str, Any]] = [
     {
         "name": "Standard Pipeline",
@@ -726,8 +725,13 @@ def main() -> int:
     try:
         input_data = sys.stdin.read()
         data = json.loads(input_data) if input_data.strip() else {}
-    except Exception:
+    except json.JSONDecodeError:
         return 0
+    except KeyboardInterrupt:
+        return 130
+    except Exception:
+        traceback.print_exc()
+        return 1
 
     # Only process tool use requests for protein design tools
     tool_name = data.get("tool", "")

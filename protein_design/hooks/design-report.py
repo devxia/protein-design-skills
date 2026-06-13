@@ -4,10 +4,12 @@
 When the filtering stage completes, this hook scans output directories and
 produces a real summary of designs with counts, rankings, and recommendations.
 """
-
-import json
 import sys
 from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+from protein_design.utils import parse_confidence_json
+import traceback
+import json
 from typing import Any
 
 
@@ -36,38 +38,16 @@ def _count_files(root: Path, suffixes: tuple[str, ...]) -> int:
     return count
 
 
-def _parse_confidence(path: Path) -> dict[str, Any]:
-    """Parse a confidence JSON for pLDDT/ipTM/pTM."""
-    try:
-        with open(path, "r", encoding="utf-8") as f:
-            data = json.load(f)
-    except Exception:
-        return {}
-
-    metrics: dict[str, Any] = {}
-    if isinstance(data, dict):
-        if "confidence" in data and isinstance(data["confidence"], dict):
-            c = data["confidence"]
-            metrics["plddt"] = c.get("plddt")
-            metrics["iptm"] = c.get("iptm")
-            metrics["ptm"] = c.get("ptm")
-        metrics.setdefault("plddt", data.get("plddt"))
-        metrics.setdefault("iptm", data.get("iptm"))
-        metrics.setdefault("ptm", data.get("ptm"))
-        if "plddt" in data and isinstance(data["plddt"], list):
-            plddts = [float(x) for x in data["plddt"] if isinstance(x, (int, float))]
-            if plddts and metrics.get("plddt") is None:
-                metrics["plddt"] = sum(plddts) / len(plddts)
-    return metrics
-
-
 def _collect_designs(root: Path) -> list[dict[str, Any]]:
     """Collect all validated designs sorted by pLDDT."""
     designs: list[dict[str, Any]] = []
     seen: set[str] = set()
 
     for conf_path in root.rglob("confidence.json"):
-        metrics = _parse_confidence(conf_path)
+        try:
+            metrics = parse_confidence_json(conf_path)
+        except Exception:
+            continue
         if metrics.get("plddt") is None:
             continue
         key = str(conf_path.resolve())
@@ -281,10 +261,15 @@ def _generate_report(data: dict[str, Any]) -> str:
 def main() -> int:
     """Main entry point."""
     try:
-        text = sys.stdin.read()
-        data = json.loads(text) if text.strip() else {}
-    except Exception:
+        input_data = sys.stdin.read()
+        data = json.loads(input_data) if input_data.strip() else {}
+    except json.JSONDecodeError:
         return 0
+    except KeyboardInterrupt:
+        return 130
+    except Exception:
+        traceback.print_exc()
+        return 1
 
     # Activate after filtering or when explicitly requested
     tool_name = str(data.get("tool", "")).lower()

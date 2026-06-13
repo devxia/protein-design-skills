@@ -12,51 +12,18 @@ Exit codes:
     4 = Invalid arguments
 """
 
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from protein_design.utils import get_config, log_history
+
 import argparse
 import json
 import os
 import subprocess
-import sys
 import time
 from datetime import datetime
-from pathlib import Path
-
-
-def get_config():
-    """Read protein-design config from YAML or return defaults."""
-    config_paths = [
-        Path.home() / ".protein-design" / "config.yaml",
-        Path.home() / ".kimi-protein-design" / "config.yaml",
-    ]
-    config = {
-        "output_dir": os.environ.get("PROTEIN_DESIGN_OUTPUT_DIR", "/tmp/protein-design"),
-    }
-    for path in config_paths:
-        if path.exists():
-            try:
-                import yaml
-                with open(path) as f:
-                    file_config = yaml.safe_load(f) or {}
-                config.update(file_config)
-            except ImportError:
-                pass
-            break
-    return config
-
-
-def log_history(tool_name, params, runtime, success, output_dir):
-    """Append execution record to history.jsonl for ETA estimation."""
-    history_file = Path.home() / ".protein-design" / "history.jsonl"
-    history_file.parent.mkdir(parents=True, exist_ok=True)
-    record = {
-        "tool": tool_name,
-        "params": params,
-        "runtime": runtime,
-        "success": success,
-        "timestamp": datetime.now().isoformat(),
-    }
-    with open(history_file, "a") as f:
-        f.write(json.dumps(record) + "\n")
 
 
 def find_esmfold():
@@ -101,7 +68,7 @@ def find_esmfold():
 
 def run_esmfold_api(input_file, output_dir, verbose=False):
     """Run ESMFold using Python API (most common installation)."""
-    config = get_config()
+    config = get_config("esmfold")
 
     if not Path(input_file).exists():
         print(f"ERROR: Input file not found: {input_file}", file=sys.stderr)
@@ -134,11 +101,9 @@ def run_esmfold_api(input_file, output_dir, verbose=False):
 
     # Run ESMFold via Python script
     script_content = f'''
-import sys
 sys.path.insert(0, ".")
 import torch
 import esm
-from pathlib import Path
 
 # Load model
 model = esm.pretrained.esmfold_v1()

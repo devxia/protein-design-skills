@@ -7,11 +7,11 @@ recommendations for which scripts and parameters to use.
 This hook embeds pipeline knowledge directly into the agent's context at
 prompt-submit time.
 """
-
+import traceback
 import json
 import re
-import sys
 from typing import Any
+import sys
 
 
 def _extract_keywords(text: str) -> set[str]:
@@ -302,9 +302,12 @@ python scripts/run_alphafold3.py \\
 def main() -> int:
     """Main entry point. Reads prompt from stdin, prints recommendations to stdout."""
     try:
-        user_prompt = sys.stdin.read()
+        text = sys.stdin.read()
+    except KeyboardInterrupt:
+        return 130
     except Exception:
-        user_prompt = ""
+        traceback.print_exc()
+        return 1
 
     if not user_prompt.strip():
         return 0

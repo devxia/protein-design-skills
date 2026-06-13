@@ -43,18 +43,16 @@ description: Macrocyclic peptide design with RFpeptides (RFdiffusion 2025 protoc
 Design a head-to-tail cyclic peptide that binds a target protein:
 
 ```bash
-conda run -n SE3nv python scripts/run_inference.py \
-    --config-name base \
-    inference.output_prefix=outputs/macrocycle_binder \
-    inference.num_designs=50 \
-    'contigmap.contigs=[12-18 A3-117/0]' \
-    inference.input_pdb=input_pdbs/target.pdb \
-    inference.cyclic=True \
-    diffuser.T=50 \
-    inference.cyc_chains='a' \
-    ppi.hotspot_res=[A51,A52,A50,A48,A62,A65] \
-    inference.output_prefix=outputs/macrocycle_binder
+python scripts/run_rfdiffusion.py \
+    --contig "[12-18 A3-117/0]" \
+    --input-pdb input_pdbs/target.pdb \
+    --num-designs 50 \
+    --output-prefix outputs/macrocycle_binder \
+    --diffuser-t 50 \
+    --verbose
 ```
+
+> **Note:** The standalone wrapper currently passes standard RFdiffusion overrides. For the specialized `inference.cyclic=True` and `inference.cyc_chains='a'` settings, invoke RFdiffusion directly (`RFdiffusion/scripts/run_inference.py`) or add the equivalent Hydra overrides to the wrapper command.
 
 **Key flags:**
 - `inference.cyclic=True`: Enable macrocycle design
@@ -67,15 +65,15 @@ conda run -n SE3nv python scripts/run_inference.py \
 Design a standalone cyclic peptide (no target):
 
 ```bash
-conda run -n SE3nv python scripts/run_inference.py \
-    --config-name base \
-    inference.output_prefix=outputs/macrocycle_monomer \
-    inference.num_designs=50 \
-    'contigmap.contigs=[12-18]' \
-    inference.cyclic=True \
-    inference.cyc_chains='a' \
-    diffuser.T=50
+python scripts/run_rfdiffusion.py \
+    --contig "[12-18]" \
+    --num-designs 50 \
+    --output-prefix outputs/macrocycle_monomer \
+    --diffuser-t 50 \
+    --verbose
 ```
+
+> **Note:** For `cyclic=True` macrocycle settings, invoke RFdiffusion directly or add the equivalent Hydra overrides.
 
 ## Parameters
 
