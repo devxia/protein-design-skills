@@ -10,7 +10,7 @@ source: README.zh.md
 ```
 protein-design-skills/
 ├── kimi.plugin.json              # 插件清单（Kimi Code）
-├── skills/                       # 工作流指南（79 skills）
+├── skills/                       # 工作流指南（76 skills）
 │   ├── protein-design-context/   # 会话启动上下文
 │   ├── structure-preprocessing/  # 阶段 0：PDBFixer
 │   ├── structure-generation/     # 阶段 1：RFdiffusion + 替代方案

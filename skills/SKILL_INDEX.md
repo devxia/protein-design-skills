@@ -1,8 +1,6 @@
 # Protein Design Skills Index
 
-Complete index of all available skills in the protein design plugin.
-
-> **Note:** The plugin has **79 skills** total — **76 workflow/tool skills** in `skills/` plus **3 project-level doc-maintenance skills** (`gen-docs`, `sync-changelog`, `translate-docs`) in `.agents/skills/`.
+Complete index of all 76 plugin skills in `skills/`.
 
 ## Pipeline Selection & Orchestration
 
@@ -15,14 +13,6 @@ Complete index of all available skills in the protein design plugin.
 | `design-patterns` | Common design patterns and recipes | Standard scenarios (binder, scaffold, etc.) |
 | `quickstart-guide` | Zero-to-first-design in 10 minutes | New users |
 | `next-steps` | What to run next after each stage | After completing a pipeline stage |
-
-## Documentation & Maintenance
-
-| Skill | Purpose | When to Use |
-|-------|---------|-------------|
-| `gen-docs` | Generate and maintain product documentation | After adding/modifying scripts or skills |
-| `sync-changelog` | Sync changelog from git history | Before releases or after meaningful changes |
-| `translate-docs` | Translate and sync bilingual docs | After updating docs in either language |
 
 ## Stage-Specific Skills
 
@@ -141,7 +131,7 @@ Complete index of all available skills in the protein design plugin.
 | `troubleshooting` | Common errors and solutions |
 | `error-recovery` | Recover from failed jobs |
 
-## Total: 79 Skills
+## Total: 76 Skills
 
 ```
 skills/

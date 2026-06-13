@@ -11,7 +11,7 @@ source: README.zh.md
 
 本插件采用 **skills + hooks + scripts** 架构：
 
-- **Skills** (`skills/`) —— 79 个 Markdown 格式的工作流指南，告诉智能体如何使用每个工具
+- **Skills** (`skills/`) —— 76 个 Markdown 格式的工作流指南，告诉智能体如何使用每个工具
 - **Hooks** (`protein_design/hooks/`) —— 22 个自动化脚本，用于上下文注入、GPU 检查、进度跟踪和通知
 - **Standalone Scripts** (`scripts/`) —— 19 个直接 CLI 脚本，用于工具执行
 

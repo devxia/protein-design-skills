@@ -16,7 +16,7 @@
 
 ### 新功能
 
-- **技能总数扩展至 79 个** —— `skills/` 下 76 个工作流技能，加上 `.agents/skills/` 下 3 个项目级文档维护技能（`gen-docs`、`sync-changelog`、`translate-docs`）。值得关注的新增包括：
+- **技能总数扩展至 76 个** —— 全部位于 `skills/` 下。值得关注的新增包括：
   - `rfpeptides-macrocycle` —— RFpeptides 大环环化多肽设计流程
   - `cross-validation` —— 多验证器共识排序（AlphaFold3 + Boltz-1 + Chai-1）
   - `score-first-screening` —— ProteinMPNN `score_only` 预筛选策略
@@ -39,7 +39,7 @@
 ### 架构
 
 - **主要执行方式**：`scripts/` 中的 standalone scripts（19 个脚本）
-- **指导层**：`skills/` 中的工作流 skills 加上 `.agents/skills/` 中的项目级 skills（共 79 个：76 个工作流 + 3 个文档维护）
+- **指导层**：`skills/` 中的工作流 skills（共 76 个）
 - **自动化层**：`protein_design/hooks/` 中的 hooks（22 个）
 - **已弃用**：所有 MCP 基础设施（本版本中已移除）
 

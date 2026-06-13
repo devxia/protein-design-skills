@@ -10,7 +10,7 @@ source: README.md
 ```
 protein-design-skills/
 ├── kimi.plugin.json              # Plugin manifest (Kimi Code)
-├── skills/                       # Workflow guidance (79 skills)
+├── skills/                       # Workflow guidance (76 skills)
 │   ├── protein-design-context/   # Session-start context
 │   ├── structure-preprocessing/  # Stage 0: PDBFixer
 │   ├── structure-generation/     # Stage 1: RFdiffusion + alternatives

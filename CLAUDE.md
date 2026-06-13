@@ -129,7 +129,7 @@ python protein_design/hooks/install-hooks.py claude --force
 
 ### Two-layer plugin structure
 
-1. **Skills** (`skills/` + `.agents/skills/`) — Markdown files providing workflow guidance to the LLM. 79 skills total: 76 workflow skills in `skills/` plus 3 project-level doc-maintenance skills in `.agents/skills/`.
+1. **Skills** (`skills/`) — Markdown files providing workflow guidance to the LLM. 76 skills covering all pipeline stages, design patterns, tool alternatives, and troubleshooting.
 2. **Hooks** (`protein_design/hooks/`) — 22 agent hook scripts (plus `install-hooks.py`) for context injection, tool recommendations, progress tracking, error recovery, and desktop notifications. `install-hooks.py` supports multiple agents.
 3. **Scripts** (`scripts/`) — 19 standalone Python scripts for direct tool execution, format conversion, job management, and progress monitoring.
 
@@ -181,7 +181,7 @@ Hooks and scripts provide progress tracking:
 - API reference (`docs/{en,zh}/api-reference/scripts.md`) documents all standalone scripts
 - Changelog is English-first, managed by the `sync-changelog` skill
 - All other docs are mirrored pairs — changes in either locale must sync to the other
-- Three project-level skills: `gen-docs`, `sync-changelog`, `translate-docs` (in `.agents/skills/`)
+- Development-only helper skills: `gen-docs`, `sync-changelog`, `translate-docs` (in `.agents/skills/`) — used to maintain docs, not counted as plugin skills
 
 ## Key design decisions
 
@@ -194,6 +194,6 @@ Hooks and scripts provide progress tracking:
 
 ## Current coverage
 
-- **79 skills** — 6 core pipeline stages + 46 tool-specific + 15 meta/workflow + 12 specialized workflows
+- **76 skills** — core pipeline stages, tool-specific guides, design patterns, and specialized workflows
 - **22 hooks** — 9 UserPromptSubmit + 3 PreToolUse + 8 PostToolUse + 2 Notification
 - **19 scripts** — 10 core tool runners + 1 format converter + 1 job manager + 1 batch runner + 1 summarizer + 1 dashboard + 4 validation utilities

@@ -16,7 +16,7 @@ This page documents the changes in each release of the Protein Design Skills plu
 
 ### New Features
 
-- **Expanded skill collection to 79 total** — 76 workflow skills in `skills/` plus 3 project-level doc-maintenance skills (`gen-docs`, `sync-changelog`, `translate-docs`) in `.agents/skills/`. Notable additions include:
+- **Expanded skill collection to 76 total** — all workflow skills in `skills/`. Notable additions include:
   - `rfpeptides-macrocycle` — RFpeptides macrocyclic peptide design pipeline
   - `cross-validation` — Multi-validator consensus ranking (AlphaFold3 + Boltz-1 + Chai-1)
   - `score-first-screening` — ProteinMPNN `score_only` pre-screening strategy
@@ -39,7 +39,7 @@ This page documents the changes in each release of the Protein Design Skills plu
 ### Architecture
 
 - **Primary execution method**: Standalone scripts in `scripts/` (19 scripts)
-- **Guidance layer**: Skills in `skills/` plus project-level skills in `.agents/skills/` (79 skills: 76 workflow + 3 doc-maintenance)
+- **Guidance layer**: Skills in `skills/` (76 workflow skills)
 - **Automation layer**: Hooks in `protein_design/hooks/` (22 hooks)
 - **Deprecated**: All MCP infrastructure (removed in this release)
 

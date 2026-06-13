@@ -10,7 +10,7 @@ This plugin uses **three layers** — no server needed:
 
 | Layer | What | Count | Location |
 |-------|------|-------|----------|
-| **Skills** | Markdown knowledge for the LLM | 79 | `skills/` |
+| **Skills** | Markdown knowledge for the LLM | 76 | `skills/` |
 | **Hooks** | Automation scripts | 22 | `protein_design/hooks/` |
 | **Scripts** | Standalone execution | 19 | `scripts/` |
 
@@ -23,7 +23,7 @@ This plugin uses **three layers** — no server needed:
 - **Stage 2 — Sequence**: ProteinMPNN, LigandMPNN, ESM-IF1, EvoDiff
 - **Stage 3 — Validation**: AlphaFold3, Boltz-1, Chai-1, OmegaFold, ESMFold, Protenix, OpenFold3
 - **Stage 4 — Filtering**: Quality metrics, cross-validation consensus, score-first screening
-- **79 Skills**: Covering 30+ design pipelines from fast screening to full validation
+- **76 Skills**: Covering 30+ design pipelines from fast screening to full validation
 - **22 Hooks**: Auto-context injection, GPU checks, tool recommendation, pipeline orchestration, error recovery
 - **19 Scripts**: Direct command-line execution for all pipeline stages
 
@@ -190,7 +190,7 @@ No manual setup needed — hooks fire automatically when you talk about protein 
 | **Codex CLI** | `~/.codex/hooks.json` (or `.codex/hooks.json` with `--local`) | JSON | ✅ Fully supported |
 | **Kimi Code** | `~/.kimi-code/config.toml` | TOML | ✅ Fully supported |
 
-All agents get the same 22 hooks and 79 skills (76 workflow skills + 3 project-level doc-maintenance skills). The plugin auto-detects which agents are installed.
+All agents get the same 22 hooks and 76 skills. The plugin auto-detects which agents are installed.
 
 ## System Requirements
 
@@ -239,7 +239,7 @@ python scripts/project_dashboard.py --output-dir outputs/ \
 
 | Document | Description |
 |----------|-------------|
-| [Skills Index](./skills/SKILL_INDEX.md) | All 79 skills with navigation |
+| [Skills Index](./skills/SKILL_INDEX.md) | All 76 skills with navigation |
 | [Installation Guide](./docs/en/guides/installation.md) | Tool installation |
 | [Quick Start](./docs/en/guides/quickstart.md) | Example workflows |
 | [Pipeline Architecture](./docs/en/guides/pipeline.md) | 5-stage design flow |

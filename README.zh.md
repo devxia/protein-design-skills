@@ -12,7 +12,7 @@
 
 | 层 | 说明 | 数量 | 位置 |
 |----|------|------|------|
-| **Skills** | 面向 LLM 的 Markdown 知识 | 79 | `skills/` |
+| **Skills** | 面向 LLM 的 Markdown 知识 | 76 | `skills/` |
 | **Hooks** | 自动化脚本 | 22 | `protein_design/hooks/` |
 | **Scripts** | 独立执行脚本 | 19 | `scripts/` |
 
@@ -25,7 +25,7 @@
 - **Stage 2 — 序列设计**：ProteinMPNN、LigandMPNN、ESM-IF1、EvoDiff
 - **Stage 3 — 结构验证**：AlphaFold3、Boltz-1、Chai-1、OmegaFold、ESMFold、Protenix、OpenFold3
 - **Stage 4 — 过滤与排序**：质量指标、交叉验证共识、评分优先筛选
-- **79 个技能**：覆盖 30+ 设计流水线，从快速筛选到完整验证
+- **76 个技能**：覆盖 30+ 设计流水线，从快速筛选到完整验证
 - **22 个钩子**：上下文注入、GPU 安全检查、工具推荐、流水线编排、错误恢复
 - **19 个独立脚本**：所有流水线阶段的直接命令行执行
 
@@ -272,7 +272,7 @@ python scripts/project_dashboard.py --output-dir outputs/ \
 | **Codex CLI** | `~/.codex/hooks.json` | JSON | ✅ 完全支持 |
 | **Kimi Code** | `~/.kimi-code/config.toml` | TOML | ✅ 完全支持 |
 
-所有智能体都获得相同的 22 个钩子和 79 个技能（76 个工作流技能 + 3 个项目级文档维护技能）。插件会自动检测已安装的智能体。
+所有智能体都获得相同的 22 个钩子和 76 个技能。插件会自动检测已安装的智能体。
 
 ## 系统要求
 
