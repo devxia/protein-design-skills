@@ -20,11 +20,8 @@ from protein_design.utils import get_config, log_history
 
 import argparse
 import glob
-import json
-import os
 import subprocess
 import time
-from datetime import datetime
 
 
 def find_proteinmpnn(config):
@@ -187,11 +184,11 @@ Examples:
                         help="Input PDB file or glob pattern")
     parser.add_argument("--out-folder", "-o", required=True,
                         help="Output folder for sequences")
-    parser.add_argument("--num-seq", "-n", type=int, default=8,
+    parser.add_argument("--num-seq", "--num-seq-per-target", "-n", type=int, default=8,
                         help="Sequences per target (default: 8)")
-    parser.add_argument("--temp", "-t", default="0.1",
+    parser.add_argument("--temp", "--sampling-temp", "-t", default="0.1",
                         help="Sampling temperature (default: 0.1)")
-    parser.add_argument("--chains", "-c",
+    parser.add_argument("--chains", "--pdb-path-chains", "-c",
                         help="Chain IDs to design (comma-separated)")
     parser.add_argument("--fixed-positions",
                         help="Fixed positions (comma-separated indices)")

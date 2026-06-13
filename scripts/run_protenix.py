@@ -20,10 +20,8 @@ from protein_design.utils import get_config, log_history
 
 import argparse
 import json
-import os
 import subprocess
 import time
-from datetime import datetime
 
 
 def find_protenix():
@@ -63,17 +61,6 @@ def find_protenix():
     except FileNotFoundError:
         pass
 
-    # 4. Check if installed as package
-    try:
-        result = subprocess.run(
-            ["python", "-c", "import protenix; print('ok')"],
-            capture_output=True, text=True, timeout=5
-        )
-        if result.returncode == 0:
-            return "python_api"
-    except FileNotFoundError:
-        pass
-
     return None
 
 
@@ -94,38 +81,7 @@ def run_protenix(input_file, out_dir, num_recycling=3, verbose=False):
     out_path.mkdir(parents=True, exist_ok=True)
 
     # Build command
-    if protenix_cmd == "python_api":
-        # Use Python API wrapper
-        script_content = f'''
-import json
-
-# Try importing protenix
-sys.path.insert(0, ".")
-import protenix
-
-input_file = Path("{input_file}")
-out_dir = Path("{out_dir}")
-
-with open(input_file) as f:
-    data = json.load(f)
-
-print(f"Running Protenix inference on {{input_file.name}}...")
-# Protenix API entry point varies by version
-# This attempts the most common pattern
-try:
-    from protenix.model.inference import inference
-    result = inference(data, output_dir=str(out_dir), num_recycling={num_recycling})
-    print(f"SUCCESS: Output saved to {{out_dir}}")
-except Exception as e:
-    print(f"ERROR: {{e}}")
-    sys.exit(1)
-'''
-        script_path = out_path / "_protenix_run.py"
-        with open(script_path, "w") as f:
-            f.write(script_content)
-
-        cmd = ["python", str(script_path)]
-    elif protenix_cmd.startswith("conda run"):
+    if protenix_cmd.startswith("conda run"):
         cmd = protenix_cmd.split() + ["predict", str(input_file), "--out_dir", str(out_dir)]
     elif protenix_cmd == "python -m protenix":
         cmd = ["python", "-m", "protenix", "predict", str(input_file), "--out_dir", str(out_dir)]
@@ -200,7 +156,7 @@ Examples:
     )
     parser.add_argument("--input", "-i", required=True,
                         help="Input JSON or FASTA file")
-    parser.add_argument("--output-dir", "-o", required=True,
+    parser.add_argument("--output-dir", "--out-dir", "-o", required=True,
                         help="Output directory")
     parser.add_argument("--num-recycling", type=int, default=3,
                         help="Number of recycling steps (default: 3)")

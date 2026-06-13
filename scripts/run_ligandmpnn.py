@@ -242,13 +242,13 @@ Examples:
                         help="Input PDB file")
     parser.add_argument("--out_folder", "-o", required=True,
                         help="Output folder")
-    parser.add_argument("--num_seq_per_target", "-n", type=int, default=8,
+    parser.add_argument("--num_seq_per_target", "--num-seq", "--num-seq-per-target", "-n", type=int, default=8,
                         help="Sequences per target (default: 8)")
-    parser.add_argument("--sampling_temp", "-t", default="0.1",
+    parser.add_argument("--sampling_temp", "--sampling-temp", "--temp", "-t", default="0.1",
                         help="Sampling temperature (default: '0.1')")
     parser.add_argument("--model_type",
                         help="Model variant: protein_mpnn, ligand_mpnn, soluble_mpnn, ...")
-    parser.add_argument("--chains_to_design", "-c",
+    parser.add_argument("--chains_to_design", "--chains", "-c",
                         help="Chains to redesign, e.g. A,B")
     parser.add_argument("--fixed_residues",
                         help="Residues to keep fixed, e.g. 'C1 C2 C3'")

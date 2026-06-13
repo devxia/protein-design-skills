@@ -19,11 +19,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from protein_design.utils import get_config, log_history
 
 import argparse
-import json
-import os
 import subprocess
 import time
-from datetime import datetime
 
 
 def find_boltz():
@@ -163,7 +160,7 @@ Examples:
     )
     parser.add_argument("--input", "-i", required=True,
                         help="Input YAML or FASTA file")
-    parser.add_argument("--out-dir", "-o", required=True,
+    parser.add_argument("--out-dir", "--output-dir", "-o", required=True,
                         help="Output directory")
     parser.add_argument("--no-msa", action="store_true",
                         help="Skip MSA server (faster, less accurate)")

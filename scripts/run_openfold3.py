@@ -22,11 +22,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from protein_design.utils import get_config, log_history
 
 import argparse
-import json
-import os
 import subprocess
 import time
-from datetime import datetime
 
 
 def find_openfold3():
@@ -257,7 +254,7 @@ detailed setup instructions.
     )
     parser.add_argument("--input", "-i", required=True,
                         help="Input FASTA or JSON file")
-    parser.add_argument("--output-dir", "-o", required=True,
+    parser.add_argument("--output-dir", "--out-dir", "-o", required=True,
                         help="Output directory")
     parser.add_argument("--model-dir",
                         help="Path to OpenFold3 model weights directory")

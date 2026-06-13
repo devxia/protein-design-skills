@@ -19,11 +19,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from protein_design.utils import get_config, log_history
 
 import argparse
-import json
-import os
 import subprocess
 import time
-from datetime import datetime
 
 
 def find_rfdiffusion(config):
@@ -180,7 +177,7 @@ Examples:
     parser.add_argument("--num-designs", "-n", type=int, default=50, help="Number of designs")
     parser.add_argument("--contig", help="Contig string for generation")
     parser.add_argument("--hotspot-res", help="Hotspot residues (comma-separated)")
-    parser.add_argument("--diffuser-t", type=int, default=50, help="Diffusion steps")
+    parser.add_argument("--diffuser-t", "--diffuser-T", type=int, default=50, help="Diffusion steps")
     parser.add_argument("--input-pdb", "-i", help="Input PDB for conditional design")
     parser.add_argument("--verbose", "-v", action="store_true", help="Verbose output")
 

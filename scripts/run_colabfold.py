@@ -212,7 +212,7 @@ Examples:
     )
     parser.add_argument("--input", "-i", required=True,
                         help="Input FASTA file")
-    parser.add_argument("--output-dir", "-o", required=True,
+    parser.add_argument("--output-dir", "--out-dir", "-o", required=True,
                         help="Output directory")
     parser.add_argument("--num-models", "-n", type=int,
                         help="Number of AlphaFold2 models to run (1-5)")

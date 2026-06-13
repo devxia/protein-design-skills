@@ -19,11 +19,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from protein_design.utils import get_config, log_history
 
 import argparse
-import json
-import os
 import subprocess
 import time
-from datetime import datetime
 
 
 def find_esmfold():
@@ -190,7 +187,7 @@ Examples:
     )
     parser.add_argument("--input", "-i", required=True,
                         help="Input FASTA file")
-    parser.add_argument("--output-dir", "-o", required=True,
+    parser.add_argument("--output-dir", "--out-dir", "-o", required=True,
                         help="Output directory")
     parser.add_argument("--verbose", "-v", action="store_true",
                         help="Verbose output")

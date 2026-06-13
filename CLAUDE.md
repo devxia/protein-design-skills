@@ -62,7 +62,7 @@ python scripts/project_dashboard.py --output-dir outputs/ --watch
 python -m pytest tests/
 ```
 
-There is no build step. Dependencies: `biopython>=1.81`, `pyyaml>=6.0`.
+There is no build step. Dependencies: `biopython>=1.81`, `numpy>=1.23.0`, `pyyaml>=6.0`, `pytest>=7.0.0`.
 
 ## Agent configuration
 

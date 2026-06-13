@@ -18,7 +18,6 @@ import json
 import subprocess
 import sys
 import time
-from datetime import datetime
 from pathlib import Path
 
 
@@ -261,7 +260,7 @@ Examples:
                         help="Start from stage N (0-4, default: 0 = full pipeline)")
 
     # Common parameters
-    parser.add_argument("--output-dir", "-o", type=Path, default=Path("outputs/pipeline"),
+    parser.add_argument("--output-dir", "--out-dir", "-o", type=Path, default=Path("outputs/pipeline"),
                         help="Output directory (default: outputs/pipeline)")
     parser.add_argument("--num-designs", "-n", type=int, default=50,
                         help="Number of designs (default: 50)")

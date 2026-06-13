@@ -19,11 +19,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from protein_design.utils import get_config, log_history
 
 import argparse
-import json
-import os
 import subprocess
 import time
-from datetime import datetime
 
 
 def find_alphafold3(config):
@@ -203,7 +200,7 @@ Examples:
     )
     parser.add_argument("--json", "-j", required=True,
                         help="AlphaFold3 JSON input file")
-    parser.add_argument("--output-dir", "-o", required=True,
+    parser.add_argument("--output-dir", "--out-dir", "-o", required=True,
                         help="Output directory")
     parser.add_argument("--db-dir", "-d",
                         help="Path to AlphaFold3 databases (~2.6TB)")

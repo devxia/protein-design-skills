@@ -63,7 +63,7 @@
     ],
     "PreToolUse": [
       {
-        "matcher": "(?i)\\b(run_pdbfixer|run_rfdiffusion|run_proteinmpnn|run_alphafold|run_filtering|run_boltz|run_chai|run_esmfold|run_omegafold)\\b",
+        "matcher": "(?i)\\b(run_pdbfixer|run_rfdiffusion|run_proteinmpnn|run_alphafold3?|run_filtering|run_boltz|run_chai1?|run_esmfold|run_omegafold|run_openfold3?|run_protenix|run_colabfold|run_esm_if1|run_ligandmpnn)\\b",
         "hooks": [
           {
             "type": "command",
@@ -88,7 +88,7 @@
     ],
     "PostToolUse": [
       {
-        "matcher": "(?i)\\b(run_pdbfixer|run_rfdiffusion|run_proteinmpnn|run_alphafold|run_filtering|run_boltz|run_chai|run_esmfold|run_omegafold|batch_runner|job_manager)\\b",
+        "matcher": "(?i)\\b(run_pdbfixer|run_rfdiffusion|run_proteinmpnn|run_alphafold3?|run_filtering|run_boltz|run_chai1?|run_esmfold|run_omegafold|run_openfold3?|run_protenix|run_colabfold|run_esm_if1|run_ligandmpnn|batch_runner|job_manager)\\b",
         "hooks": [
           {
             "type": "command",

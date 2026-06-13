@@ -234,7 +234,7 @@ def build_dashboard(args) -> str:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Project-wide pipeline dashboard")
-    parser.add_argument("--output-dir", "-d", default="outputs", help="Project output directory")
+    parser.add_argument("--output-dir", "--out-dir", "-d", default="outputs", help="Project output directory")
     parser.add_argument("--expected-backbones", type=int, default=0, help="Expected backbone count")
     parser.add_argument("--expected-sequences", type=int, default=0, help="Expected sequence count")
     parser.add_argument("--expected-validations", type=int, default=0, help="Expected validation count")
