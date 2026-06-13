@@ -49,6 +49,13 @@ This plugin uses **three layers** — no server needed:
 
 ## Quick Start
 
+### Prerequisites
+
+- Python >= 3.9
+- CUDA-capable GPU with >= 8GB VRAM (recommended 16GB+)
+- Conda (miniconda or anaconda)
+- Separately installed: RFdiffusion, ProteinMPNN, AlphaFold3, PDBFixer + OpenMM
+
 ### Plugin Marketplace (Recommended)
 
 **Claude Code:**
@@ -117,14 +124,50 @@ cat ~/.claude/settings.json | grep -A 5 "protein"
 # "UserPromptSubmit": [..., "session-health-check.py", ...]
 ```
 
+### Install Third-Party Tools
+
+You don't need to install every tool — pick what your project needs:
+
+| Tool | Purpose | Install Difficulty | No-GPU Alternative |
+|------|---------|--------------------|--------------------|
+| PDBFixer | Structure repair (Stage 0) | ⭐ Easy | — |
+| RFdiffusion | Backbone generation (Stage 1) | ⭐⭐ Medium | Chroma, FoldFlow |
+| ProteinMPNN | Sequence design (Stage 2) | ⭐ Easy | ESM-IF1, LigandMPNN |
+| AlphaFold3 | Structure validation (Stage 3) | ⭐⭐⭐ Complex | ESMFold, OmegaFold (no databases) |
+
+**No GPU?** Use ESMFold or OmegaFold for fast validation — they run on CPU.
+
+**No 2.6TB databases?** Use `--run-data-pipeline false` to skip AlphaFold3 MSA search, or use ESMFold/OmegaFold.
+
+> 📚 Detailed install steps: [docs/en/guides/installation.md](./docs/en/guides/installation.md)
+
 ### Start Designing
 
 ```bash
-# Read the entry skill
-cat skills/protein-design-context/SKILL.md
+# 1. Generate 10 backbones of 150 residues
+python scripts/run_rfdiffusion.py --contig "150-150" --num-designs 10 --verbose
 
-# Or just start — hooks will auto-activate on protein-related prompts
-python scripts/run_rfdiffusion.py --contig "150-150" --num-designs 50
+# 2. Design 8 sequences for each backbone
+python scripts/run_proteinmpnn.py --pdb-path "outputs/design_*.pdb" --out-folder outputs/seqs/ --num-seq 8 --verbose
+
+# 3. Validate with OmegaFold (no databases needed)
+python scripts/run_omegafold.py --input outputs/seqs/seqs.fa --output-dir outputs/validation/ --verbose
+
+# 4. Filter for high-quality designs
+python scripts/run_filtering.py --results-dir outputs/validation/ --min-plddt 75 --top-n 5 --verbose
+```
+
+### Design Through Conversation
+
+Just tell your agent what you want:
+
+```
+User: Design a binder for PD-L1
+→ Stage 0: PDBFixer preprocesses target.pdb
+→ Stage 1: RFdiffusion generates binder backbones (20)
+→ Stage 2: ProteinMPNN designs sequences (8 each)
+→ Stage 3: AlphaFold3 validates structures
+→ Stage 4: Filter by ipTM > 0.8 and pLDDT > 80
 ```
 
 ### Batch Pipeline
@@ -243,6 +286,7 @@ python scripts/project_dashboard.py --output-dir outputs/ \
 | [Installation Guide](./docs/en/guides/installation.md) | Tool installation |
 | [Quick Start](./docs/en/guides/quickstart.md) | Example workflows |
 | [Pipeline Architecture](./docs/en/guides/pipeline.md) | 5-stage design flow |
+| [API Reference — Scripts](./docs/en/api-reference/scripts.md) | All standalone scripts and parameters |
 | [Troubleshooting](./docs/en/guides/troubleshooting.md) | Common issues |
 | [Changelog](./docs/en/release-notes/changelog.md) | Release notes |
 

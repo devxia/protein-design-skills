@@ -2,9 +2,7 @@
 
 > [English](./README.md) | 中文
 
-一个用于端到端蛋白质设计工作流的通用插件，支持多种编程智能体（Claude Code、Codex CLI、Kimi Code 等）。通过自然语言对话，即可生成蛋白质骨架、设计序列、验证结构并排序结果。
-
-仅使用 Skills + Hooks + 独立脚本。
+一个用于端到端蛋白质设计工作流的通用插件，支持多种编程智能体（Claude Code、Codex CLI、Kimi Code 等）。编排 RFdiffusion、ProteinMPNN、AlphaFold3、Boltz-1、Chai-1 等 15+ 工具，完成从骨架生成到结构验证的完整流程。
 
 ## 架构
 
@@ -56,6 +54,7 @@
 - Python >= 3.9
 - 显存 >= 8GB 的 CUDA 显卡（推荐 16GB+）
 - Conda（miniconda 或 anaconda）
+- 单独安装：RFdiffusion、ProteinMPNN、AlphaFold3、PDBFixer + OpenMM
 
 ### 插件市场安装（推荐）
 
@@ -143,9 +142,7 @@ cat ~/.claude/settings.json | grep -A 5 "protein"
 
 > 📚 详细安装步骤：[docs/zh/guides/installation.md](./docs/zh/guides/installation.md)
 
-## 快速开始
-
-### 最快路径：5 分钟出结果
+### 开始设计
 
 ```bash
 # 1. 生成 10 个 150 残基的骨架
@@ -209,43 +206,6 @@ echo "protein design" | python protein_design/hooks/session-health-check.py
 python scripts/run_rfdiffusion.py --help
 ```
 
-## 进度追踪
-
-```bash
-# 单次汇总
-python scripts/summarize_outputs.py --output-dir outputs/
-
-# 实时监控（每 30 秒刷新）
-python scripts/summarize_outputs.py --output-dir outputs/ --watch
-
-# 项目级仪表盘
-python scripts/project_dashboard.py --output-dir outputs/ \
-  --expected-backbones 50 \
-  --expected-sequences 400 \
-  --expected-validations 50
-```
-
-汇总内容包括：骨架数量、序列数量、验证数量、质量分布、平均/最佳 pLDDT 和 ipTM、以及排名靠前的设计。
-
-## 文档
-
-| 文档 | 说明 |
-|------|------|
-| [安装指南](./docs/zh/guides/installation.md) | 分步工具安装和配置 |
-| [快速开始](./docs/zh/guides/quickstart.md) | 从零到第一个设计 |
-| [流程架构](./docs/zh/guides/pipeline.md) | 5 阶段设计流程 |
-| [脚本参考](./docs/zh/api-reference/scripts.md) | 所有独立脚本及参数 |
-| [故障排除](./docs/zh/guides/troubleshooting.md) | 常见问题及解决方案 |
-| [变更记录](./docs/zh/release-notes/changelog.md) | 发布说明 |
-
-## 质量阈值
-
-| 指标 | 可接受 | 良好 | 优秀 |
-|------|--------|------|------|
-| pLDDT | >70 | >80 | >90 |
-| ipTM | >0.6 | >0.8 | >0.9 |
-| pTM | >0.5 | >0.7 | >0.9 |
-
 ## 钩子功能（安装后自动生效）
 
 安装钩子后，你的智能体会自动获得以下能力：
@@ -268,8 +228,8 @@ python scripts/project_dashboard.py --output-dir outputs/ \
 
 | 智能体 | 配置位置 | 钩子格式 | 状态 |
 |--------|---------|---------|------|
-| **Claude Code** | `~/.claude/settings.json` | JSON | ✅ 完全支持 |
-| **Codex CLI** | `~/.codex/hooks.json` | JSON | ✅ 完全支持 |
+| **Claude Code** | `~/.claude/settings.json`（或使用 `--local` 时 `.claude/settings.json`） | JSON | ✅ 完全支持 |
+| **Codex CLI** | `~/.codex/hooks.json`（或使用 `--local` 时 `.codex/hooks.json`） | JSON | ✅ 完全支持 |
 | **Kimi Code** | `~/.kimi-code/config.toml` | TOML | ✅ 完全支持 |
 
 所有智能体都获得相同的 22 个钩子和 76 个技能。插件会自动检测已安装的智能体。
@@ -283,6 +243,57 @@ python scripts/project_dashboard.py --output-dir outputs/ \
 | 内存 | 32GB | 64GB+ |
 | 磁盘 | 100GB | 3TB（含数据库） |
 | 系统 | Linux | Linux (Ubuntu 20.04+) |
+| Python | 3.9 | 3.10+ |
+
+> **注意：** 本插件不附带 ML 模型，它提供的是编排层（skills + hooks + scripts），用于调用你已安装的工具。
+
+## 配置
+
+```bash
+# 设置工具路径
+export RFDIFFUSION_PATH="~/RFdiffusion"
+export PROTEINMPNN_PATH="~/ProteinMPNN"
+export ALPHAFOLD_PATH="~/alphafold3"
+
+# 或使用配置文件
+cat ~/.protein-design/config.yaml
+```
+
+## 进度追踪
+
+```bash
+# 单次汇总
+python scripts/summarize_outputs.py --output-dir outputs/
+
+# 实时监控（每 30 秒刷新）
+python scripts/summarize_outputs.py --output-dir outputs/ --watch
+
+# 项目级仪表盘
+python scripts/project_dashboard.py --output-dir outputs/ \
+  --expected-backbones 50 \
+  --expected-sequences 400 \
+  --expected-validations 50
+```
+
+## 文档
+
+| 文档 | 说明 |
+|------|------|
+| [Skills 索引](./skills/SKILL_INDEX.md) | 所有 76 个技能及导航 |
+| [安装指南](./docs/zh/guides/installation.md) | 分步工具安装和配置 |
+| [快速开始](./docs/zh/guides/quickstart.md) | 从零到第一个设计 |
+| [流程架构](./docs/zh/guides/pipeline.md) | 5 阶段设计流程 |
+| [API 参考 —— Scripts](./docs/zh/api-reference/scripts.md) | 所有 standalone scripts 及参数 |
+| [故障排除](./docs/zh/guides/troubleshooting.md) | 常见问题及解决方案 |
+| [变更记录](./docs/zh/release-notes/changelog.md) | 发布说明 |
+
+## 质量阈值
+
+| 指标 | 可接受 | 良好 | 优秀 |
+|------|--------|------|------|
+| pLDDT | >70 | >80 | >90 |
+| ipTM | >0.6 | >0.8 | >0.9 |
+| pTM | >0.5 | >0.7 | >0.9 |
 
 ## 安装故障排除
 
@@ -354,4 +365,7 @@ MIT
 - RFdiffusion — [Watson et al., 2023](https://www.nature.com/articles/s41586-023-06415-8)
 - ProteinMPNN — [Dauparas et al., 2022](https://www.science.org/doi/10.1126/science.add2187)
 - AlphaFold3 — [Abramson et al., 2024](https://www.nature.com/articles/s41586-024-07487-w)
+- Boltz-1 — [Wöhlke et al.](https://github.com/jwohlwend/boltz)
+- Chai-1 — [Chai Discovery](https://github.com/chaidiscovery/chai1)
+- Protenix — [ByteDance](https://github.com/bytedance/Protenix)
 - PDBFixer — OpenMM project

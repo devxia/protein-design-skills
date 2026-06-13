@@ -100,7 +100,7 @@ Run AlphaFold3 — standalone execution
 | Parameter | Flag | Required | Default | Type | Description |
 |-----------|------|----------|---------|------|-------------|
 | `json` | `--json / -j` | Yes | — | string | AlphaFold3 JSON input file |
-| `output_dir` | `--output-dir / -o` | Yes | — | string | Output directory |
+| `output_dir` | `--output-dir / --out-dir / -o` | Yes | — | string | Output directory |
 | `db_dir` | `--db-dir / -d` | No | — | string | Path to AlphaFold3 databases (~2.6TB) |
 | `no_msa` | `--no-msa` | No | false | flag | Skip MSA search (faster, less accurate) |
 | `num_seeds` | `--num-seeds` | No | 1 | int | Number of random seeds (default: 1) |
@@ -116,7 +116,7 @@ Run Boltz-1 — standalone execution
 | Parameter | Flag | Required | Default | Type | Description |
 |-----------|------|----------|---------|------|-------------|
 | `input` | `--input / -i` | Yes | — | string | Input YAML or FASTA file |
-| `out_dir` | `--out-dir / -o` | Yes | — | string | Output directory |
+| `out_dir` | `--out-dir / --output-dir / -o` | Yes | — | string | Output directory |
 | `no_msa` | `--no-msa` | No | false | flag | Skip MSA server (faster, less accurate) |
 | `recycling_steps` | `--recycling-steps` | No | 3 | int | Number of recycling steps (default: 3) |
 | `sampling_steps` | `--sampling-steps` | No | 200 | int | Diffusion sampling steps (default: 200) |
@@ -131,7 +131,7 @@ Run Chai-1 — standalone execution
 | Parameter | Flag | Required | Default | Type | Description |
 |-----------|------|----------|---------|------|-------------|
 | `input` | `--input / -i` | Yes | — | string | Input FASTA file |
-| `output_dir` | `--output-dir / -o` | Yes | — | string | Output directory |
+| `output_dir` | `--output-dir / --out-dir / -o` | Yes | — | string | Output directory |
 | `no_msa` | `--no-msa` | No | false | flag | Skip MSA server |
 | `recycles` | `--recycles` | No | 3 | int | Number of trunk recycles (default: 3) |
 | `timesteps` | `--timesteps` | No | 200 | int | Diffusion timesteps (default: 200) |
@@ -146,7 +146,7 @@ Run ColabFold — standalone execution
 | Parameter | Flag | Required | Default | Type | Description |
 |-----------|------|----------|---------|------|-------------|
 | `input` | `--input / -i` | Yes | — | string | Input FASTA file |
-| `output_dir` | `--output-dir / -o` | Yes | — | string | Output directory |
+| `output_dir` | `--output-dir / --out-dir / -o` | Yes | — | string | Output directory |
 | `num_models` | `--num-models / -n` | No | — | int | Number of AlphaFold2 models to run (1-5) |
 | `msa_mode` | `--msa-mode` | No | — | string | MSA mode: MMseqs2 (UniRef+Environmental), MMseqs2 (UniRef only), single_sequence |
 | `recycle` | `--recycle / -r` | No | — | int | Number of recycles (maps to --num-recycle) |
@@ -183,7 +183,7 @@ Run ESMFold — standalone execution
 | Parameter | Flag | Required | Default | Type | Description |
 |-----------|------|----------|---------|------|-------------|
 | `input` | `--input / -i` | Yes | — | string | Input FASTA file |
-| `output_dir` | `--output-dir / -o` | Yes | — | string | Output directory |
+| `output_dir` | `--output-dir / --out-dir / -o` | Yes | — | string | Output directory |
 | `verbose` | `--verbose / -v` | No | false | flag | Verbose output |
 
 ## `run_filtering.py`
@@ -212,10 +212,10 @@ Run LigandMPNN — standalone execution
 |-----------|------|----------|---------|------|-------------|
 | `pdb_path` | `--pdb_path / -p` | Yes | — | string | Input PDB file |
 | `out_folder` | `--out_folder / -o` | Yes | — | string | Output folder |
-| `num_seq_per_target` | `--num_seq_per_target / -n` | No | 8 | int | Sequences per target (default: 8) |
-| `sampling_temp` | `--sampling_temp / -t` | No | 0.1 | string | Sampling temperature (default: '0.1') |
+| `num_seq_per_target` | `--num_seq_per_target / --num-seq / --num-seq-per-target / -n` | No | 8 | int | Sequences per target (default: 8) |
+| `sampling_temp` | `--sampling_temp / --sampling-temp / --temp / -t` | No | 0.1 | string | Sampling temperature (default: '0.1') |
 | `model_type` | `--model_type` | No | — | string | Model variant: protein_mpnn, ligand_mpnn, soluble_mpnn, ... |
-| `chains_to_design` | `--chains_to_design / -c` | No | — | string | Chains to redesign, e.g. A,B |
+| `chains_to_design` | `--chains_to_design / --chains / -c` | No | — | string | Chains to redesign, e.g. A,B |
 | `fixed_residues` | `--fixed_residues` | No | — | string | Residues to keep fixed, e.g. 'C1 C2 C3' |
 | `redesigned_residues` | `--redesigned_residues` | No | — | string | Residues to redesign, e.g. 'A1 A2 A3' |
 | `seed` | `--seed` | No | — | int | Random seed |
@@ -232,7 +232,7 @@ Run OmegaFold — standalone execution
 | Parameter | Flag | Required | Default | Type | Description |
 |-----------|------|----------|---------|------|-------------|
 | `input` | `--input / -i` | Yes | — | string | Input FASTA file |
-| `output_dir` | `--output-dir / -o` | Yes | — | string | Output directory |
+| `output_dir` | `--output-dir / --out-dir / -o` | Yes | — | string | Output directory |
 | `subbatch_size` | `--subbatch-size` | No | — | int | Subbatch size for memory control (lower = less memory) |
 | `verbose` | `--verbose / -v` | No | false | flag | Verbose output |
 
@@ -245,7 +245,7 @@ Run OpenFold3 — standalone execution
 | Parameter | Flag | Required | Default | Type | Description |
 |-----------|------|----------|---------|------|-------------|
 | `input` | `--input / -i` | Yes | — | string | Input FASTA or JSON file |
-| `output_dir` | `--output-dir / -o` | Yes | — | string | Output directory |
+| `output_dir` | `--output-dir / --out-dir / -o` | Yes | — | string | Output directory |
 | `model_dir` | `--model-dir` | No | — | string | Path to OpenFold3 model weights directory |
 | `db_dir` | `--db-dir` | No | — | string | Path to genetic databases directory |
 | `num_recycling` | `--num-recycling` | No | 3 | int | Number of recycling steps (default: 3) |
@@ -277,9 +277,9 @@ Run ProteinMPNN — standalone execution
 |-----------|------|----------|---------|------|-------------|
 | `pdb_path` | `--pdb-path / -p` | Yes | — | string | Input PDB file or glob pattern |
 | `out_folder` | `--out-folder / -o` | Yes | — | string | Output folder for sequences |
-| `num_seq` | `--num-seq / -n` | No | 8 | int | Sequences per target (default: 8) |
-| `temp` | `--temp / -t` | No | 0.1 | string | Sampling temperature (default: 0.1) |
-| `chains` | `--chains / -c` | No | — | string | Chain IDs to design (comma-separated) |
+| `num_seq` | `--num-seq / --num-seq-per-target / -n` | No | 8 | int | Sequences per target (default: 8) |
+| `temp` | `--temp / --sampling-temp / -t` | No | 0.1 | string | Sampling temperature (default: 0.1) |
+| `chains` | `--chains / --pdb-path-chains / -c` | No | — | string | Chain IDs to design (comma-separated) |
 | `fixed_positions` | `--fixed-positions` | No | — | string | Fixed positions (comma-separated indices) |
 | `verbose` | `--verbose / -v` | No | false | flag | Verbose output |
 
@@ -292,7 +292,7 @@ Run Protenix — standalone execution
 | Parameter | Flag | Required | Default | Type | Description |
 |-----------|------|----------|---------|------|-------------|
 | `input` | `--input / -i` | Yes | — | string | Input JSON or FASTA file |
-| `output_dir` | `--output-dir / -o` | Yes | — | string | Output directory |
+| `output_dir` | `--output-dir / --out-dir / -o` | Yes | — | string | Output directory |
 | `num_recycling` | `--num-recycling` | No | 3 | int | Number of recycling steps (default: 3) |
 | `from_fasta` | `--from-fasta` | No | false | flag | Convert FASTA input to Protenix JSON format |
 | `verbose` | `--verbose / -v` | No | false | flag | Verbose output |
@@ -310,7 +310,7 @@ Run RFdiffusion — standalone execution
 | `num_designs` | `--num-designs / -n` | No | 50 | int | Number of designs |
 | `contig` | `--contig` | No | — | string | Contig string for generation |
 | `hotspot_res` | `--hotspot-res` | No | — | string | Hotspot residues (comma-separated) |
-| `diffuser_t` | `--diffuser-t` | No | 50 | int | Diffusion steps |
+| `diffuser_t` | `--diffuser-t / --diffuser-T` | No | 50 | int | Diffusion steps |
 | `input_pdb` | `--input-pdb / -i` | No | — | string | Input PDB for conditional design |
 | `verbose` | `--verbose / -v` | No | false | flag | Verbose output |
 

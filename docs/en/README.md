@@ -11,8 +11,9 @@ Welcome to the documentation for the Protein Design Skills plugin — an agent-a
 ## Reference
 
 - [API Reference — Scripts](api-reference/scripts.md) — All standalone scripts and their CLI parameters
-- [Skills Index](../skills/SKILL_INDEX.md) — Complete list of 79+ workflow skills
-- [Documentation Skills](../skills/SKILL_INDEX.md#documentation--maintenance) — Skills for maintaining project documentation
+- [Skills Index](../skills/SKILL_INDEX.md) — Complete list of 76 workflow skills
+
+Development-only helper skills live in `.agents/skills/` and are not counted as plugin skills.
 
 ## Advanced topics
 

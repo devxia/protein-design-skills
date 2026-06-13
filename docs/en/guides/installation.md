@@ -11,7 +11,7 @@ source: README.md
 
 This plugin uses a **skills + hooks + scripts** architecture:
 
-- **Skills** (`skills/`) — 79 Markdown workflow guides that tell the agent how to use each tool
+- **Skills** (`skills/`) — 76 Markdown workflow guides that tell the agent how to use each tool
 - **Hooks** (`protein_design/hooks/`) — 22 automation scripts for context injection, GPU checks, progress tracking, and notifications
 - **Standalone Scripts** (`scripts/`) — 19 direct CLI scripts for tool execution
 
