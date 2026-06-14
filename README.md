@@ -352,10 +352,12 @@ This project supports multiple coding agents with agent-specific manifest files:
 | File | Purpose | Used By |
 |------|---------|---------|
 | `.claude-plugin/plugin.json` | Claude Code plugin manifest | Claude Code |
-| `.claude-plugin/marketplace.json` | Plugin marketplace registration | `claude plugin marketplace add` |
+| `.claude-plugin/marketplace.json` | Claude marketplace registration | `claude plugin marketplace add` |
+| `.codex-plugin/plugin.json` | Codex CLI plugin manifest | Codex CLI |
 | `plugin.json` | Root-level metadata | npm, GitHub, general tooling |
 | `kimi.plugin.json` | Kimi Code plugin manifest | Kimi Code |
-| `hooks/hooks.json` | Standard hook configuration | Claude Code plugin loader |
+| `.agents/plugins/marketplace.json` | Multi-agent marketplace index | `.agents` plugin loader |
+| `hooks/hooks.json` | Canonical hook definitions | `install-hooks.py`, Claude Code plugin loader |
 
 The `.claude-plugin/plugin.json` follows the [Claude Code plugin-structure spec](https://docs.anthropic.com/en/docs/claude-code/plugins). Hooks are also installable via `protein_design/hooks/install-hooks.py` for agents that don't use the standard hook loader.
 

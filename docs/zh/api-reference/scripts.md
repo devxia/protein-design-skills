@@ -335,7 +335,7 @@ Summarize protein design pipeline outputs.
 
 ## 退出码
 
-所有脚本使用以下退出码约定：
+大多数 standalone tool runners 使用以下退出码约定：
 
 | 代码 | 含义 |
 |------|------|
@@ -344,6 +344,8 @@ Summarize protein design pipeline outputs.
 | 2 | 工具未安装 / 未找到 |
 | 3 | 执行错误 |
 | 4 | 无效参数 |
+
+`run_filtering.py`、`batch_runner.py` 等工具脚本可能只使用其中部分退出码，或根据阶段赋予特定含义；具体代码请参见各脚本的模块 docstring。
 
 ---
 

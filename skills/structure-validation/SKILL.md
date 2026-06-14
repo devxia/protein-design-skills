@@ -28,8 +28,6 @@ description: Structure prediction and validation with AlphaFold3 and alternative
 
 ## AlphaFold3 Overview
 
-## AlphaFold3 Overview
-
 AlphaFold3 predicts 3D protein structures from sequence input. In the design pipeline, it's used to validate that sequences designed by ProteinMPNN actually fold into the intended backbone structure.
 
 ## Input Format
@@ -112,10 +110,9 @@ AlphaFold3 accepts a JSON file. For protein-only designs:
 python scripts/run_alphafold3.py \
   --json inputs/design_af3_input.json \
   --output-dir outputs/af3 \
-  --model-dir /path/to/models \
   --db-dir /path/to/databases \
   --num-seeds 1 \
-  --num-samples 5
+  --num-samples 1
 ```
 
 To skip MSA for faster inference:
@@ -133,15 +130,13 @@ python scripts/run_alphafold3.py \
 
 | Parameter | CLI Flag | Required | Default | Description |
 |-----------|----------|----------|---------|-------------|
-| `json_path` | `--json` | ✅ | — | Input JSON file path |
-| `output_dir` | `--output-dir` | ✅ | — | Output directory |
-| `model_dir` | `--model-dir` | ❌ | `~/models` | Model parameters directory |
-| `db_dir` | `--db-dir` | ❌ | `~/public_databases` | Genetic databases directory |
+| `json_path` | `--json` / `-j` | ✅ | — | Input JSON file path |
+| `output_dir` | `--output-dir` / `--out-dir` / `-o` | ✅ | — | Output directory |
+| `db_dir` | `--db-dir` / `-d` | ❌ | auto-detected | Genetic databases directory |
 | `num_seeds` | `--num-seeds` | ❌ | 1 | Number of random seeds |
-| `num_samples` | `--num-samples` | ❌ | 5 | Samples per seed |
+| `num_samples` | `--num-samples` | ❌ | 1 | Samples per seed |
 | `no_msa` | `--no-msa` | ❌ | false | Skip MSA search (faster, no databases) |
-| `save_embeddings` | `--save-embeddings` | ❌ | false | Save structure embeddings |
-| `save_distogram` | `--save-distogram` | ❌ | false | Save distogram predictions |
+| `verbose` | `--verbose` / `-v` | ❌ | false | Verbose output |
 
 ## Database Setup
 
@@ -245,32 +240,16 @@ For multi-chain complexes, AlphaFold3 outputs per-chain pLDDT and pTM:
 
 ### Embedding Extraction
 
-Save structure embeddings for downstream analysis:
+Saving structure embeddings is not exposed by the `run_alphafold3.py` wrapper. To extract embeddings, invoke the AlphaFold3 inference pipeline directly with the appropriate output settings.
 
-```bash
-python scripts/run_alphafold3.py \
-  --json inputs/design.json \
-  --output-dir outputs/af3 \
-  --save-embeddings
-  }
-}
-```
-
-Embeddings are saved as NPZ arrays and can be used for:
+Embeddings can be used for:
 - Clustering designs by structural similarity
 - Training downstream classifiers
 - Transfer learning
 
 ### Distogram Saving
 
-Save predicted distance distributions:
-
-```bash
-python scripts/run_alphafold3.py \
-  --json inputs/design.json \
-  --output-dir outputs/af3 \
-  --save-distogram
-```
+Saving predicted distance distributions is not exposed by the `run_alphafold3.py` wrapper. To save distograms, invoke the AlphaFold3 inference pipeline directly.
 
 ### No-MSA Fast Inference
 
@@ -389,7 +368,7 @@ Stop the loop when the batch is complete.
 - For binder validation, ipTM is the most important metric
 - pLDDT > 80 and ipTM > 0.8 is a good initial filter
 - Always check `has_clash` — clashes indicate physically impossible structures
-- Use `save_embeddings` for downstream clustering/analysis
+- For embedding extraction, invoke AlphaFold3 directly; the wrapper does not expose this flag
 - For multimer complexes, check per-chain pLDDT for all chains
 - `scripts/summarize_outputs.py` can parse outputs without re-running
 

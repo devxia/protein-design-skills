@@ -101,6 +101,9 @@ def run_pdbfixer(input_pdb, output_pdb, keep_chains=None, add_atoms="heavy",
     if keep_heterogens:
         cmd.extend(["--keep-heterogens", keep_heterogens])
 
+    if add_atoms != "none":
+        cmd.extend(["--ph", str(ph)])
+
     if verbose:
         print(f"Running: {' '.join(cmd)}")
 

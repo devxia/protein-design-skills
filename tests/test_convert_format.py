@@ -83,3 +83,10 @@ def test_convert_format_unsupported(tmp_path, capsys):
     output = tmp_path / "out.txt"
     rc = convert_format("fasta", "unsupported", str(fasta), str(output))
     assert rc == 2
+
+
+def test_convert_format_missing_input(tmp_path):
+    missing = tmp_path / "missing.fa"
+    output = tmp_path / "out.json"
+    rc = convert_format("fasta", "alphafold3_json", str(missing), str(output))
+    assert rc == 1

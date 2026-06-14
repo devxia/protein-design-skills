@@ -335,7 +335,7 @@ Summarize protein design pipeline outputs.
 
 ## Exit Codes
 
-All scripts use the following exit code convention:
+Most standalone tool runners use the following exit code convention:
 
 | Code | Meaning |
 |------|---------|
@@ -344,6 +344,8 @@ All scripts use the following exit code convention:
 | 2 | Tool not installed / not found |
 | 3 | Execution error |
 | 4 | Invalid arguments |
+
+Utility scripts such as `run_filtering.py` and `batch_runner.py` may use a subset of these codes or assign stage-specific meanings; see each script's module docstring for exact codes.
 
 ---
 

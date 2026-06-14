@@ -124,12 +124,14 @@ def _resolve_hook_script(script_arg: str, project_root: Path) -> Path:
         ValueError: If the script path escapes the allowed hooks directory
                     or contains shell metacharacters.
     """
+    # Resolve plugin-root placeholder first so validation works on the literal path.
+    script_arg = script_arg.replace("${PLUGIN_ROOT}", str(project_root))
+
     # Disallow shell metacharacters / command separators.
     forbidden = set(";|&$()`\n\r\x00")
     if any(ch in forbidden for ch in script_arg):
         raise ValueError(f"Hook script path contains forbidden characters: {script_arg!r}")
 
-    script_arg = script_arg.replace("${PLUGIN_ROOT}", str(project_root))
     script_path = Path(script_arg)
     if not script_path.is_absolute():
         script_path = project_root / script_path
@@ -297,8 +299,12 @@ def _uninstall_claude(config_path: Path) -> bool:
         print(f"  ℹ️  No config found at {config_path}")
         return False
 
-    with open(config_path, encoding="utf-8") as f:
-        settings = json.load(f)
+    try:
+        with open(config_path, encoding="utf-8") as f:
+            settings = json.load(f)
+    except json.JSONDecodeError as exc:
+        print(f"  ⚠️  {config_path} is invalid JSON — cannot uninstall: {exc}")
+        return False
 
     original_count = len(settings.get("hooks", []))
     settings["hooks"] = [
@@ -488,24 +494,22 @@ def _install_kimi(config_path: Path, hooks_config: dict, force: bool = False) ->
         print(f"  ⚠️  Kimi Code config already has Protein Design hooks. Skipping.")
         return True
 
-    # Remove old block if present (for force reinstall).
+    # Remove old block and instructions if present (for force reinstall).
     if PROTEIN_DESIGN_MARKER in existing:
         start = existing.find(f"# {PROTEIN_DESIGN_MARKER} start")
         end = existing.find(f"# {PROTEIN_DESIGN_MARKER} end") + len(f"# {PROTEIN_DESIGN_MARKER} end")
         if start >= 0 and end > start:
             existing = existing[:start] + existing[end:]
+    if HOOK_INSTRUCTIONS in existing:
+        existing = existing.replace(HOOK_INSTRUCTIONS, "")
+    existing = existing.rstrip()
 
     block = _build_kimi_toml_block(hooks_config)
 
-    if config_path.exists():
-        with open(config_path, "a", encoding="utf-8") as f:
-            f.write(f"\n{block}\n")
-    else:
-        with open(config_path, "w", encoding="utf-8") as f:
-            f.write(f"# Kimi Code configuration\n\n{block}\n")
-
-    with open(config_path, "a", encoding="utf-8") as f:
-        f.write(f"\n{HOOK_INSTRUCTIONS}\n")
+    header = "# Kimi Code configuration\n\n" if not existing else ""
+    new_content = f"{existing}\n\n{block}\n{HOOK_INSTRUCTIONS}\n" if existing else f"{header}{block}\n{HOOK_INSTRUCTIONS}\n"
+    with open(config_path, "w", encoding="utf-8") as f:
+        f.write(new_content)
 
     print(f"  ✅ Registered Protein Design hooks in {config_path}")
     return True
@@ -709,6 +713,7 @@ def validate_plugin(project_root: Path) -> bool:
 
     files_to_check = {
         "Hooks source": project_root / "hooks" / "hooks.json",
+        "Root plugin manifest": project_root / "plugin.json",
         "Claude plugin manifest": project_root / ".claude-plugin" / "plugin.json",
         "Codex plugin manifest": project_root / ".codex-plugin" / "plugin.json",
         "Kimi plugin manifest": project_root / "kimi.plugin.json",

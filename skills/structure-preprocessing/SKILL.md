@@ -41,8 +41,7 @@ All user-provided structures **must** be preprocessed before entering RFdiffusio
 python scripts/run_pdbfixer.py \
   --input path/to/input.pdb \
   --output path/to/output_fixed.pdb \
-  --keep-chains A \
-  --seed 42
+  --keep-chains A
 ```
 
 ## Parameters
@@ -51,8 +50,11 @@ python scripts/run_pdbfixer.py \
 |-----------|----------|---------|-------------|
 | `input_pdb` | ✅ | — | Input PDB/CIF file path |
 | `output_pdb` | ❌ | auto | Output path (auto: `<input>_fixed.pdb`) |
-| `keep_chains` | ❌ | all | List of chain IDs to retain |
-| `seed` | ❌ | 42 | Random seed for atom placement |
+| `keep_chains` | ❌ | all | Comma-separated chain IDs to retain |
+| `add_atoms` | ❌ | heavy | Atoms to add: `heavy`, `all`, `none` |
+| `keep_heterogens` | ❌ | none | Heterogens to keep: `water`, `all`, or comma-separated IDs |
+| `ph` | ❌ | 7.0 | pH for hydrogen addition |
+| `verbose` | ❌ | false | Verbose output |
 
 ## Common Non-Standard Residues
 

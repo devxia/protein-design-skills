@@ -269,6 +269,8 @@ def main() -> int:
         traceback.print_exc()
         return 1
 
+    user_prompt = text
+
     if not user_prompt.strip():
         return 0
 

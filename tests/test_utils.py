@@ -98,3 +98,15 @@ def test_parse_confidence_json_empty_list_returns_empty(tmp_path: Path) -> None:
 def test_parse_confidence_json_missing_file_raises(tmp_path: Path) -> None:
     with pytest.raises(FileNotFoundError):
         parse_confidence_json(tmp_path / "missing.json")
+
+
+def test_read_fasta_empty_file(tmp_path: Path) -> None:
+    fa = tmp_path / "empty.fa"
+    fa.write_text("")
+    assert read_fasta(fa) == []
+
+
+def test_write_fasta_empty(tmp_path: Path) -> None:
+    out = tmp_path / "out.fa"
+    write_fasta([], out)
+    assert out.read_text() == ""

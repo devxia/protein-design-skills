@@ -23,9 +23,15 @@ import subprocess
 import time
 
 
-def find_chai1():
+def find_chai1(config):
     """Locate Chai-1 installation."""
-    # 1. Try direct command
+    # 1. Configured path / environment variable
+    if config.get("chai1_path"):
+        path = Path(config["chai1_path"])
+        if path.exists():
+            return str(path)
+
+    # 2. Try direct command
     try:
         result = subprocess.run(
             ["which", "chai-lab"],
@@ -67,7 +73,7 @@ def run_chai1(input_file, output_dir, use_msa_server=True, num_trunk_recycles=3,
               num_diffn_timesteps=200, verbose=False):
     """Run Chai-1 prediction."""
     config = get_config("chai1")
-    chai_cmd = find_chai1()
+    chai_cmd = find_chai1(config)
 
     if not chai_cmd:
         print("ERROR: Chai-1 not found. Install with: pip install chai-lab", file=sys.stderr)

@@ -349,10 +349,12 @@ ls -la ~/.kimi-code/hooks/  # Kimi Code
 | 文件 | 用途 | 使用者 |
 |------|------|--------|
 | `.claude-plugin/plugin.json` | Claude Code 插件 manifest | Claude Code |
-| `.claude-plugin/marketplace.json` | 插件市场注册 | `claude plugin marketplace add` |
+| `.claude-plugin/marketplace.json` | Claude 市场注册 | `claude plugin marketplace add` |
+| `.codex-plugin/plugin.json` | Codex CLI 插件 manifest | Codex CLI |
 | `plugin.json` | 根目录元数据 | npm、GitHub、通用工具 |
 | `kimi.plugin.json` | Kimi Code 插件 manifest | Kimi Code |
-| `hooks/hooks.json` | 标准钩子配置 | Claude Code 插件加载器 |
+| `.agents/plugins/marketplace.json` | 多智能体市场索引 | `.agents` 插件加载器 |
+| `hooks/hooks.json` | 权威钩子定义 | `install-hooks.py`、Claude Code 插件加载器 |
 
 `.claude-plugin/plugin.json` 遵循 [Claude Code plugin-structure 规范](https://docs.anthropic.com/en/docs/claude-code/plugins)。钩子也可通过 `protein_design/hooks/install-hooks.py` 安装，适用于不使用标准钩子加载器的智能体。
 

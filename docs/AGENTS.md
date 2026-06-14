@@ -21,7 +21,6 @@ docs/
 | Document | Source of truth |
 |----------|-----------------|
 | `docs/en/release-notes/changelog.md` | English → translate to Chinese |
-| `docs/en/release-notes/breaking-changes.md` | English → translate to Chinese |
 | All other `docs/en/*` ↔ `docs/zh/*` | Mirrored pairs — sync both ways |
 | `README.md` ↔ `README.zh.md` | Mirrored pair — sync both ways |
 

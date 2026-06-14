@@ -55,7 +55,7 @@ def find_ligandmpnn(config):
     for env in conda_envs:
         try:
             result = subprocess.run(
-                ["conda", "run", "-n", env, "find", "~", "-name", "run.py",
+                ["conda", "run", "-n", env, "find", str(Path.home()), "-name", "run.py",
                  "-path", "*/LigandMPNN/*"],
                 capture_output=True, text=True, timeout=10
             )

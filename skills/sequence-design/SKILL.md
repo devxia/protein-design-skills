@@ -24,8 +24,6 @@ description: Amino acid sequence design with ProteinMPNN and alternatives (Stage
 
 ## ProteinMPNN Overview
 
-## ProteinMPNN Overview
-
 ProteinMPNN assigns amino acid sequences to given backbone structures. It uses a graph neural network to predict the most likely residue type at each position, conditioned on the 3D backbone geometry.
 
 ## Standalone Script
@@ -35,29 +33,26 @@ python scripts/run_proteinmpnn.py \
   --pdb-path designs/design_0.pdb \
   --out-folder outputs/seqs \
   --num-seq 8 \
-  --temp 0.1 \
-  --seed 37
+  --temp 0.1
 ```
 
 ## Basic Parameters
 
 | Parameter | CLI Flag | Required | Default | Description |
 |-----------|----------|----------|---------|-------------|
-| `pdb_path` | `--pdb-path` | ✅ | — | Input PDB file path |
-| `output_folder` | `--out-folder` | ✅ | — | Output folder path |
-| `num_seq_per_target` | `--num-seq` | ❌ | 8 | Sequences to generate per backbone |
-| `sampling_temp` | `--temp` | ❌ | `0.1` | Temperature: `0.1` conservative, `0.3` moderate, `0.5` diverse |
-| `model_name` | `--model-name` | ❌ | `v_48_020` | Model variant: `v_48_002`, `v_48_010`, `v_48_020`, `v_48_030` |
-| `pdb_path_chains` | `--chains` | ❌ | — | Chains to design, e.g. `B` (binder-only) |
-| `fixed_positions_jsonl` | `--fixed-positions` | ❌ | — | Path to fixed positions JSONL |
-| `use_soluble_model` | `--soluble` | ❌ | false | Use soluble protein model |
-| `seed` | `--seed` | ❌ | 37 | Random seed (0=random) |
-| `omit_AAs` | `--omit-aas` | ❌ | `X` | Exclude amino acids, e.g. `AC` excludes Ala and Cys |
-| `backbone_noise` | `--backbone-noise` | ❌ | 0.00 | Gaussian noise on backbone (Å) |
-| `save_score` | `--save-score` | ❌ | false | Save scores to .npz |
-| `save_probs` | `--save-probs` | ❌ | false | Save probabilities to .npz |
+| `pdb_path` | `--pdb-path` / `-p` | ✅ | — | Input PDB file path or glob |
+| `output_folder` | `--out-folder` / `-o` | ✅ | — | Output folder path |
+| `num_seq_per_target` | `--num-seq` / `--num-seq-per-target` / `-n` | ❌ | 8 | Sequences to generate per backbone |
+| `sampling_temp` | `--temp` / `--sampling-temp` / `-t` | ❌ | `0.1` | Temperature: `0.1` conservative, `0.3` moderate, `0.5` diverse |
+| `pdb_path_chains` | `--chains` / `--pdb-path-chains` / `-c` | ❌ | — | Chains to design, e.g. `B` (binder-only) |
+| `fixed_positions` | `--fixed-positions` | ❌ | — | Comma-separated 1-based indices to keep fixed |
+| `verbose` | `--verbose` / `-v` | ❌ | false | Verbose output |
 
-## Advanced Parameters
+> **Wrapper scope:** `scripts/run_proteinmpnn.py` only exposes the most common flags. Advanced ProteinMPNN options (model variant, soluble model, seed, AA bias/omit, backbone noise, scoring mode, tied positions, JSONL batch workflow, etc.) require invoking ProteinMPNN directly.
+
+## Advanced Parameters (Native ProteinMPNN)
+
+The parameters below are for native ProteinMPNN (`ProteinMPNN/protein_mpnn_run.py`); the wrapper script does not expose them.
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
@@ -108,24 +103,25 @@ python scripts/run_proteinmpnn.py \
 This fixes chain A (target) and redesigns only chain B (binder).
 
 ### Soluble Protein Design
+To use the soluble model, invoke native ProteinMPNN (the wrapper does not support `--soluble`):
 ```bash
-python scripts/run_proteinmpnn.py \
-  --pdb-path designs/design_0.pdb \
-  --out-folder outputs/soluble_seqs \
-  --num-seq 8 \
-  --temp 0.1 \
-  --soluble
+python ProteinMPNN/protein_mpnn_run.py \
+  --pdb_path designs/design_0.pdb \
+  --out_folder outputs/soluble_seqs \
+  --num_seq_per_target 8 \
+  --sampling_temp 0.1 \
+  --use_soluble_model
 ```
 
 ### Multi-Chain Complex (JSONL Workflow)
-For designing multiple chains in a complex:
+For designing multiple chains in a complex, invoke native ProteinMPNN (the wrapper script does not support JSONL workflows):
 ```bash
-python scripts/run_proteinmpnn.py \
-  --jsonl-path parsed_chains/pdbs.jsonl \
-  --chain-id-jsonl chain_assignments.jsonl \
-  --out-folder outputs/seqs \
-  --num-seq 8 \
-  --temp 0.1
+python ProteinMPNN/protein_mpnn_run.py \
+  --jsonl_path parsed_chains/pdbs.jsonl \
+  --chain_id_jsonl chain_assignments.jsonl \
+  --out_folder outputs/seqs \
+  --num_seq_per_target 8 \
+  --sampling_temp 0.1
 ```
 
 **Preparing JSONL files:**
@@ -148,18 +144,18 @@ Keep specific residues fixed while designing the rest:
 python scripts/run_proteinmpnn.py \
   --pdb-path designs/design_0.pdb \
   --out-folder outputs/fixed_seqs \
-  --fixed-positions fixed_positions.jsonl \
+  --fixed-positions 1,2,3,7,8,9,22,25 \
   --num-seq 8 \
   --temp 0.1
 ```
 
-**Creating fixed positions JSONL:**
+For multi-chain or batch workflows, create a fixed-positions JSONL and invoke ProteinMPNN directly:
 ```bash
 python ProteinMPNN/helper_scripts/make_fixed_positions_dict.py \
     --input_path=./parsed_chains/pdbs.jsonl \
     --output_path=./fixed_positions.jsonl \
     --chain_list "A" \
-    --position_list "1 2 3 4 5 23 25"
+    --position_list "1 2 3 7 8 9 22 25"
 ```
 
 JSONL format (1-based indices):
@@ -168,13 +164,13 @@ JSONL format (1-based indices):
 ```
 
 ### Tied Positions (Symmetry)
-For symmetric oligomers, tie equivalent positions:
+For symmetric oligomers, tie equivalent positions using native ProteinMPNN (the wrapper does not support tied positions):
 ```bash
-python scripts/run_proteinmpnn.py \
-  --pdb-path symmetric_design.pdb \
-  --out-folder outputs/sym_seqs \
-  --tied-positions tied_positions.jsonl \
-  --num-seq 8
+python ProteinMPNN/protein_mpnn_run.py \
+  --pdb_path symmetric_design.pdb \
+  --out_folder outputs/sym_seqs \
+  --tied_positions_jsonl tied_positions.jsonl \
+  --num_seq_per_target 8
 ```
 
 **Creating tied positions JSONL:**
@@ -194,13 +190,13 @@ python ProteinMPNN/helper_scripts/make_tied_positions_dict.py \
 ```
 
 ### Amino Acid Bias
-Bias toward or away from specific amino acids:
+Bias toward or away from specific amino acids using native ProteinMPNN (the wrapper does not support AA bias):
 ```bash
-python scripts/run_proteinmpnn.py \
-  --pdb-path designs/design_0.pdb \
-  --out-folder outputs/biased_seqs \
-  --bias-aa-jsonl aa_bias.jsonl \
-  --num-seq 8
+python ProteinMPNN/protein_mpnn_run.py \
+  --pdb_path designs/design_0.pdb \
+  --out_folder outputs/biased_seqs \
+  --bias_AA_jsonl aa_bias.jsonl \
+  --num_seq_per_target 8
 ```
 
 **Creating AA bias JSONL:**
@@ -212,23 +208,23 @@ python ProteinMPNN/helper_scripts/make_bias_AA.py \
 ```
 
 ### Scoring Mode (Evaluate Existing Sequences)
-Score backbone-sequence pairs without generating new sequences:
+Score backbone-sequence pairs without generating new sequences using native ProteinMPNN (the wrapper does not support scoring mode):
 ```bash
-python scripts/run_proteinmpnn.py \
-  --pdb-path designs/design_0.pdb \
-  --out-folder outputs/scores \
-  --score-only \
-  --path-to-fasta sequences.fa
+python ProteinMPNN/protein_mpnn_run.py \
+  --pdb_path designs/design_0.pdb \
+  --out_folder outputs/scores \
+  --score_only \
+  --path_to_fasta sequences.fa
 ```
 
 ### Backbone Noise for Robustness
-Add noise to backbone to test sequence robustness:
+Add noise to backbone to test sequence robustness using native ProteinMPNN (the wrapper does not support backbone noise):
 ```bash
-python scripts/run_proteinmpnn.py \
-  --pdb-path designs/design_0.pdb \
-  --out-folder outputs/noisy_seqs \
-  --backbone-noise 0.1 \
-  --num-seq 16
+python ProteinMPNN/protein_mpnn_run.py \
+  --pdb_path designs/design_0.pdb \
+  --out_folder outputs/noisy_seqs \
+  --backbone_noise 0.1 \
+  --num_seq_per_target 16
 ```
 
 ## Output Format
@@ -294,14 +290,12 @@ Key differences:
 
 ## Tips
 
-- For binder design, use `pdb_path_chains` to fix the target
+- For binder design, use `--chains` to fix the target
 - Lower temperature (0.1) gives more reliable sequences for validation
 - Higher temperature (0.3+) useful for generating diverse libraries
-- `use_soluble_model` if targeting soluble expression
-- `backbone_noise` tests robustness but may decrease sequence quality
-- `fixed_positions_jsonl` preserves important functional residues
-- `tied_positions_jsonl` ensures symmetric positions get identical residues
-- For scoring existing sequences, use `score_only` mode with `path_to_fasta`
+- Soluble model, AA bias, backbone noise, scoring mode, and tied positions require native ProteinMPNN (not the wrapper)
+- Use `--fixed-positions` with comma-separated 1-based indices for the wrapper
+- For advanced workflows (JSONL batches, symmetry, scoring), invoke `ProteinMPNN/protein_mpnn_run.py` directly
 - LigandMPNN is preferred when designing proteins with bound small molecules
 
 ## ProteinMPNN Not Installed?

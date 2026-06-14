@@ -71,22 +71,21 @@ python scripts/run_rfdiffusion.py \
   --diffuser-t 50
 ```
 
-## Basic Parameters
+## Basic Parameters (Wrapper Script)
+
+The wrapper script `scripts/run_rfdiffusion.py` exposes a small, common subset of RFdiffusion flags. Advanced features (symmetry, inpainting, fold conditioning, cyclic peptides, potentials, custom checkpoints, etc.) require invoking `RFdiffusion/scripts/run_inference.py` directly with Hydra overrides.
 
 | Parameter | CLI Flag | Required | Default | Description |
 |-----------|----------|----------|---------|-------------|
-| `output_prefix` | `--output-prefix` | ✅ | — | Output path prefix |
+| `output_prefix` | `--output-prefix` / `-o` | ✅ | — | Output path prefix |
 | `contig` | `--contig` | ✅ | — | Contig string (use single quotes in shell) |
-| `num_designs` | `--num-designs` | ❌ | 10 | Number of backbones to generate |
-| `input_pdb` | `--input-pdb` | ❌ | — | Required for motif/binder/partial |
-| `hotspot_res` | `--hotspot-res` | ❌ | — | Hotspot residues (binder design) |
-| `symmetry` | `--symmetry` | ❌ | — | `c2`, `d2`, `tetrahedral`, `octahedral`, `icosahedral` |
-| `diffuser_T` | `--diffuser-t` | ❌ | 50 | Diffusion timesteps (lower=faster) |
-| `ckpt_override_path` | `--checkpoint` | ❌ | — | Custom model checkpoint |
-| `skip_preprocessing` | `--skip-preprocessing` | ❌ | false | Skip auto PDBFixer |
-| `keep_chains` | `--keep-chains` | ❌ | — | Chains to keep in preprocessing |
+| `num_designs` | `--num-designs` / `-n` | ❌ | 50 | Number of backbones to generate |
+| `input_pdb` | `--input-pdb` / `-i` | ❌ | — | Required for motif/binder/partial |
+| `hotspot_res` | `--hotspot-res` | ❌ | — | Hotspot residues (comma-separated) |
+| `diffuser_T` | `--diffuser-t` / `--diffuser-T` | ❌ | 50 | Diffusion timesteps (lower=faster) |
+| `verbose` | `--verbose` / `-v` | ❌ | false | Verbose output |
 
-## Advanced Parameters
+## Advanced Parameters (Direct RFdiffusion)
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
@@ -146,6 +145,8 @@ python scripts/run_rfdiffusion.py \
 ```
 
 ## Advanced Design Patterns
+
+> **Wrapper scope:** The patterns below use RFdiffusion features not exposed by `scripts/run_rfdiffusion.py`. Use `RFdiffusion/scripts/run_inference.py` directly with Hydra overrides, or expand the wrapper config.
 
 ### Partial Diffusion with Fixed Sequence
 Keep some sequence fixed while diffusing structure:
@@ -248,14 +249,14 @@ python scripts/run_rfdiffusion.py \
 **Supported symmetries:** `c2`, `c3`, `c4`, `c5`, `c6`, `d2`, `d3`, `d4`, `tetrahedral`, `octahedral`, `icosahedral`
 
 ### Enzyme Active Site Scaffolding
-For very small motifs, use the ActiveSite checkpoint:
+For very small motifs, use the ActiveSite checkpoint via direct RFdiffusion (the wrapper does not support `--checkpoint`):
 ```bash
-python scripts/run_rfdiffusion.py \
-  --input-pdb inputs/enzyme.pdb \
-  --contig "[10-20/A50-55/10-20]" \
-  --checkpoint models/ActiveSite_ckpt.pt \
-  --output-prefix outputs/enzyme \
-  --num-designs 50
+python RFdiffusion/scripts/run_inference.py \
+  inference.input_pdb=inputs/enzyme.pdb \
+  contigmap.contigs=["10-20/A50-55/10-20"] \
+  inference.ckpt_override_path=models/ActiveSite_ckpt.pt \
+  inference.output_prefix=outputs/enzyme \
+  inference.num_designs=50
 ```
 
 ## Output Format
@@ -282,7 +283,7 @@ User requests backbone generation
      ↓
 Determine design type from contig + context
      ↓
-If --input-pdb provided → auto-run PDBFixer (unless --skip-preprocessing)
+Preprocess input PDB with scripts/run_pdbfixer.py (if needed)
      ↓
 python scripts/run_rfdiffusion.py --contig ... --output-prefix ...
      ↓
@@ -327,14 +328,12 @@ python scripts/run_rfdiffusion.py \
 
 ## Key Tips
 
-- **Contig must be shell-quoted**: `'contigmap.contigs=[150-150]'`
-- `model`, `diffuser`, `preprocess` configs are auto-loaded from checkpoint
+- **Contig must be shell-quoted**: pass `--contig "150-150"` to the wrapper, or `contigmap.contigs=[150-150]` to direct RFdiffusion
+- `model`, `diffuser`, `preprocess` configs are auto-loaded from checkpoint by RFdiffusion
 - For binder design, always provide `input_pdb` with target structure
 - For motif scaffolding, residue numbers in contig must match input PDB exactly
 - Lower `diffuser_T` (25) for partial diffusion (faster, more conservative)
-- `partial_T` adds noise for N steps then denoises — good for generating diversity around a structure
-- `inpaint_seq` masks sequence identity but keeps 3D structure — use for redesigning sequence of a region
-- `inpaint_str` masks 3D structure but keeps sequence — use for redesigning structure while preserving sequence
+- `partial_T`, `inpaint_seq`, `inpaint_str`, symmetry, cyclic peptides, and potentials require direct RFdiffusion invocation
 - Cyclic peptides: contig length range should match desired peptide length (e.g., `[12-18]`)
 - **Noise scale reduction**: Try `denoiser.noise_scale_ca=0.5` for constrained designs — improves quality at the cost of diversity
 - **Early stopping**: `inference.final_step=25` provides significant speedup with minimal quality loss

@@ -70,6 +70,8 @@ def main() -> int:
         traceback.print_exc()
         return 1
 
+    user_prompt = text
+
     # Only activate for protein design keywords
     protein_keywords = re.compile(
         r"\b(protein|pdb|binder|alphafold|rfdiffusion|proteinmpnn|design|"

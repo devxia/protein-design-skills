@@ -125,7 +125,7 @@ def build_standard_pipeline(args) -> list[dict]:
                 "python", str(scripts_dir / "run_proteinmpnn.py"),
                 "--pdb-path", str(args.output_dir / "design_*.pdb"),
                 "--out-folder", str(args.output_dir / "sequences"),
-                "--num-seq", str(args.num_seq_per_target),
+                "--num-seq", str(args.num_seq),
                 "--verbose",
             ],
         })
@@ -196,10 +196,10 @@ def load_pipeline_config(config_path: Path) -> list[dict]:
     """Load pipeline config from YAML or JSON file."""
     try:
         import yaml
-        with open(config_path) as f:
+        with open(config_path, encoding="utf-8") as f:
             config = yaml.safe_load(f)
     except ImportError:
-        with open(config_path) as f:
+        with open(config_path, encoding="utf-8") as f:
             config = json.load(f)
     except Exception as e:
         print(f"ERROR: Could not load config: {e}", file=sys.stderr)

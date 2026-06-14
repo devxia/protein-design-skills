@@ -10,8 +10,6 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from protein_design.utils import send_notification
 import traceback
 import json
-import platform
-import subprocess
 
 
 def extract_metrics(result_text: str) -> dict:

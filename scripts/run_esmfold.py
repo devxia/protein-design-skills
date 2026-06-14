@@ -79,7 +79,7 @@ def run_esmfold_api(input_file, output_dir, verbose=False):
     current_id = None
     current_seq = []
 
-    with open(input_file) as f:
+    with open(input_file, encoding="utf-8") as f:
         for line in f:
             line = line.strip()
             if line.startswith(">"):
@@ -98,6 +98,9 @@ def run_esmfold_api(input_file, output_dir, verbose=False):
 
     # Run ESMFold via Python script
     script_content = f'''
+import sys
+from pathlib import Path
+
 sys.path.insert(0, ".")
 import torch
 import esm
@@ -119,7 +122,7 @@ for seq_id, seq in sequences:
         output = model.infer_pdb(seq)
 
     out_file = output_dir / f"{{seq_id}}.pdb"
-    with open(out_file, "w") as f:
+    with open(out_file, "w", encoding="utf-8") as f:
         f.write(output)
     print(f"  Saved: {{out_file}}")
 
@@ -127,7 +130,7 @@ print("Done!")
 '''
 
     script_path = out_path / "_esmfold_run.py"
-    with open(script_path, "w") as f:
+    with open(script_path, "w", encoding="utf-8") as f:
         f.write(script_content)
 
     start_time = time.time()

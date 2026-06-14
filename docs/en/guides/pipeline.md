@@ -9,7 +9,7 @@ source: README.md
 
 ```
 protein-design-skills/
-├── kimi.plugin.json              # Plugin manifest (Kimi Code)
+├── plugin.json / kimi.plugin.json / .claude-plugin/*.json / .codex-plugin/*.json  # Plugin manifests
 ├── skills/                       # Workflow guidance (76 skills)
 │   ├── protein-design-context/   # Session-start context
 │   ├── structure-preprocessing/  # Stage 0: PDBFixer
@@ -90,16 +90,21 @@ Use `skills/pipeline-selection/SKILL.md` to choose from 15+ design pipelines:
 
 | Pipeline | Stage 1 | Stage 2 | Stage 3 | Best For |
 |----------|---------|---------|---------|----------|
-| Standard | RFdiffusion | ProteinMPNN | AlphaFold3 | General purpose |
-| Fast Screen | RFdiffusion | ProteinMPNN | ESMFold | Large libraries (100+) |
-| Two-Stage | RFdiffusion | ProteinMPNN | ESMFold → AlphaFold3 | Balance speed & accuracy |
-| Peptide | RFdiffusion | ProteinMPNN | AlphaFold3 | Peptide binders |
-| Macrocycle | RFpeptides | ProteinMPNN | AlphaFold3 | Cyclic peptides |
-| Enzyme | RFdiffusion (ActiveSite) | ProteinMPNN | AlphaFold3 | Enzyme design |
-| Antibody | RFdiffusion / IgDiff | ProteinMPNN | AlphaFold3 | Antibody design |
-| Complex | RFdiffusion (Complex) | ProteinMPNN | Boltz-1 | Multi-chain complexes |
-| Inverse | BCDesign / AlignInversePro | — | — | Inverse folding optimization |
-| Co-design | MultiFlow | MultiFlow | AlphaFold3 | Joint structure-sequence |
+| **Standard** | RFdiffusion | ProteinMPNN | AlphaFold3 | General purpose |
+| **Fast Screening** | RFdiffusion | ProteinMPNN | ESMFold/OmegaFold | No databases needed |
+| **Ligand-Aware** | RFdiffusionAA | LigandMPNN | AlphaFold3 | Small molecules, cofactors |
+| **Peptide** | DiffPepBuilder | Built-in | AlphaFold3 | 8-30aa peptides |
+| **Macrocyclic** | RFpeptides | ProteinMPNN | AlphaFold3/Boltz-1 | 12-18aa cyclic peptides |
+| **Cross-Validation** | RFdiffusion | ProteinMPNN | Boltz-1 + Chai-1 + OmegaFold | Most robust ranking |
+| **Score-First** | RFdiffusion | ProteinMPNN (score_only) | AlphaFold3 | Pre-screen to save compute |
+| **Chroma** | Chroma (joint) | — | AlphaFold3 | All-atom, natural language |
+| **ColabDesign** | AfDesign | AfDesign | AlphaFold3 | No local GPU |
+| **Ensemble** | RFdiffusion | ProteinMPNN + ESM-IF1 | AlphaFold3 | Maximum diversity |
+| **FoldFlow** | FoldFlow | ProteinMPNN | AlphaFold3 | Fast flow matching |
+| **OpenFold3** | RFdiffusion | ProteinMPNN | OpenFold3 | pip install, AF3 parity |
+| **Protenix** | RFdiffusion | ProteinMPNN | Protenix | Training + inference scaling |
+| **Antibody** | IgDiff/RFdiffusion | AbMPNN/ProteinMPNN | AlphaFold3 | Antibodies, nanobodies |
+| **Enzyme** | RFdiffusionAA | LigandMPNN | AlphaFold3 | Active sites, catalysis |
 
 ## Hooks reference
 
@@ -125,6 +130,9 @@ Use `skills/pipeline-selection/SKILL.md` to choose from 15+ design pipelines:
 | `tool-recommender.py` | Tool selection | Recommend tools for task |
 | `alternative-tool-recommender.py` | Tool not found | Suggest alternatives |
 | `design-report.py` | After pipeline | Generate summary report |
+| `user-onboarding.py` | First protein prompt | Welcome message + tool status |
+| `progress-query-helper.py` | Progress questions | Help parse progress queries |
+| `parameter-generator.py` | Parameter requests | Generate tool-specific parameters |
 
 ## Architecture
 

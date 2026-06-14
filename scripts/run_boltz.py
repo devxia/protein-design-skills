@@ -23,9 +23,15 @@ import subprocess
 import time
 
 
-def find_boltz():
+def find_boltz(config):
     """Locate Boltz-1 installation."""
-    # 1. Try direct command
+    # 1. Configured path / environment variable
+    if config.get("boltz_path"):
+        path = Path(config["boltz_path"])
+        if path.exists():
+            return str(path)
+
+    # 2. Try direct command
     try:
         result = subprocess.run(
             ["which", "boltz"],
@@ -67,7 +73,7 @@ def run_boltz(input_file, out_dir, use_msa_server=True, recycling_steps=3,
               sampling_steps=200, verbose=False):
     """Run Boltz-1 prediction."""
     config = get_config("boltz")
-    boltz_cmd = find_boltz()
+    boltz_cmd = find_boltz(config)
 
     if not boltz_cmd:
         print("ERROR: Boltz-1 not found. Install with: pip install boltz", file=sys.stderr)

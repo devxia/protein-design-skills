@@ -13,7 +13,12 @@ from pathlib import Path
 
 import pytest
 
-HOOKS = [p for p in sorted(Path("protein_design/hooks").glob("*.py")) if p.name != "__init__.py"]
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+HOOKS = [
+    p
+    for p in sorted((PROJECT_ROOT / "protein_design" / "hooks").glob("*.py"))
+    if p.name != "__init__.py"
+]
 
 
 def _import_hook(hook: Path) -> None:
@@ -29,6 +34,7 @@ def test_hook_runs_or_imports(hook: Path) -> None:
         [sys.executable, str(hook), "--help"],
         capture_output=True,
         text=True,
+        timeout=30,
     )
     if result.returncode == 0:
         return

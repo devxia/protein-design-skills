@@ -61,7 +61,7 @@ def fasta_to_chai_fasta(sequences, verbose=False):
 def csv_to_fasta(csv_path, id_col=0, seq_col=1, verbose=False):
     """Convert CSV to FASTA format."""
     sequences = []
-    with open(csv_path) as f:
+    with open(csv_path, encoding="utf-8") as f:
         reader = csv.reader(f)
         header = next(reader, None)  # Skip header
         for row in reader:
@@ -117,7 +117,7 @@ def json_results_to_csv(results_dir, output_csv, verbose=False):
 
     for conf_file in results_path.rglob("confidence.json"):
         try:
-            with open(conf_file) as f:
+            with open(conf_file, encoding="utf-8") as f:
                 data = json.load(f)
 
             row = {"name": conf_file.parent.name}
@@ -134,7 +134,7 @@ def json_results_to_csv(results_dir, output_csv, verbose=False):
 
     # Write CSV
     fieldnames = ["name", "plddt", "iptm", "ptm", "pae"]
-    with open(output_csv, "w", newline="") as f:
+    with open(output_csv, "w", encoding="utf-8", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=fieldnames)
         writer.writeheader()
         for row in rows:
@@ -157,22 +157,22 @@ def convert_format(from_fmt, to_fmt, input_path, output_path, job_name="design",
         if conversion_key in ["fasta→alphafold3_json", "fasta→af3-json", "fasta→af3"]:
             sequences = read_fasta(input_path)
             result = fasta_to_alphafold3_json(sequences, job_name, verbose)
-            with open(output_path, "w") as f:
+            with open(output_path, "w", encoding="utf-8") as f:
                 json.dump(result, f, indent=2)
 
         elif conversion_key in ["fasta→boltz_yaml", "fasta→boltz-yaml", "fasta→boltz"]:
             sequences = read_fasta(input_path)
             result = fasta_to_boltz_yaml(sequences, ligands, verbose)
-            with open(output_path, "w") as f:
+            with open(output_path, "w", encoding="utf-8") as f:
                 f.write(result)
 
         elif conversion_key in ["fasta→chai_fasta", "fasta→chai-fasta", "fasta→chai"]:
             sequences = read_fasta(input_path)
             result = fasta_to_chai_fasta(sequences, verbose)
-            with open(output_path, "w") as f:
+            with open(output_path, "w", encoding="utf-8") as f:
                 f.write(result)
 
-        elif conversion_key in ["csv→fasta", "csv→fasta"]:
+        elif conversion_key in ["csv→fasta"]:
             sequences = csv_to_fasta(input_path, verbose=verbose)
             write_fasta(sequences, output_path)
 

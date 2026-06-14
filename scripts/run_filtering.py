@@ -20,7 +20,6 @@ from protein_design.utils import parse_confidence_json
 
 import argparse
 import json
-import os
 from statistics import mean, stdev
 
 
@@ -144,7 +143,7 @@ def filter_designs(results_dir, min_plddt=70, min_iptm=0.6, min_ptm=0.7,
 
     # Save results
     output_file = results_path / "filtered_results.json"
-    with open(output_file, "w") as f:
+    with open(output_file, "w", encoding="utf-8") as f:
         json.dump({
             "total_designs": len(designs),
             "passing_designs": len(passing),

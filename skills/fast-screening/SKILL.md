@@ -36,20 +36,20 @@ Fast:      RFdiffusion → ProteinMPNN → ESMFold (no MSA)      → Filtering
 
 [ESMFold](https://github.com/facebookresearch/esm) predicts protein structures from a single amino acid sequence using the ESM-2 language model embeddings.
 
-### Key Features
+### ESMFold Key Features
 - **No MSA required** — predicts from single sequence
 - **Very fast** — seconds per protein (vs minutes/hours for AF3)
 - **Moderate accuracy** — excellent for known-like structures, lower for novel folds
 - **Outputs PDB** with per-residue confidence (pLDDT-like)
 
-### Installation
+### ESMFold Installation
 ```bash
 # Install ESM and ESMFold
 pip install fair-esm
 pip install git+https://github.com/facebookresearch/esm.git
 ```
 
-### Usage
+### ESMFold Usage
 ```python
 import torch
 from esm import pretrained
@@ -67,7 +67,7 @@ with open("output.pdb", "w") as f:
     f.write(output)
 ```
 
-### Pipeline Integration
+### ESMFold Pipeline Integration
 
 1. **Generate backbones** (RFdiffusion) — same as standard
 2. **Design sequences** (ProteinMPNN) — same as standard
@@ -103,19 +103,19 @@ for fasta_file in glob.glob("outputs/seqs/*.fa"):
 
 [ColabFold](https://github.com/sokrypton/ColabFold) replaces AlphaFold2/3's slow jackhmmer/HHblits with fast MMseqs2 for MSA generation.
 
-### Key Features
+### ColabFold Key Features
 - **Faster MSA** — MMseqs2 vs jackhmmer/HHblits
 - **Smaller database footprint** — ~100GB vs ~2.6TB
 - **Supports AlphaFold2, AlphaFold2-Multimer, RoseTTAFold**
 - **Batch processing**
 
-### Installation
+### ColabFold Installation
 ```bash
 # Install localcolabfold
 pip install "colabfold[alphafold] @ git+https://github.com/sokrypton/ColabFold.git"
 ```
 
-### Usage
+### ColabFold Usage
 ```bash
 # Predict from FASTA (native ColabFold CLI)
 colabfold_batch input.fasta output_dir/ \
@@ -124,7 +124,7 @@ colabfold_batch input.fasta output_dir/ \
     --model-type alphafold2
 ```
 
-### Pipeline Integration
+### ColabFold Pipeline Integration
 
 Same as standard pipeline, but use ColabFold instead of AlphaFold3:
 
@@ -156,13 +156,13 @@ python scripts/run_alphafold3.py \
 
 [Boltz-2](https://github.com/jwohlwend/boltz) predicts protein structures and ligand binding affinity.
 
-### Key Features
+### Boltz-2 Key Features
 - Structure prediction (like AlphaFold)
 - **Binding affinity prediction** — unique among tools
 - Supports ligands, nucleic acids, modifications
 - Fast inference
 
-### Usage
+### Boltz-2 Usage
 ```bash
 boltz predict input.yaml --out_dir outputs/
 ```

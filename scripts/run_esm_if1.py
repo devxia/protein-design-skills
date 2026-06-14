@@ -57,7 +57,7 @@ def find_esm_if1(config):
         try:
             # Canonical upstream CLI: examples/inverse_folding/sample_sequences.py
             result = subprocess.run(
-                ["conda", "run", "-n", env, "find", "~", "-name", "sample_sequences.py",
+                ["conda", "run", "-n", env, "find", str(Path.home()), "-name", "sample_sequences.py",
                  "-path", "*/inverse_folding/*"],
                 capture_output=True, text=True, timeout=10
             )

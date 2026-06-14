@@ -9,7 +9,7 @@ source: README.zh.md
 
 ```
 protein-design-skills/
-├── kimi.plugin.json              # 插件清单（Kimi Code）
+├── plugin.json / kimi.plugin.json / .claude-plugin/*.json / .codex-plugin/*.json  # 插件清单
 ├── skills/                       # 工作流指南（76 skills）
 │   ├── protein-design-context/   # 会话启动上下文
 │   ├── structure-preprocessing/  # 阶段 0：PDBFixer
@@ -88,18 +88,23 @@ Hook: design-complete-notify.py（完成时桌面通知）
 
 使用 `skills/pipeline-selection/SKILL.md` 从 15+ 设计流程中选择：
 
-| 流程 | 阶段 1 | 阶段 2 | 阶段 3 | 最佳场景 |
-|------|--------|--------|--------|----------|
-| Standard | RFdiffusion | ProteinMPNN | AlphaFold3 | 通用目的 |
-| Fast Screen | RFdiffusion | ProteinMPNN | ESMFold | 大型库（100+） |
-| Two-Stage | RFdiffusion | ProteinMPNN | ESMFold → AlphaFold3 | 速度与精度平衡 |
-| Peptide | RFdiffusion | ProteinMPNN | AlphaFold3 | 多肽结合物 |
-| Macrocycle | RFpeptides | ProteinMPNN | AlphaFold3 | 环化多肽 |
-| Enzyme | RFdiffusion (ActiveSite) | ProteinMPNN | AlphaFold3 | 酶设计 |
-| Antibody | RFdiffusion / IgDiff | ProteinMPNN | AlphaFold3 | 抗体设计 |
-| Complex | RFdiffusion (Complex) | ProteinMPNN | Boltz-1 | 多链复合物 |
-| Inverse | BCDesign / AlignInversePro | — | — | 逆折叠优化 |
-| Co-design | MultiFlow | MultiFlow | AlphaFold3 | 联合结构-序列设计 |
+| 流水线 | 阶段 1 | 阶段 2 | 阶段 3 | 适用场景 |
+|--------|--------|--------|--------|----------|
+| **标准** | RFdiffusion | ProteinMPNN | AlphaFold3 | 通用用途 |
+| **快速筛选** | RFdiffusion | ProteinMPNN | ESMFold/OmegaFold | 无需数据库 |
+| **配体感知** | RFdiffusionAA | LigandMPNN | AlphaFold3 | 小分子、辅因子 |
+| **肽段** | DiffPepBuilder | 内置 | AlphaFold3 | 8-30aa 肽段 |
+| **大环肽** | RFpeptides | ProteinMPNN | AlphaFold3/Boltz-1 | 12-18aa 环肽 |
+| **交叉验证** | RFdiffusion | ProteinMPNN | Boltz-1 + Chai-1 + OmegaFold | 最稳健的排名 |
+| **评分优先** | RFdiffusion | ProteinMPNN (score_only) | AlphaFold3 | 预筛选以节省计算 |
+| **Chroma** | Chroma（联合） | — | AlphaFold3 | 全原子、自然语言 |
+| **ColabDesign** | AfDesign | AfDesign | AlphaFold3 | 无本地 GPU |
+| **集成** | RFdiffusion | ProteinMPNN + ESM-IF1 | AlphaFold3 | 最大多样性 |
+| **FoldFlow** | FoldFlow | ProteinMPNN | AlphaFold3 | 快速流匹配 |
+| **OpenFold3** | RFdiffusion | ProteinMPNN | OpenFold3 | pip 安装，AF3 等效 |
+| **Protenix** | RFdiffusion | ProteinMPNN | Protenix | 训练 + 推理扩展 |
+| **抗体** | IgDiff/RFdiffusion | AbMPNN/ProteinMPNN | AlphaFold3 | 抗体、纳米抗体 |
+| **酶** | RFdiffusionAA | LigandMPNN | AlphaFold3 | 活性位点、催化 |
 
 ## Hooks 参考
 
@@ -125,6 +130,9 @@ Hook: design-complete-notify.py（完成时桌面通知）
 | `tool-recommender.py` | 工具选择 | 为任务推荐工具 |
 | `alternative-tool-recommender.py` | 工具未找到 | 建议替代工具 |
 | `design-report.py` | 流程完成后 | 生成总结报告 |
+| `user-onboarding.py` | 首次蛋白质提示 | 欢迎消息 + 工具状态 |
+| `progress-query-helper.py` | 进度查询问题 | 帮助解析进度查询 |
+| `parameter-generator.py` | 参数请求 | 生成工具专用参数 |
 
 ## 架构
 

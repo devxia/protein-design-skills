@@ -63,7 +63,7 @@ def submit_job(command: list[str], job_name: str = "", verbose: bool = False) ->
     if verbose:
         print(f"Submitting job {job_id}: {' '.join(command)}")
 
-    with open(log_file, "w") as log:
+    with open(log_file, "w", encoding="utf-8") as log:
         log.write(f"# Job {job_id}\n")
         log.write(f"# Command: {' '.join(command)}\n")
         log.write(f"# Started: {datetime.now().isoformat()}\n")
@@ -78,7 +78,7 @@ def submit_job(command: list[str], job_name: str = "", verbose: bool = False) ->
         )
 
     # Write PID file
-    with open(pid_file, "w") as f:
+    with open(pid_file, "w", encoding="utf-8") as f:
         f.write(str(process.pid))
 
     # Write metadata
@@ -91,7 +91,7 @@ def submit_job(command: list[str], job_name: str = "", verbose: bool = False) ->
         "start_time": datetime.now().isoformat(),
         "log_file": str(log_file),
     }
-    with open(meta_file, "w") as f:
+    with open(meta_file, "w", encoding="utf-8") as f:
         json.dump(metadata, f, indent=2)
 
     if verbose:
@@ -110,7 +110,7 @@ def get_job_status(job_id: str) -> dict:
     if not meta_file.exists():
         return {"error": f"Job {job_id} not found"}
 
-    with open(meta_file) as f:
+    with open(meta_file, encoding="utf-8") as f:
         metadata = json.load(f)
 
     # Check if process is still running
@@ -126,7 +126,7 @@ def get_job_status(job_id: str) -> dict:
             if log_file.exists():
                 # Check last line for exit status
                 try:
-                    with open(log_file) as f:
+                    with open(log_file, encoding="utf-8") as f:
                         lines = f.readlines()
                         for line in reversed(lines):
                             if "EXIT_CODE:" in line:
@@ -149,7 +149,7 @@ def list_jobs(status_filter: str = "all", verbose: bool = False) -> list[dict]:
         if meta_file.name == "jobs.json":  # Skip aggregate file
             continue
         try:
-            with open(meta_file) as f:
+            with open(meta_file, encoding="utf-8") as f:
                 metadata = json.load(f)
 
             # Update status
@@ -179,7 +179,7 @@ def cancel_job(job_id: str, verbose: bool = False) -> bool:
         print(f"ERROR: Job {job_id} not found", file=sys.stderr)
         return False
 
-    with open(meta_file) as f:
+    with open(meta_file, encoding="utf-8") as f:
         metadata = json.load(f)
 
     pid = metadata.get("pid")
@@ -200,7 +200,7 @@ def cancel_job(job_id: str, verbose: bool = False) -> bool:
         # Update metadata
         metadata["status"] = "cancelled"
         metadata["end_time"] = datetime.now().isoformat()
-        with open(meta_file, "w") as f:
+        with open(meta_file, "w", encoding="utf-8") as f:
             json.dump(metadata, f, indent=2)
 
         if verbose:
@@ -243,7 +243,7 @@ def tail_log(job_id: str, lines: int = 20) -> str:
         return f"No log file for job {job_id}"
 
     try:
-        with open(log_file) as f:
+        with open(log_file, encoding="utf-8") as f:
             all_lines = f.readlines()
             return "".join(all_lines[-lines:])
     except Exception as e:

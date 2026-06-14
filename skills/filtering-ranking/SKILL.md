@@ -26,9 +26,7 @@ description: Filter and rank protein designs by AlphaFold3 metrics (Stage 4)
 
 ## Filtering Overview
 
-## Filtering Overview
-
-The filtering stage evaluates AlphaFold3 confidence metrics and ranks designs by a composite quality score. Designs failing thresholds are excluded; survivors are sorted by quality.
+The filtering stage evaluates validation confidence metrics and ranks designs by a composite quality score. Designs failing thresholds are excluded; survivors are sorted by quality.
 
 ## Standalone Script
 
@@ -36,10 +34,10 @@ The filtering stage evaluates AlphaFold3 confidence metrics and ranks designs by
 
 ```bash
 python scripts/run_filtering.py \
-  --output-dir outputs/validation/ \
+  --results-dir outputs/validation/ \
   --min-plddt 70 \
   --min-iptm 0.6 \
-  --min-ptm 0.5 \
+  --min-ptm 0.7 \
   --max-pae 10.0 \
   --top-n 20
 ```
@@ -48,11 +46,13 @@ python scripts/run_filtering.py \
 
 | Parameter | CLI Flag | Required | Default | Description |
 |-----------|----------|----------|---------|-------------|
-| `results_dir` | `--output-dir` / `-d` | ✅ | — | Directory containing validation outputs |
-| `criteria.min_plddt` | `--min-plddt` | ❌ | 70 | Minimum mean pLDDT (0–100) |
-| `criteria.min_iptm` | ❌ | 0.6 | Minimum ipTM (0–1) |
-| `criteria.min_ptm` | ❌ | 0.5 | Minimum pTM (0–1) |
-| `criteria.allow_clashes` | ❌ | false | Allow designs with atomic clashes |
+| `results_dir` | `--results-dir` / `-d` | ✅ | — | Directory containing validation outputs |
+| `min_plddt` | `--min-plddt` | ❌ | 70 | Minimum mean pLDDT (0–100) |
+| `min_iptm` | `--min-iptm` | ❌ | 0.6 | Minimum ipTM (0–1) |
+| `min_ptm` | `--min-ptm` | ❌ | 0.7 | Minimum pTM (0–1) |
+| `max_pae` | `--max-pae` | ❌ | 10.0 | Maximum PAE threshold |
+| `top_n` | `--top-n` | ❌ | all | Only show top N designs |
+| `verbose` | `--verbose` / `-v` | ❌ | false | Verbose output with statistics |
 
 ## Design Dict Format
 
@@ -118,12 +118,12 @@ Higher score = better design. Designs are sorted descending by this score.
 
 ## Quality Thresholds Reference
 
-| Application | min_plddt | min_iptm | min_ptm | allow_clashes |
-|------------|-----------|----------|---------|---------------|
-| Strict (publication) | 80 | 0.8 | 0.7 | false |
-| Standard (default) | 70 | 0.6 | 0.5 | false |
-| Lenient (exploration) | 60 | 0.5 | 0.4 | false |
-| Binder design | 75 | 0.75 | 0.6 | false |
+| Application | min_plddt | min_iptm | min_ptm | max_pae |
+|------------|-----------|----------|---------|---------|
+| Strict (publication) | 80 | 0.8 | 0.7 | 10.0 |
+| Standard (default) | 70 | 0.6 | 0.7 | 10.0 |
+| Lenient (exploration) | 60 | 0.5 | 0.5 | 15.0 |
+| Binder design | 75 | 0.75 | 0.7 | 10.0 |
 
 ## Presentation to User
 

@@ -6,7 +6,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from scripts.run_filtering import compute_composite_score, parse_pdb_bfactor
+from scripts.run_filtering import compute_composite_score, filter_designs, parse_pdb_bfactor
 
 
 def test_compute_composite_score_plddt_only():
@@ -49,3 +49,9 @@ def test_parse_pdb_bfactor(tmp_path):
 
 def test_parse_pdb_bfactor_missing_file():
     assert parse_pdb_bfactor("/nonexistent/path.pdb") is None
+
+
+def test_filter_designs_missing_dir(tmp_path):
+    missing = tmp_path / "no_results"
+    rc = filter_designs(str(missing))
+    assert rc == 1

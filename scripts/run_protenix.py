@@ -131,11 +131,6 @@ def run_protenix(input_file, out_dir, num_recycling=3, verbose=False):
         log_history("protenix", {"input": input_file}, time.time() - start_time, False,
                     config["output_dir"])
         return 3
-    finally:
-        # Cleanup temp script
-        temp_script = out_path / "_protenix_run.py"
-        if temp_script.exists():
-            temp_script.unlink()
 
 
 def main():
@@ -180,7 +175,7 @@ Examples:
         af3_input = fasta_to_alphafold3_json(
             sequences, job_name="protenix_run"
         )
-        with open(json_file, "w") as f:
+        with open(json_file, "w", encoding="utf-8") as f:
             json.dump(af3_input, f, indent=2)
         input_file = str(json_file)
         if args.verbose:

@@ -112,6 +112,9 @@ def run_openfold3(input_file, out_dir, model_dir=None, db_dir=None,
     if openfold_cmd == "python_api":
         # Use Python API with a wrapper script
         script_content = f'''
+import sys
+from pathlib import Path
+
 import torch
 
 sys.path.insert(0, ".")
@@ -146,7 +149,7 @@ print("WARNING: OpenFold3 requires manual model weight and database setup.")
 print("See: https://github.com/aqlaboratory/openfold3")
 '''
         script_path = out_path / "_openfold3_run.py"
-        with open(script_path, "w") as f:
+        with open(script_path, "w", encoding="utf-8") as f:
             f.write(script_content)
         cmd = ["python", str(script_path)]
 

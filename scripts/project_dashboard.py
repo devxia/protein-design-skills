@@ -145,7 +145,7 @@ def stage_summary(stage_key: str, stage_dir: Path, expected: dict[str, int]) -> 
         filtered_path = stage_dir / "filtered_results.json"
         if filtered_path.exists():
             try:
-                with open(filtered_path) as f:
+                with open(filtered_path, encoding="utf-8") as f:
                     data = json.load(f)
                 total = data.get("total_designs", 0)
                 passing = data.get("passing_designs", 0)
