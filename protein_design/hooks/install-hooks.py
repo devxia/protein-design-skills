@@ -658,6 +658,59 @@ def _count_protein_hooks(data: dict, flat: bool = False) -> int:
     return count
 
 
+def _validate_claude_plugin_manifest(plugin_data: dict) -> list[str]:
+    """Return validation errors for .claude-plugin/plugin.json.
+
+    Marketplace-only fields like `category` and `source` must not appear at
+    the top level of the plugin manifest; they belong in marketplace.json.
+    """
+    errors = []
+    if not isinstance(plugin_data, dict):
+        return ["plugin.json top-level value is not an object"]
+
+    for key in ("category", "source"):
+        if key in plugin_data:
+            errors.append(
+                f".claude-plugin/plugin.json contains marketplace-only key '{key}'. "
+                f"Move it to .claude-plugin/marketplace.json."
+            )
+    return errors
+
+
+def _validate_marketplace_manifest(marketplace_data: dict) -> list[str]:
+    """Return validation errors for .claude-plugin/marketplace.json.
+
+    Plugin `source` should be a simple string like './' to avoid Claude Code
+    copying a nested source object into the cached plugin.json.
+    """
+    errors = []
+    if not isinstance(marketplace_data, dict):
+        return ["marketplace.json top-level value is not an object"]
+
+    plugins = marketplace_data.get("plugins", [])
+    if not isinstance(plugins, list):
+        errors.append("marketplace.json 'plugins' is not an array")
+        return errors
+
+    for entry in plugins:
+        if not isinstance(entry, dict):
+            errors.append("marketplace.json plugins array contains a non-object entry")
+            continue
+
+        source = entry.get("source")
+        name = entry.get("name", "<unknown>")
+        if isinstance(source, dict):
+            errors.append(
+                f"Marketplace plugin '{name}' uses object-style source {source}. "
+                f"Use a simple string source like './'."
+            )
+        elif source is not None and not isinstance(source, str):
+            errors.append(
+                f"Marketplace plugin '{name}' source is not a string: {source!r}"
+            )
+    return errors
+
+
 def list_hooks() -> None:
     """List hooks registered for each agent."""
     print("Protein Design Hooks — Installation Status\n")
@@ -717,6 +770,7 @@ def validate_plugin(project_root: Path) -> bool:
         "Claude plugin manifest": project_root / ".claude-plugin" / "plugin.json",
         "Codex plugin manifest": project_root / ".codex-plugin" / "plugin.json",
         "Kimi plugin manifest": project_root / "kimi.plugin.json",
+        "Claude marketplace": project_root / ".claude-plugin" / "marketplace.json",
         "Codex marketplace": project_root / ".agents" / "plugins" / "marketplace.json",
     }
 
@@ -770,12 +824,27 @@ def validate_plugin(project_root: Path) -> bool:
                     ok = False
                 else:
                     print(f"  ✅ Valid manifest (name: {data['name']})")
-            elif label == "Codex marketplace":
+                if label == "Claude plugin manifest":
+                    manifest_errors = _validate_claude_plugin_manifest(data)
+                    if manifest_errors:
+                        for err in manifest_errors:
+                            print(f"  ❌ {err}")
+                        ok = False
+                    else:
+                        print("  ✅ Claude plugin manifest has no marketplace-only keys")
+            elif label in ("Claude marketplace", "Codex marketplace"):
                 if "plugins" not in data:
                     print(f"  ❌ Missing 'plugins' array")
                     ok = False
                 else:
                     print(f"  ✅ Valid marketplace ({len(data['plugins'])} plugin(s))")
+                marketplace_errors = _validate_marketplace_manifest(data)
+                if marketplace_errors:
+                    for err in marketplace_errors:
+                        print(f"  ❌ {err}")
+                    ok = False
+                else:
+                    print("  ✅ Marketplace plugin entries use string sources")
         except json.JSONDecodeError as exc:
             print(f"  ❌ Invalid JSON: {exc}")
             ok = False
