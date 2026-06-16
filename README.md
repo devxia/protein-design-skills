@@ -351,8 +351,8 @@ This project supports multiple coding agents with agent-specific manifest files:
 
 | File | Purpose | Used By |
 |------|---------|---------|
-| `.claude-plugin/plugin.json` | Claude Code plugin manifest | Claude Code |
-| `.claude-plugin/marketplace.json` | Claude marketplace registration | `claude plugin marketplace add` |
+| `.claude-plugin/plugin.json` | Claude Code plugin manifest. Must contain only plugin metadata plus `skills`/`hooks` paths. Do **not** put `category` or `source` here. | Claude Code |
+| `.claude-plugin/marketplace.json` | Claude marketplace registration. `category` and `source` belong here; `source` should be `"./"`. | `claude plugin marketplace add` |
 | `.codex-plugin/plugin.json` | Codex CLI plugin manifest | Codex CLI |
 | `plugin.json` | Root-level metadata | npm, GitHub, general tooling |
 | `kimi.plugin.json` | Kimi Code plugin manifest | Kimi Code |

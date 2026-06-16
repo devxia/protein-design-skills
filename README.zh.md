@@ -348,8 +348,8 @@ ls -la ~/.kimi-code/hooks/  # Kimi Code
 
 | 文件 | 用途 | 使用者 |
 |------|------|--------|
-| `.claude-plugin/plugin.json` | Claude Code 插件 manifest | Claude Code |
-| `.claude-plugin/marketplace.json` | Claude 市场注册 | `claude plugin marketplace add` |
+| `.claude-plugin/plugin.json` | Claude Code 插件 manifest。只允许包含插件元数据和 `skills`/`hooks` 路径，**不要**放 `category` 或 `source`。 | Claude Code |
+| `.claude-plugin/marketplace.json` | Claude 市场注册。`category` 和 `source` 属于此文件；`source` 应设为 `"./"`。 | `claude plugin marketplace add` |
 | `.codex-plugin/plugin.json` | Codex CLI 插件 manifest | Codex CLI |
 | `plugin.json` | 根目录元数据 | npm、GitHub、通用工具 |
 | `kimi.plugin.json` | Kimi Code 插件 manifest | Kimi Code |
