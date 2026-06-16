@@ -127,7 +127,7 @@ python protein_design/hooks/install-hooks.py claude --force
 
 ## Architecture
 
-### Two-layer plugin structure
+### Three-layer plugin structure
 
 1. **Skills** (`skills/`) — Markdown files providing workflow guidance to the LLM. 76 skills covering all pipeline stages, design patterns, tool alternatives, and troubleshooting.
 2. **Hooks** (`protein_design/hooks/`) — 22 agent hook scripts (plus `install-hooks.py`) for context injection, tool recommendations, progress tracking, error recovery, and desktop notifications. `install-hooks.py` supports multiple agents.
@@ -197,3 +197,15 @@ Hooks and scripts provide progress tracking:
 - **76 skills** — core pipeline stages, tool-specific guides, design patterns, and specialized workflows
 - **22 hooks** — 9 UserPromptSubmit + 3 PreToolUse + 8 PostToolUse + 2 Notification
 - **19 scripts** — 10 core tool runners + 1 format converter + 1 job manager + 1 batch runner + 1 summarizer + 1 dashboard + 4 validation utilities
+
+## Plugin Structure
+
+| File | Purpose | Used By |
+|------|---------|---------|
+| `.claude-plugin/plugin.json` | Claude Code plugin manifest. Must contain only plugin metadata plus `skills`/`hooks` paths. Do **not** put `category` or `source` here. | Claude Code |
+| `.claude-plugin/marketplace.json` | Claude marketplace registration. `category` and `source` belong here; `source` should be `"./"`. | `claude plugin marketplace add` |
+| `.codex-plugin/plugin.json` | Codex CLI plugin manifest | Codex CLI |
+| `plugin.json` | Root-level metadata | npm, GitHub, general tooling |
+| `kimi.plugin.json` | Kimi Code plugin manifest | Kimi Code |
+| `.agents/plugins/marketplace.json` | Multi-agent marketplace index | `.agents` plugin loader |
+| `hooks/hooks.json` | Canonical hook definitions | `install-hooks.py`, Claude Code plugin loader |
