@@ -1,8 +1,7 @@
 """Regression tests for plugin manifest structure.
 
 Validates .claude-plugin/plugin.json, .claude-plugin/marketplace.json,
-and .codex-plugin/plugin.json against the conventions in:
-docs/superpowers/specs/2026-06-16-claude-codex-manifest-cleanup-design.md
+and .codex-plugin/plugin.json against the approved manifest cleanup conventions.
 """
 from __future__ import annotations
 

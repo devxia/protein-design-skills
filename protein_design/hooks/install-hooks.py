@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+from __future__ import annotations
+
 """Cross-agent hook installer for the Protein Design plugin.
 
 Detects installed coding agents and installs hook scripts for each:

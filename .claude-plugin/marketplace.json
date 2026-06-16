@@ -1,6 +1,6 @@
 {
   "name": "protein-design-skills",
-  "description": "Marketplace for the protein-design-skills plugin",
+  "description": "Agent-agnostic marketplace for end-to-end protein design workflows — 76 skills, 22 hooks, and 19 standalone scripts",
   "owner": {
     "name": "DevXia"
   },
