@@ -838,13 +838,14 @@ def validate_plugin(project_root: Path) -> bool:
                     ok = False
                 else:
                     print(f"  ✅ Valid marketplace ({len(data['plugins'])} plugin(s))")
-                marketplace_errors = _validate_marketplace_manifest(data)
-                if marketplace_errors:
-                    for err in marketplace_errors:
-                        print(f"  ❌ {err}")
-                    ok = False
-                else:
-                    print("  ✅ Marketplace plugin entries use string sources")
+                if label == "Claude marketplace":
+                    marketplace_errors = _validate_marketplace_manifest(data)
+                    if marketplace_errors:
+                        for err in marketplace_errors:
+                            print(f"  ❌ {err}")
+                        ok = False
+                    else:
+                        print("  ✅ Marketplace plugin entries use string sources")
         except json.JSONDecodeError as exc:
             print(f"  ❌ Invalid JSON: {exc}")
             ok = False
