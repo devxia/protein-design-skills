@@ -2,18 +2,44 @@
   "name": "protein-design-skills",
   "version": "0.2.0",
   "description": "Agent-agnostic protein design pipeline: RFdiffusion backbone generation, ProteinMPNN sequence design, AlphaFold3 structure validation — skills + hooks + scripts",
-  "keywords": ["protein", "protein-design", "alphafold", "proteinmpnn", "rfdiffusion", "bioinformatics"],
   "author": {
-    "name": "Protein Design Team"
+    "name": "DevXia",
+    "url": "https://github.com/devxia"
   },
+  "homepage": "https://github.com/devxia/protein-design-skills",
   "repository": "https://github.com/devxia/protein-design-skills",
   "license": "MIT",
+  "keywords": [
+    "protein",
+    "protein-design",
+    "alphafold",
+    "proteinmpnn",
+    "rfdiffusion",
+    "bioinformatics"
+  ],
   "skills": "./skills/",
   "hooks": "./hooks/hooks.json",
   "interface": {
     "displayName": "Protein Design",
     "shortDescription": "Protein design pipeline — skills + hooks + scripts",
-    "developerName": "Protein Design Team",
-    "category": "Science"
+    "longDescription": "Use Protein Design Skills to run end-to-end protein design workflows: structure preprocessing, backbone generation, sequence design, structure validation, and quality filtering. Includes 76 workflow skills, 22 automation hooks, and 19 standalone scripts for tools such as RFdiffusion, ProteinMPNN, AlphaFold3, Boltz-1, and Chai-1.",
+    "developerName": "DevXia",
+    "category": "Science",
+    "capabilities": [
+      "Interactive",
+      "Read",
+      "Write"
+    ],
+    "defaultPrompt": [
+      "Design a binder for my target protein.",
+      "Run the protein design pipeline from preprocessing to filtering."
+    ],
+    "websiteURL": "https://github.com/devxia/protein-design-skills",
+    "privacyPolicyURL": "https://github.com/devxia/protein-design-skills",
+    "termsOfServiceURL": "https://github.com/devxia/protein-design-skills",
+    "brandColor": "#0EA5E9",
+    "composerIcon": "",
+    "logo": "",
+    "screenshots": []
   }
 }
