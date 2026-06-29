@@ -25,7 +25,11 @@ source: README.zh.md
 | **Codex CLI** | `codex plugin marketplace add devxia/protein-design-skills`，然后 `codex plugin install protein-design-skills` |
 | **Kimi Code** | `/plugins install https://github.com/devxia/protein-design-skills` |
 
-手动安装时，按智能体安装 hooks：
+手动安装时：
+
+- **Claude Code** 会自动发现插件根目录下的 `hooks/hooks.json`，无需安装步骤。
+- **Codex CLI** 从 `.codex-plugin/plugin.json` 加载钩子，无需安装步骤，但需要在 `/hooks` 中审核并信任钩子。
+- 只有当你希望把钩子注册到用户/全局配置时才使用安装器：
 
 ```bash
 # Claude Code
@@ -34,9 +38,11 @@ python protein_design/hooks/install-hooks.py claude
 # Codex CLI
 python protein_design/hooks/install-hooks.py codex
 
-# 所有智能体
-python protein_design/hooks/install-hooks.py
+# 同时安装两个智能体
+python protein_design/hooks/install-hooks.py claude codex
 ```
+
+Kimi Code 直接从 `kimi.plugin.json` 读取钩子，无需安装步骤。
 
 你也可以为 Claude Code 和 Codex CLI 安装项目级本地 hooks：
 
@@ -54,7 +60,40 @@ pip install -r requirements.txt
 
 ### 安装 hooks（推荐）
 
-Hooks 提供自动上下文注入、GPU 安全检查以及桌面通知：
+Hooks 提供自动上下文注入、GPU 安全检查以及桌面通知。
+
+**Claude Code：**
+
+插件根目录下的 `hooks/hooks.json` 会在插件安装后自动被发现，无需额外步骤。安装后启动新会话：
+
+```
+/plugin install protein-design-skills@protein-design-skills
+/new
+```
+
+**Codex CLI：**
+
+钩子从 `.codex-plugin/plugin.json` 加载。安装插件后，在 `/hooks` 中审核并信任钩子，然后启动新会话：
+
+```
+codex plugin install protein-design-skills
+/new
+```
+
+**Kimi Code：**
+
+钩子在 `kimi.plugin.json` 中原生声明。插件安装并启用后，钩子会自动生效。安装后启动新会话：
+
+```
+/plugins install https://github.com/devxia/protein-design-skills
+/new
+```
+
+> 插件变更仅对新会话生效。
+
+**备用安装器：**
+
+如果你希望把钩子放在用户/全局配置中，或者某个智能体没有加载插件内置钩子，可以使用：
 
 ```bash
 # 适用于 Claude Code
@@ -63,30 +102,11 @@ python protein_design/hooks/install-hooks.py claude
 # 适用于 Codex CLI
 python protein_design/hooks/install-hooks.py codex
 
-# 适用于所有智能体
-python protein_design/hooks/install-hooks.py
+# 同时适用于两个智能体
+python protein_design/hooks/install-hooks.py claude codex
 ```
 
 Hooks 按智能体安装，可自定义。参见 `protein_design/hooks/install-hooks.py --help` 了解选项。
-
-### Kimi Code
-
-从 GitHub 安装：
-```
-/plugins install https://github.com/devxia/protein-design-skills
-```
-
-从本地目录安装：
-```
-/plugins install /path/to/protein-design-skills
-```
-
-安装后，启动**新会话**：
-```
-/new
-```
-
-> 插件变更仅对新会话生效。
 
 ## 系统要求
 

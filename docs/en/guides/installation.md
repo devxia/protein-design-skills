@@ -25,7 +25,11 @@ The plugin works with any coding agent that reads skills and runs Python scripts
 | **Codex CLI** | `codex plugin marketplace add devxia/protein-design-skills` then `codex plugin install protein-design-skills` |
 | **Kimi Code** | `/plugins install https://github.com/devxia/protein-design-skills` |
 
-For manual installation, install hooks per agent:
+For manual installation:
+
+- **Claude Code** auto-discovers `hooks/hooks.json` from the plugin root — no installer step is required.
+- **Codex CLI** loads hooks from `.codex-plugin/plugin.json` — no installer step is required, but you must review and trust the hooks in `/hooks`.
+- Use the installer only when you want hooks registered in your user/global config instead:
 
 ```bash
 # Claude Code
@@ -34,9 +38,11 @@ python protein_design/hooks/install-hooks.py claude
 # Codex CLI
 python protein_design/hooks/install-hooks.py codex
 
-# All agents
-python protein_design/hooks/install-hooks.py
+# Both agents
+python protein_design/hooks/install-hooks.py claude codex
 ```
+
+Kimi Code reads hooks directly from `kimi.plugin.json`, so no installer step is required.
 
 You can also install project-local hooks for Claude Code and Codex CLI:
 
@@ -54,7 +60,40 @@ pip install -r requirements.txt
 
 ### Install hooks (recommended)
 
-Hooks provide automatic context injection, GPU safety checks, and desktop notifications:
+Hooks provide automatic context injection, GPU safety checks, and desktop notifications.
+
+**Claude Code:**
+
+Hooks in `hooks/hooks.json` are auto-discovered when the plugin is installed. No extra step is needed. Start a new session after installation:
+
+```
+/plugin install protein-design-skills@protein-design-skills
+/new
+```
+
+**Codex CLI:**
+
+Hooks are loaded from `.codex-plugin/plugin.json`. After installing the plugin, review and trust them with `/hooks`, then start a new session:
+
+```
+codex plugin install protein-design-skills
+/new
+```
+
+**Kimi Code:**
+
+Hooks are declared natively in `kimi.plugin.json`. They are enabled automatically once the plugin is installed and active. Start a new session after installation:
+
+```
+/plugins install https://github.com/devxia/protein-design-skills
+/new
+```
+
+> Plugin changes only apply to new sessions.
+
+**Fallback installer:**
+
+If you prefer hooks in your user/global config, or if an agent does not load plugin-bundled hooks, use:
 
 ```bash
 # For Claude Code
@@ -63,30 +102,11 @@ python protein_design/hooks/install-hooks.py claude
 # For Codex CLI
 python protein_design/hooks/install-hooks.py codex
 
-# For all agents
-python protein_design/hooks/install-hooks.py
+# For both agents
+python protein_design/hooks/install-hooks.py claude codex
 ```
 
 Hooks are installed per-agent and can be customized. See `protein_design/hooks/install-hooks.py --help` for options.
-
-### Kimi Code
-
-From GitHub:
-```
-/plugins install https://github.com/devxia/protein-design-skills
-```
-
-From local directory:
-```
-/plugins install /path/to/protein-design-skills
-```
-
-Start a **new session** after installation:
-```
-/new
-```
-
-> Plugin changes only apply to new sessions.
 
 ## System requirements
 

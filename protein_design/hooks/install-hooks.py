@@ -116,7 +116,7 @@ def _resolve_hook_script(script_arg: str, project_root: Path) -> Path:
 
     Args:
         script_arg: The script path from the hook command (may contain
-                    ${PLUGIN_ROOT} or be relative/absolute).
+                    ${PLUGIN_ROOT}, ${CLAUDE_PLUGIN_ROOT}, or be relative/absolute).
         project_root: Project root directory.
 
     Returns:
@@ -126,8 +126,9 @@ def _resolve_hook_script(script_arg: str, project_root: Path) -> Path:
         ValueError: If the script path escapes the allowed hooks directory
                     or contains shell metacharacters.
     """
-    # Resolve plugin-root placeholder first so validation works on the literal path.
+    # Resolve plugin-root placeholders first so validation works on literal paths.
     script_arg = script_arg.replace("${PLUGIN_ROOT}", str(project_root))
+    script_arg = script_arg.replace("${CLAUDE_PLUGIN_ROOT}", str(project_root))
 
     # Disallow shell metacharacters / command separators.
     forbidden = set(";|&$()`\n\r\x00")
@@ -161,10 +162,10 @@ def _load_hooks_source(project_root: Path) -> dict:
 def _rewrite_hook_commands(hooks_config: dict, project_root: Path, absolute: bool) -> dict:
     """Rewrite command paths in hooks config.
 
-    Substitutes `${PLUGIN_ROOT}` with the actual project path and ensures the
-    current Python interpreter (`sys.executable`) is used. For global installs
-    this becomes an absolute path; for local installs it becomes a relative
-    path (`.` for project-root configs).
+    Substitutes `${PLUGIN_ROOT}` and `${CLAUDE_PLUGIN_ROOT}` with the actual
+    project path and ensures the current Python interpreter (`sys.executable`)
+    is used. For global installs this becomes an absolute path; for local
+    installs it becomes a relative path (`.` for project-root configs).
 
     Args:
         hooks_config: Loaded hooks/hooks.json content.
@@ -192,6 +193,8 @@ def _rewrite_hook_commands(hooks_config: dict, project_root: Path, absolute: boo
 
                 if "${PLUGIN_ROOT}" in script_path:
                     script_path = script_path.replace("${PLUGIN_ROOT}", plugin_root)
+                if "${CLAUDE_PLUGIN_ROOT}" in script_path:
+                    script_path = script_path.replace("${CLAUDE_PLUGIN_ROOT}", plugin_root)
                 elif absolute:
                     script_path = str(project_root / script_path)
 

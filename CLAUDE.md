@@ -27,7 +27,7 @@ python protein_design/hooks/install-hooks.py
 # Install hooks for a specific agent only
 python protein_design/hooks/install-hooks.py claude
 python protein_design/hooks/install-hooks.py codex
-python protein_design/hooks/install-hooks.py kimi
+# Kimi Code hooks are declared in kimi.plugin.json and enabled automatically
 
 # Install for multiple agents at once
 python protein_design/hooks/install-hooks.py claude codex
@@ -92,11 +92,7 @@ Install via marketplace (recommended):
 /new
 ```
 
-Uses `kimi.plugin.json` at the project root for skills. Hooks are registered in `~/.kimi-code/config.toml` via the installer:
-
-```bash
-python protein_design/hooks/install-hooks.py kimi
-```
+Uses `kimi.plugin.json` at the project root for skills and native hooks. Hooks are enabled automatically once the plugin is active; no installer step is required.
 
 ### Codex CLI
 
@@ -202,10 +198,10 @@ Hooks and scripts provide progress tracking:
 
 | File | Purpose | Used By |
 |------|---------|---------|
-| `.claude-plugin/plugin.json` | Claude Code plugin manifest. Must contain only plugin metadata plus `skills`/`hooks` paths. Do **not** put `category` or `source` here. | Claude Code |
+| `.claude-plugin/plugin.json` | Claude Code plugin manifest. Must contain only plugin metadata plus `skills` paths. Do **not** put `category`, `source`, or the default `hooks` path here; Claude auto-discovers `hooks/hooks.json`. | Claude Code |
 | `.claude-plugin/marketplace.json` | Claude marketplace registration. `category` and `source` belong here; `source` should be `"./"`. | `claude plugin marketplace add` |
-| `.codex-plugin/plugin.json` | Codex CLI plugin manifest | Codex CLI |
+| `.codex-plugin/plugin.json` | Codex CLI plugin manifest. Can declare `hooks` pointing to `hooks/hooks.json`. | Codex CLI |
 | `plugin.json` | Root-level metadata | npm, GitHub, general tooling |
 | `kimi.plugin.json` | Kimi Code plugin manifest | Kimi Code |
 | `.agents/plugins/marketplace.json` | Multi-agent marketplace index | `.agents` plugin loader |
-| `hooks/hooks.json` | Canonical hook definitions | `install-hooks.py`, Claude Code plugin loader |
+| `hooks/hooks.json` | Canonical hook definitions. Uses `${CLAUDE_PLUGIN_ROOT}` for portable paths. | `install-hooks.py`, Claude Code auto-discovery, Codex manifest hooks |

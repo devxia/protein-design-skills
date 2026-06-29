@@ -96,7 +96,7 @@ python protein_design/hooks/install-hooks.py
 # 或指定安装到特定智能体
 python protein_design/hooks/install-hooks.py claude    # Claude Code
 python protein_design/hooks/install-hooks.py codex     # Codex CLI
-python protein_design/hooks/install-hooks.py kimi      # Kimi Code
+# Kimi Code 钩子在 kimi.plugin.json 中声明，启用插件后自动生效，无需安装步骤
 
 # 同时安装到多个智能体
 python protein_design/hooks/install-hooks.py claude codex
@@ -108,7 +108,7 @@ python protein_design/hooks/install-hooks.py --validate
 **安装内容说明：**
 - **Claude Code**: 钩子注册到 `~/.claude/settings.json`（或使用 `--local` 注册到 `.claude/settings.json`）
 - **Codex CLI**: 钩子写入 `~/.codex/hooks.json`（或使用 `--local` 写入 `.codex/hooks.json`）
-- **Kimi Code**: 钩子注册到 `~/.kimi-code/config.toml`
+- **Kimi Code**: 钩子在 `kimi.plugin.json` 中原生声明；插件启用后自动生效
 
 **项目级本地安装（不写全局配置）：**
 ```bash
@@ -206,9 +206,9 @@ echo "protein design" | python protein_design/hooks/session-health-check.py
 python scripts/run_rfdiffusion.py --help
 ```
 
-## 钩子功能（安装后自动生效）
+## 钩子功能
 
-安装钩子后，你的智能体会自动获得以下能力：
+启用插件后，你的智能体会自动获得以下能力：
 
 | 钩子 | 触发时机 | 功能 |
 |------|---------|------|
@@ -226,13 +226,13 @@ python scripts/run_rfdiffusion.py --help
 
 ## 支持的智能体
 
-| 智能体 | 配置位置 | 钩子格式 | 状态 |
+| 智能体 | 钩子来源 | 钩子格式 | 状态 |
 |--------|---------|---------|------|
 | **Claude Code** | `~/.claude/settings.json`（或使用 `--local` 时 `.claude/settings.json`） | JSON | ✅ 完全支持 |
 | **Codex CLI** | `~/.codex/hooks.json`（或使用 `--local` 时 `.codex/hooks.json`） | JSON | ✅ 完全支持 |
-| **Kimi Code** | `~/.kimi-code/config.toml` | TOML | ✅ 完全支持 |
+| **Kimi Code** | `kimi.plugin.json`（原生插件钩子） | Manifest | ✅ 完全支持 |
 
-所有智能体都获得相同的 22 个钩子和 76 个技能。插件会自动检测已安装的智能体。
+所有智能体都获得相同的 22 个钩子和 76 个技能。Claude Code 自动发现 `hooks/hooks.json`；Codex CLI 从 `.codex-plugin/plugin.json` 加载钩子（需要信任审核）；Kimi Code 直接从 `kimi.plugin.json` 读取钩子。如需用户级/全局钩子注册，可将 `install-hooks.py` 作为 Claude Code 和 Codex CLI 的备用方案。
 
 ## 系统要求
 
@@ -302,10 +302,12 @@ python scripts/project_dashboard.py --output-dir outputs/ \
 ```bash
 # 检查钩子是否注册成功
 cat ~/.claude/settings.json | grep protein  # Claude Code
-cat ~/.codex/hooks.json | grep protein   # Codex CLI
+cat ~/.codex/hooks.json | grep protein      # Codex CLI
+# Kimi Code: 钩子在 kimi.plugin.json 中声明；运行 `/plugins info protein-design-skills` 查看
 
 # 重新安装钩子（强制覆盖）
 python protein_design/hooks/install-hooks.py claude --force
+python protein_design/hooks/install-hooks.py codex --force
 
 # 列出所有已安装的钩子
 python protein_design/hooks/install-hooks.py --list
@@ -327,7 +329,7 @@ pip install -r requirements.txt
 # 手动为你的智能体安装
 python protein_design/hooks/install-hooks.py claude
 python protein_design/hooks/install-hooks.py codex
-python protein_design/hooks/install-hooks.py kimi
+# Kimi Code 钩子通过 kimi.plugin.json 自动启用
 ```
 
 ### 检查钩子安装状态
@@ -339,7 +341,7 @@ python protein_design/hooks/install-hooks.py --list
 # 或手动检查
 ls -la ~/.claude/hooks/     # Claude Code
 ls -la ~/.codex/hooks/      # Codex CLI
-ls -la ~/.kimi-code/hooks/  # Kimi Code
+cat kimi.plugin.json        # Kimi Code（钩子在插件清单中声明）
 ```
 
 ## 插件结构
@@ -348,13 +350,13 @@ ls -la ~/.kimi-code/hooks/  # Kimi Code
 
 | 文件 | 用途 | 使用者 |
 |------|------|--------|
-| `.claude-plugin/plugin.json` | Claude Code 插件 manifest。只允许包含插件元数据和 `skills`/`hooks` 路径，**不要**放 `category` 或 `source`。 | Claude Code |
+| `.claude-plugin/plugin.json` | Claude Code 插件 manifest。只允许包含插件元数据和 `skills` 路径，**不要**放 `category`、`source` 或默认的 `hooks` 路径；Claude 会自动发现 `hooks/hooks.json`。 | Claude Code |
 | `.claude-plugin/marketplace.json` | Claude 市场注册。`category` 和 `source` 属于此文件；`source` 应设为 `"./"`。 | `claude plugin marketplace add` |
-| `.codex-plugin/plugin.json` | Codex CLI 插件 manifest | Codex CLI |
+| `.codex-plugin/plugin.json` | Codex CLI 插件 manifest。可以声明 `hooks` 指向 `hooks/hooks.json`。 | Codex CLI |
 | `plugin.json` | 根目录元数据 | npm、GitHub、通用工具 |
 | `kimi.plugin.json` | Kimi Code 插件 manifest | Kimi Code |
 | `.agents/plugins/marketplace.json` | 多智能体市场索引 | `.agents` 插件加载器 |
-| `hooks/hooks.json` | 权威钩子定义 | `install-hooks.py`、Claude Code 插件加载器 |
+| `hooks/hooks.json` | 权威钩子定义。使用 `${CLAUDE_PLUGIN_ROOT}` 作为可移植路径。 | `install-hooks.py`、Claude Code 自动发现、Codex manifest hooks |
 
 `.claude-plugin/plugin.json` 遵循 [Claude Code plugin-structure 规范](https://docs.anthropic.com/en/docs/claude-code/plugins)。钩子也可通过 `protein_design/hooks/install-hooks.py` 安装，适用于不使用标准钩子加载器的智能体。
 

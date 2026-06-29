@@ -42,7 +42,11 @@ def test_claude_plugin_json_has_required_fields():
     assert _CLAUDE_PLUGIN_JSON["author"]["name"] == "DevXia"
     assert "homepage" in _CLAUDE_PLUGIN_JSON, "homepage field is required"
     assert _CLAUDE_PLUGIN_JSON.get("skills") == "./skills/"
-    assert _CLAUDE_PLUGIN_JSON.get("hooks") == "./hooks/hooks.json"
+    # Claude Code auto-discovers hooks/hooks.json by convention; declaring the
+    # default path in the manifest causes a duplicate-load error.
+    assert "hooks" not in _CLAUDE_PLUGIN_JSON, (
+        "Claude manifest should not declare the default hooks/hooks.json path"
+    )
 
 
 def test_claude_plugin_json_has_no_marketplace_only_keys():
@@ -111,10 +115,35 @@ def test_validate_claude_plugin_rejects_forbidden_keys():
         f"expected validation errors mentioning 'source' for {bad2!r}, got {errors!r}"
     )
 
-    good = {"name": "x", "skills": "./skills/", "hooks": "./hooks/hooks.json"}
+    good = {"name": "x", "skills": "./skills/"}
     assert validate(good) == [], (
         f"expected no validation errors for valid plugin {good!r}, got {validate(good)!r}"
     )
+
+
+def test_rewrite_hook_commands_substitutes_both_root_placeholders():
+    """hooks.json may use ${PLUGIN_ROOT} or ${CLAUDE_PLUGIN_ROOT}; both must be replaced."""
+    rewrite = _INSTALL_HOOKS._rewrite_hook_commands
+    source = {
+        "hooks": {
+            "UserPromptSubmit": [
+                {
+                    "hooks": [
+                        {
+                            "type": "command",
+                            "command": "python ${CLAUDE_PLUGIN_ROOT}/protein_design/hooks/user-onboarding.py",
+                        }
+                    ]
+                }
+            ]
+        }
+    }
+    rewritten = rewrite(source, _PROJECT_ROOT, absolute=True)
+    cmd = rewritten["hooks"]["UserPromptSubmit"][0]["hooks"][0]["command"]
+    assert "${PLUGIN_ROOT}" not in cmd
+    assert "${CLAUDE_PLUGIN_ROOT}" not in cmd
+    assert cmd.startswith(sys.executable)
+    assert cmd.endswith("protein_design/hooks/user-onboarding.py")
 
 
 def test_validate_marketplace_rejects_object_source():

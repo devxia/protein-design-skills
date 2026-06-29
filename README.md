@@ -95,7 +95,7 @@ python protein_design/hooks/install-hooks.py
 # Or specify your agent explicitly
 python protein_design/hooks/install-hooks.py claude    # Claude Code
 python protein_design/hooks/install-hooks.py codex     # Codex CLI
-python protein_design/hooks/install-hooks.py kimi      # Kimi Code
+# Kimi Code hooks are declared in kimi.plugin.json and enabled automatically; no installer step needed
 
 # Install for multiple agents at once
 python protein_design/hooks/install-hooks.py claude codex
@@ -107,7 +107,7 @@ python protein_design/hooks/install-hooks.py --validate
 **What gets installed:**
 - **Claude Code**: Hooks registered in `~/.claude/settings.json` (or `.claude/settings.json` with `--local`)
 - **Codex CLI**: Hooks written to `~/.codex/hooks.json` (or `.codex/hooks.json` with `--local`)
-- **Kimi Code**: Hooks registered in `~/.kimi-code/config.toml`
+- **Kimi Code**: Hooks declared natively in `kimi.plugin.json`; active once the plugin is enabled
 
 **Project-local installation (no global config):**
 ```bash
@@ -207,9 +207,9 @@ echo "protein design" | python protein_design/hooks/session-health-check.py
 python scripts/run_rfdiffusion.py --help
 ```
 
-## What Hooks Do (After Installation)
+## What Hooks Do
 
-Once hooks are installed, your agent automatically gets:
+Once the plugin is enabled, your agent automatically gets:
 
 | Hook | Trigger | What It Does |
 |------|---------|--------------|
@@ -227,13 +227,13 @@ No manual setup needed — hooks fire automatically when you talk about protein 
 
 ## Supported Agents
 
-| Agent | Config Location | Hook Format | Status |
-|-------|----------------|-------------|--------|
+| Agent | Hook Source | Hook Format | Status |
+|-------|-------------|-------------|--------|
 | **Claude Code** | `~/.claude/settings.json` (or `.claude/settings.json` with `--local`) | JSON | ✅ Fully supported |
 | **Codex CLI** | `~/.codex/hooks.json` (or `.codex/hooks.json` with `--local`) | JSON | ✅ Fully supported |
-| **Kimi Code** | `~/.kimi-code/config.toml` | TOML | ✅ Fully supported |
+| **Kimi Code** | `kimi.plugin.json` (native plugin hooks) | Manifest | ✅ Fully supported |
 
-All agents get the same 22 hooks and 76 skills. The plugin auto-detects which agents are installed.
+All agents get the same 22 hooks and 76 skills. Claude Code auto-discovers `hooks/hooks.json`; Codex CLI loads hooks from `.codex-plugin/plugin.json` (requires trust review); Kimi Code reads hooks directly from `kimi.plugin.json`. Use `install-hooks.py` as a fallback for Claude Code and Codex CLI when you need user/global hook registration.
 
 ## System Requirements
 
@@ -305,10 +305,12 @@ python scripts/project_dashboard.py --output-dir outputs/ \
 ```bash
 # Check if hooks are registered
 cat ~/.claude/settings.json | grep protein  # Claude Code
-cat ~/.codex/hooks.json | grep protein   # Codex CLI
+cat ~/.codex/hooks.json | grep protein      # Codex CLI
+# Kimi Code: hooks are declared in kimi.plugin.json; run `/plugins info protein-design-skills` to inspect
 
 # Re-install hooks (force overwrite)
 python protein_design/hooks/install-hooks.py claude --force
+python protein_design/hooks/install-hooks.py codex --force
 
 # List all installed hooks
 python protein_design/hooks/install-hooks.py --list
@@ -330,7 +332,7 @@ pip install -r requirements.txt
 # Install manually for your agent
 python protein_design/hooks/install-hooks.py claude
 python protein_design/hooks/install-hooks.py codex
-python protein_design/hooks/install-hooks.py kimi
+# Kimi Code hooks are enabled automatically via kimi.plugin.json
 ```
 
 ### Check hook installation status
@@ -342,7 +344,7 @@ python protein_design/hooks/install-hooks.py --list
 # Or check manually
 ls -la ~/.claude/hooks/     # Claude Code
 ls -la ~/.codex/hooks/      # Codex CLI
-ls -la ~/.kimi-code/hooks/  # Kimi Code
+cat kimi.plugin.json        # Kimi Code (hooks are declared in the plugin manifest)
 ```
 
 ## Plugin Structure
@@ -351,13 +353,13 @@ This project supports multiple coding agents with agent-specific manifest files:
 
 | File | Purpose | Used By |
 |------|---------|---------|
-| `.claude-plugin/plugin.json` | Claude Code plugin manifest. Must contain only plugin metadata plus `skills`/`hooks` paths. Do **not** put `category` or `source` here. | Claude Code |
+| `.claude-plugin/plugin.json` | Claude Code plugin manifest. Must contain only plugin metadata plus `skills` paths. Do **not** put `category`, `source`, or the default `hooks` path here; Claude auto-discovers `hooks/hooks.json`. | Claude Code |
 | `.claude-plugin/marketplace.json` | Claude marketplace registration. `category` and `source` belong here; `source` should be `"./"`. | `claude plugin marketplace add` |
-| `.codex-plugin/plugin.json` | Codex CLI plugin manifest | Codex CLI |
+| `.codex-plugin/plugin.json` | Codex CLI plugin manifest. Can declare `hooks` pointing to `hooks/hooks.json`. | Codex CLI |
 | `plugin.json` | Root-level metadata | npm, GitHub, general tooling |
 | `kimi.plugin.json` | Kimi Code plugin manifest | Kimi Code |
 | `.agents/plugins/marketplace.json` | Multi-agent marketplace index | `.agents` plugin loader |
-| `hooks/hooks.json` | Canonical hook definitions | `install-hooks.py`, Claude Code plugin loader |
+| `hooks/hooks.json` | Canonical hook definitions. Uses `${CLAUDE_PLUGIN_ROOT}` for portable paths. | `install-hooks.py`, Claude Code auto-discovery, Codex manifest hooks |
 
 The `.claude-plugin/plugin.json` follows the [Claude Code plugin-structure spec](https://docs.anthropic.com/en/docs/claude-code/plugins). Hooks are also installable via `protein_design/hooks/install-hooks.py` for agents that don't use the standard hook loader.
 
