@@ -76,7 +76,11 @@ codex plugin install protein-design-skills
 /new
 ```
 
+> **插件市场安装完成后即可直接使用。** 启动新会话（`/new` 或 `/reload`）后即可开始设计。
+
 ### 手动安装
+
+不使用插件市场时：
 
 ```bash
 # 克隆插件
@@ -87,7 +91,9 @@ cd protein-design-skills
 pip install -r requirements.txt
 ```
 
-### 安装钩子（按你的智能体选择）
+### 高级：将钩子注册到用户配置
+
+插件市场安装已自动启用钩子。仅在希望把钩子写入用户/全局配置，或某个智能体没有加载插件内置钩子时，才使用以下安装器：
 
 ```bash
 # 自动检测所有已安装的智能体
@@ -96,7 +102,7 @@ python protein_design/hooks/install-hooks.py
 # 或指定安装到特定智能体
 python protein_design/hooks/install-hooks.py claude    # Claude Code
 python protein_design/hooks/install-hooks.py codex     # Codex CLI
-# Kimi Code 钩子在 kimi.plugin.json 中声明，启用插件后自动生效，无需安装步骤
+# Kimi Code 钩子自动启用
 
 # 同时安装到多个智能体
 python protein_design/hooks/install-hooks.py claude codex
@@ -105,10 +111,10 @@ python protein_design/hooks/install-hooks.py claude codex
 python protein_design/hooks/install-hooks.py --validate
 ```
 
-**安装内容说明：**
-- **Claude Code**: 钩子注册到 `~/.claude/settings.json`（或使用 `--local` 注册到 `.claude/settings.json`）
-- **Codex CLI**: 钩子写入 `~/.codex/hooks.json`（或使用 `--local` 写入 `.codex/hooks.json`）
-- **Kimi Code**: 钩子在 `kimi.plugin.json` 中原生声明；插件启用后自动生效
+**安装器作用说明：**
+- **Claude Code**: 将钩子注册到 `~/.claude/settings.json`（或使用 `--local` 注册到 `.claude/settings.json`）
+- **Codex CLI**: 将钩子写入 `~/.codex/hooks.json`（或使用 `--local` 写入 `.codex/hooks.json`）
+- **Kimi Code**: 无需安装器 —— 钩子自动启用
 
 **项目级本地安装（不写全局配置）：**
 ```bash
@@ -117,8 +123,10 @@ python protein_design/hooks/install-hooks.py --local claude codex
 
 ### 验证安装
 
+如果运行了安装器，可检查钩子是否已注册：
+
 ```bash
-# 检查钩子是否注册成功（以 Claude Code 为例）
+# 以 Claude Code 为例
 cat ~/.claude/settings.json | grep -A 5 "protein"
 
 # 应该看到类似以下的钩子条目：

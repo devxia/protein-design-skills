@@ -76,7 +76,11 @@ codex plugin install protein-design-skills
 /new
 ```
 
+> **After marketplace install, you're all set.** Start a new session (`/new` or `/reload`) and start designing.
+
 ### Manual Install
+
+If you are not using the marketplace:
 
 ```bash
 git clone https://github.com/devxia/protein-design-skills.git
@@ -84,9 +88,9 @@ cd protein-design-skills
 pip install -r requirements.txt
 ```
 
-### Install Hooks for Your Agent
+### Advanced: Register Hooks in User Config
 
-The plugin auto-detects your agent. Or install for a specific one:
+Marketplace installs already activate hooks automatically. Use the installer below only if you want hooks registered in your user/global config, or if an agent does not load plugin-bundled hooks:
 
 ```bash
 # Auto-detect all installed agents
@@ -95,7 +99,7 @@ python protein_design/hooks/install-hooks.py
 # Or specify your agent explicitly
 python protein_design/hooks/install-hooks.py claude    # Claude Code
 python protein_design/hooks/install-hooks.py codex     # Codex CLI
-# Kimi Code hooks are declared in kimi.plugin.json and enabled automatically; no installer step needed
+# Kimi Code hooks are enabled automatically
 
 # Install for multiple agents at once
 python protein_design/hooks/install-hooks.py claude codex
@@ -104,10 +108,10 @@ python protein_design/hooks/install-hooks.py claude codex
 python protein_design/hooks/install-hooks.py --validate
 ```
 
-**What gets installed:**
-- **Claude Code**: Hooks registered in `~/.claude/settings.json` (or `.claude/settings.json` with `--local`)
-- **Codex CLI**: Hooks written to `~/.codex/hooks.json` (or `.codex/hooks.json` with `--local`)
-- **Kimi Code**: Hooks declared natively in `kimi.plugin.json`; active once the plugin is enabled
+**What the installer does:**
+- **Claude Code**: Registers hooks in `~/.claude/settings.json` (or `.claude/settings.json` with `--local`)
+- **Codex CLI**: Writes hooks to `~/.codex/hooks.json` (or `.codex/hooks.json` with `--local`)
+- **Kimi Code**: No installer needed — hooks are enabled automatically
 
 **Project-local installation (no global config):**
 ```bash
@@ -116,8 +120,10 @@ python protein_design/hooks/install-hooks.py --local claude codex
 
 ### Verify Installation
 
+If you ran the installer, check that hooks are registered:
+
 ```bash
-# Check hooks are registered (Claude Code example)
+# Claude Code example
 cat ~/.claude/settings.json | grep -A 5 "protein"
 
 # You should see hook entries like:
