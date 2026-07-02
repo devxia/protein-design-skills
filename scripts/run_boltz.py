@@ -17,6 +17,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from protein_design.utils import get_config, log_history
+from protein_design.conda_utils import probe_conda_envs, build_tool_command, resolve_wrapper_script, is_bare_executable
 
 import argparse
 import subprocess
@@ -43,17 +44,9 @@ def find_boltz(config):
         pass
 
     # 2. Conda environments
-    conda_envs = ["boltz", "boltz-1", "protein-design"]
-    for env in conda_envs:
-        try:
-            result = subprocess.run(
-                ["conda", "run", "-n", env, "boltz", "--help"],
-                capture_output=True, text=True, timeout=10
-            )
-            if result.returncode == 0:
-                return f"conda run -n {env} boltz"
-        except (subprocess.TimeoutExpired, FileNotFoundError):
-            continue
+    env = probe_conda_envs(["boltz", "boltz-1", "protein-design"], ["boltz", "--help"])
+    if env is not None:
+        return f"conda run -n {env} boltz"
 
     # 3. pip-installed in current env
     try:
@@ -88,12 +81,11 @@ def run_boltz(input_file, out_dir, use_msa_server=True, recycling_steps=3,
     out_path.mkdir(parents=True, exist_ok=True)
 
     # Build command
-    if boltz_cmd.startswith("conda run"):
-        cmd = boltz_cmd.split() + ["predict", input_file]
-    elif boltz_cmd == "python -m boltz":
-        cmd = ["python", "-m", "boltz", "predict", input_file]
-    else:
-        cmd = [boltz_cmd, "predict", input_file]
+    wrapper = resolve_wrapper_script(config, "boltz")
+    cmd = build_tool_command(
+        boltz_cmd, wrapper_script=wrapper, bare_executable=is_bare_executable(boltz_cmd)
+    )
+    cmd.extend(["predict", input_file])
 
     cmd.extend(["--out_dir", out_dir])
 

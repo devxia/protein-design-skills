@@ -23,7 +23,7 @@ This plugin uses **three layers** — no server needed:
 - **Stage 2 — Sequence**: ProteinMPNN, LigandMPNN, ESM-IF1, EvoDiff
 - **Stage 3 — Validation**: AlphaFold3, Boltz-1, Chai-1, OmegaFold, ESMFold, Protenix, OpenFold3
 - **Stage 4 — Filtering**: Quality metrics, cross-validation consensus, score-first screening
-- **76 Skills**: Covering 30+ design pipelines from fast screening to full validation
+- **76 Skills**: Covering 15+ design pipelines from fast screening to full validation
 - **22 Hooks**: Auto-context injection, GPU checks, tool recommendation, pipeline orchestration, error recovery
 - **19 Scripts**: Direct command-line execution for all pipeline stages
 

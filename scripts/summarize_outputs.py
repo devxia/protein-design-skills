@@ -231,7 +231,22 @@ def _format_summary(summary: dict[str, Any], root: Path) -> str:
 
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Summarize protein design pipeline outputs."
+        description="Summarize protein design pipeline outputs.",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  # One-shot summary
+  python summarize_outputs.py --output-dir outputs/
+
+  # Live summary (refreshes every 30 seconds)
+  python summarize_outputs.py --output-dir outputs/ --watch
+
+  # Track progress against expected counts
+  python summarize_outputs.py --output-dir outputs/ --expected-backbones 50 --expected-sequences 400 --expected-validations 50
+
+  # Machine-readable JSON output
+  python summarize_outputs.py --output-dir outputs/ --json
+        """,
     )
     parser.add_argument(
         "--output-dir",

@@ -233,7 +233,24 @@ def build_dashboard(args) -> str:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Project-wide pipeline dashboard")
+    parser = argparse.ArgumentParser(
+        description="Project-wide pipeline dashboard",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  # One-shot dashboard
+  python project_dashboard.py --output-dir outputs/
+
+  # Live dashboard (refreshes every 30 seconds)
+  python project_dashboard.py --output-dir outputs/ --watch
+
+  # Track progress against expected counts
+  python project_dashboard.py --output-dir outputs/ --expected-backbones 50 --expected-sequences 400 --expected-validations 50
+
+  # Machine-readable JSON output
+  python project_dashboard.py --output-dir outputs/ --json
+        """,
+    )
     parser.add_argument("--output-dir", "--out-dir", "-d", default="outputs", help="Project output directory")
     parser.add_argument("--expected-backbones", type=int, default=0, help="Expected backbone count")
     parser.add_argument("--expected-sequences", type=int, default=0, help="Expected sequence count")

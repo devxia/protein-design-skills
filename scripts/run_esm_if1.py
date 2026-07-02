@@ -25,6 +25,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from protein_design.utils import get_config, log_history
+from protein_design.conda_utils import build_tool_command, resolve_wrapper_script
 
 import argparse
 import subprocess
@@ -116,12 +117,8 @@ def run_esm_if1(pdb_path, output_path, chain=None, temperature=None,
     out_path.parent.mkdir(parents=True, exist_ok=True)
 
     # Build command
-    if esm_if1_script.startswith("conda run"):
-        cmd = esm_if1_script.split()
-    elif esm_if1_script.startswith("python -m"):
-        cmd = esm_if1_script.split()
-    else:
-        cmd = ["python", esm_if1_script]
+    wrapper = resolve_wrapper_script(config, "esm_if1")
+    cmd = build_tool_command(esm_if1_script, wrapper_script=wrapper)
 
     # The sample_sequences.py CLI takes the PDB file as a positional argument;
     # the pip module CLI uses --pdbfile.

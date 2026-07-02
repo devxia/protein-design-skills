@@ -17,6 +17,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from protein_design.utils import get_config, log_history
+from protein_design.conda_utils import find_conda_env, build_tool_command, resolve_wrapper_script
 
 import argparse
 import subprocess
@@ -44,18 +45,12 @@ def find_alphafold3(config):
             return str(path)
 
     # 3. Conda environments
-    conda_envs = ["alphafold3", "alphafold", "protein-design"]
-    for env in conda_envs:
-        try:
-            result = subprocess.run(
-                ["conda", "run", "-n", env, "python", "-c",
-                 "import alphafold3; print(alphafold3.__file__)"],
-                capture_output=True, text=True, timeout=10
-            )
-            if result.returncode == 0:
-                return f"conda run -n {env} python -m alphafold3"
-        except (subprocess.TimeoutExpired, FileNotFoundError):
-            continue
+    env = find_conda_env(
+        ["alphafold3", "alphafold", "protein-design"],
+        "import alphafold3; print(alphafold3.__file__)",
+    )
+    if env is not None:
+        return f"conda run -n {env} python -m alphafold3"
 
     return None
 
@@ -110,10 +105,8 @@ def run_alphafold3(json_path, output_dir, db_dir=None, run_data_pipeline=True,
             run_data_pipeline = False
 
     # Build command
-    if alphafold_script.startswith("conda run"):
-        cmd = alphafold_script.split()
-    else:
-        cmd = ["python", alphafold_script]
+    wrapper = resolve_wrapper_script(config, "alphafold3")
+    cmd = build_tool_command(alphafold_script, wrapper_script=wrapper)
 
     cmd.extend([
         "--json_path", json_path,

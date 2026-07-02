@@ -19,6 +19,7 @@ Exit codes:
     1 = Job not found
     2 = Invalid command
 """
+from __future__ import annotations
 
 import argparse
 import json

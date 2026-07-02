@@ -17,6 +17,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from protein_design.utils import get_config, log_history
+from protein_design.conda_utils import probe_conda_envs, build_tool_command, resolve_wrapper_script, is_bare_executable
 
 import argparse
 import subprocess
@@ -43,17 +44,9 @@ def find_chai1(config):
         pass
 
     # 2. Conda environments
-    conda_envs = ["chai1", "chai-1", "protein-design"]
-    for env in conda_envs:
-        try:
-            result = subprocess.run(
-                ["conda", "run", "-n", env, "chai-lab", "--help"],
-                capture_output=True, text=True, timeout=10
-            )
-            if result.returncode == 0:
-                return f"conda run -n {env} chai-lab"
-        except (subprocess.TimeoutExpired, FileNotFoundError):
-            continue
+    env = probe_conda_envs(["chai1", "chai-1", "protein-design"], ["chai-lab", "--help"])
+    if env is not None:
+        return f"conda run -n {env} chai-lab"
 
     # 3. pip-installed in current env
     try:
@@ -88,12 +81,11 @@ def run_chai1(input_file, output_dir, use_msa_server=True, num_trunk_recycles=3,
     out_path.mkdir(parents=True, exist_ok=True)
 
     # Build command
-    if chai_cmd.startswith("conda run"):
-        cmd = chai_cmd.split() + ["fold", input_file, output_dir]
-    elif chai_cmd == "python -m chai_lab":
-        cmd = ["python", "-m", "chai_lab", "fold", input_file, output_dir]
-    else:
-        cmd = [chai_cmd, "fold", input_file, output_dir]
+    wrapper = resolve_wrapper_script(config, "chai1")
+    cmd = build_tool_command(
+        chai_cmd, wrapper_script=wrapper, bare_executable=is_bare_executable(chai_cmd)
+    )
+    cmd.extend(["fold", input_file, output_dir])
 
     if use_msa_server:
         cmd.append("--use-msa-server")

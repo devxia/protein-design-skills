@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import subprocess
 from pathlib import Path
 from typing import Any
 
@@ -10,8 +11,10 @@ import pytest
 
 from protein_design.utils import (
     fasta_to_alphafold3_json,
+    get_config,
     parse_confidence_json,
     read_fasta,
+    send_notification,
     write_fasta,
 )
 
@@ -110,3 +113,113 @@ def test_write_fasta_empty(tmp_path: Path) -> None:
     out = tmp_path / "out.fa"
     write_fasta([], out)
     assert out.read_text() == ""
+
+
+# ---------------------------------------------------------------------------
+# get_config — configuration resolution priority (env > file > defaults)
+# ---------------------------------------------------------------------------
+
+
+def _make_config_dir(home: Path) -> Path:
+    cfg_dir = home / ".protein-design"
+    cfg_dir.mkdir(parents=True, exist_ok=True)
+    return cfg_dir
+
+
+def test_get_config_env_overrides_file(monkeypatch, tmp_path: Path) -> None:
+    """Explicitly set env vars take precedence over config file values."""
+    monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.setenv("PROTEIN_DESIGN_OUTPUT_DIR", "/from/env")
+    cfg_dir = _make_config_dir(tmp_path)
+    (cfg_dir / "config.yaml").write_text("output_dir: /from/file\n")
+
+    config = get_config()
+    assert config["output_dir"] == "/from/env"
+
+
+def test_get_config_file_overrides_defaults_when_env_unset(monkeypatch, tmp_path: Path) -> None:
+    """When an env var is not set, the config file value wins over the default."""
+    monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.delenv("PROTEIN_DESIGN_OUTPUT_DIR", raising=False)
+    cfg_dir = _make_config_dir(tmp_path)
+    (cfg_dir / "config.yaml").write_text("output_dir: /from/file\n")
+
+    config = get_config()
+    assert config["output_dir"] == "/from/file"
+
+
+def test_get_config_uses_default_when_neither_set(monkeypatch, tmp_path: Path) -> None:
+    """When neither env nor file provides a value, the built-in default is used."""
+    monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.delenv("PROTEIN_DESIGN_OUTPUT_DIR", raising=False)
+
+    config = get_config()
+    assert config["output_dir"] == "/tmp/protein-design"
+
+
+def test_get_config_tool_path_env_overrides_file(monkeypatch, tmp_path: Path) -> None:
+    """Tool-specific path env vars also take precedence over the file."""
+    monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.setenv("RFDIFFUSION_PATH", "/env/rfd")
+    cfg_dir = _make_config_dir(tmp_path)
+    (cfg_dir / "config.yaml").write_text("rfdiffusion_path: /file/rfd\n")
+
+    config = get_config("rfdiffusion")
+    assert config["rfdiffusion_path"] == "/env/rfd"
+
+
+def test_get_config_db_dir_empty_env_overrides_file(monkeypatch, tmp_path: Path) -> None:
+    """An explicitly-empty db_dir env var overrides a non-empty file value."""
+    monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.setenv("ALPHAFOLD3_DB_DIR", "")
+    cfg_dir = _make_config_dir(tmp_path)
+    (cfg_dir / "config.yaml").write_text("db_dir: /from/file\n")
+
+    config = get_config("alphafold3")
+    assert config["db_dir"] == ""
+
+
+def test_get_config_malformed_yaml_does_not_crash(monkeypatch, tmp_path: Path) -> None:
+    """A malformed config file prints a traceback but returns defaults."""
+    monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.delenv("PROTEIN_DESIGN_OUTPUT_DIR", raising=False)
+    cfg_dir = _make_config_dir(tmp_path)
+    (cfg_dir / "config.yaml").write_text(": : : not valid yaml : : :\n")
+
+    config = get_config()
+    assert config["output_dir"] == "/tmp/protein-design"
+
+
+# ---------------------------------------------------------------------------
+# send_notification — best-effort, timeout-protected
+# ---------------------------------------------------------------------------
+
+
+def test_send_notification_swallows_failure(monkeypatch) -> None:
+    """send_notification is best-effort: subprocess failure is silently ignored."""
+    import protein_design.utils as utils
+
+    def raise_timeout(*args, **kwargs):
+        raise subprocess.TimeoutExpired(cmd=args[0] if args else "x", timeout=10)
+
+    monkeypatch.setattr(utils.subprocess, "run", raise_timeout)
+    # Should not raise.
+    send_notification("title", "message")
+
+
+def test_send_notification_passes_timeout(monkeypatch) -> None:
+    """Every subprocess.run call from send_notification includes a timeout kwarg."""
+    import protein_design.utils as utils
+
+    captured: list[dict[str, Any]] = []
+
+    def fake_run(*args, **kwargs):
+        captured.append(kwargs)
+        return None
+
+    monkeypatch.setattr(utils.subprocess, "run", fake_run)
+    monkeypatch.setattr(utils.platform, "system", lambda: "Darwin")
+    send_notification("title", "message")
+    assert len(captured) == 1
+    assert "timeout" in captured[0]
+    assert captured[0]["timeout"] == 10

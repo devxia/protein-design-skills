@@ -17,6 +17,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from protein_design.utils import get_config, log_history
+from protein_design.conda_utils import find_conda_env, build_tool_command, resolve_wrapper_script
 
 import argparse
 import glob
@@ -45,18 +46,9 @@ def find_proteinmpnn(config):
             return str(path)
 
     # 3. Conda environments
-    conda_envs = ["proteinmpnn", "protein-design"]
-    for env in conda_envs:
-        try:
-            result = subprocess.run(
-                ["conda", "run", "-n", env, "python", "-c",
-                 "import proteinmpnn; print(proteinmpnn.__file__)"],
-                capture_output=True, text=True, timeout=10
-            )
-            if result.returncode == 0:
-                return f"conda run -n {env} python -m proteinmpnn"
-        except (subprocess.TimeoutExpired, FileNotFoundError):
-            continue
+    env = find_conda_env(["proteinmpnn", "protein-design"], "import proteinmpnn")
+    if env is not None:
+        return f"conda run -n {env} python -m proteinmpnn"
 
     # 4. Try which
     try:
@@ -93,10 +85,8 @@ def run_proteinmpnn(pdb_path, out_folder, num_seq_per_target=8,
     out_path.mkdir(parents=True, exist_ok=True)
 
     # Build command
-    if proteinmpnn_script.startswith("conda run"):
-        cmd = proteinmpnn_script.split()
-    else:
-        cmd = ["python", proteinmpnn_script]
+    wrapper = resolve_wrapper_script(config, "proteinmpnn")
+    cmd = build_tool_command(proteinmpnn_script, wrapper_script=wrapper)
 
     cmd.extend([
         "--pdb_path", pdb_path,

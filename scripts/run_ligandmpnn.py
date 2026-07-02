@@ -25,6 +25,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from protein_design.utils import get_config, log_history
+from protein_design.conda_utils import build_tool_command, resolve_wrapper_script
 
 import argparse
 import subprocess
@@ -120,10 +121,8 @@ def run_ligandmpnn(pdb_path, out_folder, num_seq_per_target=8,
     out_path.mkdir(parents=True, exist_ok=True)
 
     # Build command
-    if ligandmpnn_script.startswith("conda run"):
-        cmd = ligandmpnn_script.split()
-    else:
-        cmd = ["python", ligandmpnn_script]
+    wrapper = resolve_wrapper_script(config, "ligandmpnn")
+    cmd = build_tool_command(ligandmpnn_script, wrapper_script=wrapper)
 
     cmd.extend([
         "--pdb_path", pdb_path,

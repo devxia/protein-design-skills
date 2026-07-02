@@ -24,6 +24,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from protein_design.utils import get_config, log_history
+from protein_design.conda_utils import probe_conda_envs, build_tool_command, resolve_wrapper_script
 
 import argparse
 import subprocess
@@ -61,18 +62,13 @@ def find_colabfold(config):
             return str(path)
 
     # 4. Conda environments
-    conda_envs = ["colabfold", "cf", "protein-design"]
-    for env in conda_envs:
-        try:
-            # Check whether colabfold_batch is available in the env
-            result = subprocess.run(
-                ["conda", "run", "-n", env, "which", "colabfold_batch"],
-                capture_output=True, text=True, timeout=10
-            )
-            if result.returncode == 0 and result.stdout.strip():
-                return f"conda run -n {env} colabfold_batch"
-        except (subprocess.TimeoutExpired, FileNotFoundError):
-            continue
+    env = probe_conda_envs(
+        ["colabfold", "cf", "protein-design"],
+        ["which", "colabfold_batch"],
+        require_stdout=True,
+    )
+    if env is not None:
+        return f"conda run -n {env} colabfold_batch"
 
     return None
 
@@ -101,10 +97,8 @@ def run_colabfold(input_file, output_dir, num_models=None, msa_mode=None,
     out_path.mkdir(parents=True, exist_ok=True)
 
     # Build command
-    if colabfold_cmd.startswith("conda run"):
-        cmd = colabfold_cmd.split()
-    else:
-        cmd = [colabfold_cmd]
+    wrapper = resolve_wrapper_script(config, "colabfold")
+    cmd = build_tool_command(colabfold_cmd, wrapper_script=wrapper)
 
     cmd.extend([input_file, output_dir])
 

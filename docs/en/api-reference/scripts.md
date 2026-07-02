@@ -311,7 +311,8 @@ Run RFdiffusion — standalone execution
 | `contig` | `--contig` | No | — | string | Contig string for generation |
 | `hotspot_res` | `--hotspot-res` | No | — | string | Hotspot residues (comma-separated) |
 | `diffuser_t` | `--diffuser-t / --diffuser-T` | No | 50 | int | Diffusion steps |
-| `input_pdb` | `--input-pdb / -i` | No | — | string | Input PDB for conditional design |
+| `input_pdb` | `--input-pdb / -i` | No | — | string | Input PDB for conditional design (auto-preprocessed with PDBFixer unless `--skip-preprocessing`) |
+| `skip_preprocessing` | `--skip-preprocessing` | No | false | flag | Skip automatic PDBFixer preprocessing (use only if input is already repaired) |
 | `verbose` | `--verbose / -v` | No | false | flag | Verbose output |
 
 ## `summarize_outputs.py`

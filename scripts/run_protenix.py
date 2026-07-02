@@ -17,6 +17,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from protein_design.utils import get_config, log_history
+from protein_design.conda_utils import probe_conda_envs, build_tool_command, resolve_wrapper_script, is_bare_executable
 
 import argparse
 import json
@@ -38,17 +39,9 @@ def find_protenix():
         pass
 
     # 2. Conda environments
-    conda_envs = ["protenix", "protein-design"]
-    for env in conda_envs:
-        try:
-            result = subprocess.run(
-                ["conda", "run", "-n", env, "protenix", "--help"],
-                capture_output=True, text=True, timeout=10
-            )
-            if result.returncode == 0:
-                return f"conda run -n {env} protenix"
-        except (subprocess.TimeoutExpired, FileNotFoundError):
-            continue
+    env = probe_conda_envs(["protenix", "protein-design"], ["protenix", "--help"])
+    if env is not None:
+        return f"conda run -n {env} protenix"
 
     # 3. pip-installed in current env
     try:
@@ -81,12 +74,11 @@ def run_protenix(input_file, out_dir, num_recycling=3, verbose=False):
     out_path.mkdir(parents=True, exist_ok=True)
 
     # Build command
-    if protenix_cmd.startswith("conda run"):
-        cmd = protenix_cmd.split() + ["predict", str(input_file), "--out_dir", str(out_dir)]
-    elif protenix_cmd == "python -m protenix":
-        cmd = ["python", "-m", "protenix", "predict", str(input_file), "--out_dir", str(out_dir)]
-    else:
-        cmd = [protenix_cmd, "predict", str(input_file), "--out_dir", str(out_dir)]
+    wrapper = resolve_wrapper_script(config, "protenix")
+    cmd = build_tool_command(
+        protenix_cmd, wrapper_script=wrapper, bare_executable=is_bare_executable(protenix_cmd)
+    )
+    cmd.extend(["predict", str(input_file), "--out_dir", str(out_dir)])
 
     if num_recycling != 3:
         cmd.extend(["--num_recycling", str(num_recycling)])
