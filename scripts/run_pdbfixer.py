@@ -17,6 +17,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from protein_design.utils import get_config, log_history
+from protein_design.conda_utils import find_conda_env, build_tool_command, resolve_wrapper_script, is_bare_executable
 
 import argparse
 import subprocess
@@ -32,17 +33,12 @@ def find_pdbfixer(config):
             return str(path)
 
     # 2. Common conda environment names
-    conda_envs = ["pdbfixer", "openmm", "protein-design"]
-    for env in conda_envs:
-        try:
-            result = subprocess.run(
-                ["conda", "run", "-n", env, "python", "-c", "import pdbfixer; print(pdbfixer.__file__)"],
-                capture_output=True, text=True, timeout=10
-            )
-            if result.returncode == 0:
-                return f"conda run -n {env} python -m pdbfixer"
-        except (subprocess.TimeoutExpired, FileNotFoundError):
-            continue
+    env = find_conda_env(
+        ["pdbfixer", "openmm", "protein-design"],
+        "import pdbfixer; print(pdbfixer.__file__)",
+    )
+    if env is not None:
+        return f"conda run -n {env} python -m pdbfixer"
 
     # 3. Try direct python -m pdbfixer
     try:
@@ -82,12 +78,11 @@ def run_pdbfixer(input_pdb, output_pdb, keep_chains=None, add_atoms="heavy",
         return 1
 
     # Build PDBFixer command
-    if pdbfixer_cmd.startswith("conda run"):
-        cmd = pdbfixer_cmd.split() + [input_pdb]
-    elif pdbfixer_cmd == "python -m pdbfixer":
-        cmd = ["python", "-m", "pdbfixer", input_pdb]
-    else:
-        cmd = [pdbfixer_cmd, input_pdb]
+    wrapper = resolve_wrapper_script(config, "pdbfixer")
+    cmd = build_tool_command(
+        pdbfixer_cmd, wrapper_script=wrapper, bare_executable=is_bare_executable(pdbfixer_cmd)
+    )
+    cmd.append(input_pdb)
 
     # Add options
     cmd.extend(["--output", output_pdb])

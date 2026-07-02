@@ -27,6 +27,9 @@ build/
 # Superpowers workflow artifacts (design docs / plans)
 docs/superpowers/
 
+# Agent skills scaffolding (local only, not published to GitHub)
+docs/agents/
+
 # Claude Code local settings
 .claude/settings.local.json
 .claude/*.local.md

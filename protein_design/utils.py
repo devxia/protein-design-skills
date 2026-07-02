@@ -26,14 +26,20 @@ def get_config(tool_name: str | None = None) -> dict[str, Any]:
     """Read protein-design config from YAML or return defaults.
 
     Looks for ``~/.protein-design/config.yaml`` first, then falls back to the
-    legacy ``~/.kimi-protein-design/config.yaml``.  Environment variables are
-    seeded as defaults so they take precedence over missing file keys but file
-    keys override them (matching the original per-script behaviour).
+    legacy ``~/.kimi-protein-design/config.yaml``.
+
+    Resolution priority (highest first):
+
+    1. **Environment variables** — explicitly set env vars always win, even if
+       the config file sets the same key.
+    2. **Config file** — keys in the YAML file override the built-in defaults
+       for env vars that were *not* explicitly set.
+    3. **Built-in defaults** — used when neither env nor file provides a value.
 
     Args:
         tool_name: Optional tool identifier (e.g. ``"alphafold3"``). When
             provided, the corresponding ``<TOOL>_PATH`` environment variable is
-            included in the defaults.
+            included in the resolution.
 
     Returns:
         A dictionary with at least ``output_dir`` and any tool-specific paths.
@@ -43,6 +49,12 @@ def get_config(tool_name: str | None = None) -> dict[str, Any]:
         Path.home() / ".kimi-protein-design" / "config.yaml",
     ]
 
+    # Env vars that were explicitly set — these win over the config file.
+    env_overrides: dict[str, Any] = {}
+    if "PROTEIN_DESIGN_OUTPUT_DIR" in os.environ:
+        env_overrides["output_dir"] = os.environ["PROTEIN_DESIGN_OUTPUT_DIR"]
+
+    # Built-in defaults (env value when set, otherwise the fallback).
     config: dict[str, Any] = {
         "output_dir": os.environ.get("PROTEIN_DESIGN_OUTPUT_DIR", "/tmp/protein-design"),
     }
@@ -50,14 +62,18 @@ def get_config(tool_name: str | None = None) -> dict[str, Any]:
     if tool_name:
         tool_key = tool_name.lower().replace("-", "_")
         tool_upper = tool_name.upper().replace("-", "_")
-        config[f"{tool_key}_path"] = os.environ.get(f"{tool_upper}_PATH", "")
+        path_env = f"{tool_upper}_PATH"
+        config[f"{tool_key}_path"] = os.environ.get(path_env, "")
+        if path_env in os.environ:
+            env_overrides[f"{tool_key}_path"] = os.environ[path_env]
 
         # Database directory is relevant for structure-prediction validators.
         if tool_key in ("alphafold3", "alphafold", "openfold3"):
             for db_env in (f"{tool_upper}_DB_DIR", "ALPHAFOLD_DB_DIR", "ALPHAFOLD3_DB_DIR"):
-                val = os.environ.get(db_env)
-                if val:
+                if db_env in os.environ:
+                    val = os.environ[db_env]
                     config["db_dir"] = val
+                    env_overrides["db_dir"] = val
                     break
             if "db_dir" not in config:
                 config["db_dir"] = ""
@@ -77,6 +93,9 @@ def get_config(tool_name: str | None = None) -> dict[str, Any]:
                 # A malformed config file should not crash the calling script.
                 traceback.print_exc()
             break
+
+    # Explicitly set environment variables take precedence over the file.
+    config.update(env_overrides)
 
     return config
 
@@ -292,7 +311,9 @@ def send_notification(title: str, message: str) -> None:
     """Send a cross-platform desktop notification.
 
     Supports macOS (``osascript``), Linux (``notify-send``) and Windows
-    (PowerShell).  Notifications are best-effort: failures are silently ignored.
+    (PowerShell).  Notifications are best-effort: failures — including the
+    timeout expiring — are silently ignored so a hung notifier can never block
+    the caller.
     """
     system = platform.system()
 
@@ -300,13 +321,9 @@ def send_notification(title: str, message: str) -> None:
         safe_title = _escape_applescript(title)
         safe_message = _escape_applescript(message)
         script = f'display notification "{safe_message}" with title "{safe_title}"'
-        subprocess.run(["osascript", "-e", script], capture_output=True, check=False)
+        _run_notifier(["osascript", "-e", script])
     elif system == "Linux":
-        subprocess.run(
-            ["notify-send", title, message],
-            capture_output=True,
-            check=False,
-        )
+        _run_notifier(["notify-send", title, message])
     elif system == "Windows":
         safe_title = _escape_powershell(title)
         safe_message = _escape_powershell(message)
@@ -314,11 +331,20 @@ def send_notification(title: str, message: str) -> None:
             'Add-Type -AssemblyName System.Windows.Forms; '
             f'[System.Windows.Forms.MessageBox]::Show("{safe_message}", "{safe_title}")'
         )
-        subprocess.run(
-            ["powershell", "-Command", ps_script],
-            capture_output=True,
-            check=False,
-        )
+        _run_notifier(["powershell", "-Command", ps_script])
+
+
+def _run_notifier(argv: list[str]) -> None:
+    """Run a notifier subprocess, swallowing timeout and other failures.
+
+    A 10-second timeout prevents hanging on an unresponsive notifier; both
+    ``TimeoutExpired`` and any other exception are silently ignored to honour
+    the best-effort contract of :func:`send_notification`.
+    """
+    try:
+        subprocess.run(argv, capture_output=True, check=False, timeout=10)
+    except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
+        pass
 
 
 # ---------------------------------------------------------------------------

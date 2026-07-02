@@ -17,6 +17,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from protein_design.utils import get_config, log_history
+from protein_design.conda_utils import probe_conda_envs, build_tool_command, resolve_wrapper_script, is_bare_executable
 
 import argparse
 import os
@@ -38,17 +39,9 @@ def find_omegafold():
         pass
 
     # 2. Conda environments
-    conda_envs = ["omegafold", "protein-design"]
-    for env in conda_envs:
-        try:
-            result = subprocess.run(
-                ["conda", "run", "-n", env, "omegafold", "--help"],
-                capture_output=True, text=True, timeout=10
-            )
-            if result.returncode == 0:
-                return f"conda run -n {env} omegafold"
-        except (subprocess.TimeoutExpired, FileNotFoundError):
-            continue
+    env = probe_conda_envs(["omegafold", "protein-design"], ["omegafold", "--help"])
+    if env is not None:
+        return f"conda run -n {env} omegafold"
 
     # 3. pip-installed in current env
     try:
@@ -82,12 +75,11 @@ def run_omegafold(input_file, output_dir, subbatch_size=None, verbose=False):
     out_path.mkdir(parents=True, exist_ok=True)
 
     # Build command
-    if omegafold_cmd.startswith("conda run"):
-        cmd = omegafold_cmd.split() + [input_file, output_dir]
-    elif omegafold_cmd == "python -m omegafold":
-        cmd = ["python", "-m", "omegafold", input_file, output_dir]
-    else:
-        cmd = [omegafold_cmd, input_file, output_dir]
+    wrapper = resolve_wrapper_script(config, "omegafold")
+    cmd = build_tool_command(
+        omegafold_cmd, wrapper_script=wrapper, bare_executable=is_bare_executable(omegafold_cmd)
+    )
+    cmd.extend([input_file, output_dir])
 
     if subbatch_size:
         # OmegaFold uses environment variable for subbatch size

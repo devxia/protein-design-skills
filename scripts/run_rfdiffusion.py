@@ -4,23 +4,77 @@ Standalone RFdiffusion runner.
 
 Usage: python scripts/run_rfdiffusion.py --config config.yaml [options]
 
+All user-supplied input structures are automatically preprocessed with
+PDBFixer before being passed to RFdiffusion. Use ``--skip-preprocessing`` to
+opt out (e.g. when the input has already been repaired).
+
 Exit codes:
     0 = Success
     1 = Config file not found
     2 = RFdiffusion not installed / not found
     3 = Execution error
     4 = Invalid arguments
+    5 = PDBFixer preprocessing failed
 """
 
 import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from protein_design.utils import get_config, log_history
+from protein_design.conda_utils import build_tool_command, resolve_wrapper_script
 
 import argparse
 import subprocess
 import time
+
+
+def preprocess_for_design(input_pdb, output_dir=None, verbose=False):
+    """Run PDBFixer on ``input_pdb`` and return the repaired PDB path.
+
+    This enforces the plugin's mandatory-preprocessing rule: every
+    user-supplied structure is repaired (missing atoms, heavy-atom addition,
+    heterogen handling) before entering the design pipeline.
+
+    Args:
+        input_pdb: Path to the user-supplied input PDB.
+        output_dir: Directory for the repaired file. Defaults to the sibling
+            ``<input>.fixed.pdb`` next to the input.
+        verbose: Forwarded to ``run_pdbfixer`` for progress output.
+
+    Returns:
+        Path to the repaired PDB file, or ``None`` if preprocessing failed.
+    """
+    from run_pdbfixer import run_pdbfixer
+
+    input_path = Path(input_pdb)
+    if output_dir:
+        out_dir = Path(output_dir)
+        out_dir.mkdir(parents=True, exist_ok=True)
+        fixed_path = out_dir / f"{input_path.stem}.fixed.pdb"
+    else:
+        fixed_path = input_path.with_suffix(".fixed.pdb")
+
+    if verbose:
+        print(f"Preprocessing {input_pdb} with PDBFixer -> {fixed_path}")
+
+    exit_code = run_pdbfixer(
+        input_pdb=str(input_path),
+        output_pdb=str(fixed_path),
+        add_atoms="heavy",
+        verbose=verbose,
+    )
+
+    if exit_code != 0 or not fixed_path.exists():
+        print(f"ERROR: PDBFixer preprocessing failed (exit code {exit_code})",
+              file=sys.stderr)
+        return None
+
+    if verbose:
+        print(f"Preprocessing complete: {fixed_path}")
+
+    return str(fixed_path)
 
 
 def find_rfdiffusion(config):
@@ -69,8 +123,15 @@ def find_rfdiffusion(config):
 
 def run_rfdiffusion(config_file=None, output_prefix=None, num_designs=50,
                     contig=None, hotspot_res=None, diffuser_t=50,
-                    input_pdb=None, verbose=False):
-    """Run RFdiffusion with given parameters."""
+                    input_pdb=None, skip_preprocessing=False, verbose=False):
+    """Run RFdiffusion with given parameters.
+
+    When ``input_pdb`` is supplied and ``skip_preprocessing`` is False (the
+    default), the input is first repaired with PDBFixer via
+    :func:`preprocess_for_design` and the repaired file is passed to
+    RFdiffusion. Pass ``skip_preprocessing=True`` only when the input has
+    already been preprocessed.
+    """
     config = get_config("rfdiffusion")
     rfdiffusion_script = find_rfdiffusion(config)
 
@@ -79,11 +140,17 @@ def run_rfdiffusion(config_file=None, output_prefix=None, num_designs=50,
               file=sys.stderr)
         return 2
 
+    # Mandatory preprocessing: repair user-supplied structures before design.
+    effective_input_pdb = input_pdb
+    if input_pdb and not skip_preprocessing:
+        fixed = preprocess_for_design(input_pdb, output_dir=config["output_dir"], verbose=verbose)
+        if fixed is None:
+            return 5
+        effective_input_pdb = fixed
+
     # Build command
-    if rfdiffusion_script.startswith("conda run"):
-        cmd = rfdiffusion_script.split()
-    else:
-        cmd = ["python", rfdiffusion_script]
+    wrapper = resolve_wrapper_script(config, "rfdiffusion")
+    cmd = build_tool_command(rfdiffusion_script, wrapper_script=wrapper)
 
     # Add Hydra config overrides
     overrides = []
@@ -108,8 +175,8 @@ def run_rfdiffusion(config_file=None, output_prefix=None, num_designs=50,
     if diffuser_t:
         overrides.append(f"diffuser.T={diffuser_t}")
 
-    if input_pdb:
-        overrides.append(f"inference.input_pdb={input_pdb}")
+    if effective_input_pdb:
+        overrides.append(f"inference.input_pdb={effective_input_pdb}")
 
     cmd.extend(overrides)
 
@@ -179,6 +246,8 @@ Examples:
     parser.add_argument("--hotspot-res", help="Hotspot residues (comma-separated)")
     parser.add_argument("--diffuser-t", "--diffuser-T", type=int, default=50, help="Diffusion steps")
     parser.add_argument("--input-pdb", "-i", help="Input PDB for conditional design")
+    parser.add_argument("--skip-preprocessing", action="store_true",
+                        help="Skip automatic PDBFixer preprocessing (use only if input is already repaired)")
     parser.add_argument("--verbose", "-v", action="store_true", help="Verbose output")
 
     args = parser.parse_args()
@@ -193,6 +262,7 @@ Examples:
         hotspot_res=hotspot_res,
         diffuser_t=args.diffuser_t,
         input_pdb=args.input_pdb,
+        skip_preprocessing=args.skip_preprocessing,
         verbose=args.verbose,
     )
 

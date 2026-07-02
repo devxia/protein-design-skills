@@ -20,6 +20,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from protein_design.utils import get_config, log_history
+from protein_design.conda_utils import build_tool_command, resolve_wrapper_script
 
 import argparse
 import subprocess
@@ -154,8 +155,8 @@ print("See: https://github.com/aqlaboratory/openfold3")
         cmd = ["python", str(script_path)]
 
     elif openfold_cmd.startswith("conda_api:"):
-        env = openfold_cmd.split(":", 1)[1]
-        cmd = ["conda", "run", "-n", env, "python"]
+        wrapper = resolve_wrapper_script(config, "openfold3")
+        cmd = build_tool_command(openfold_cmd, wrapper_script=wrapper)
         if Path(input_file).suffix == ".json":
             cmd.extend(["-m", "openfold", "infer", str(input_file)])
         else:
