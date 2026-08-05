@@ -4,8 +4,6 @@
 
 一个用于端到端蛋白质设计工作流的通用插件，支持多种编程智能体（Claude Code、Codex CLI、Kimi Code 等）。编排 RFdiffusion、ProteinMPNN、AlphaFold3、Boltz-1、Chai-1 等 15+ 工具，完成从骨架生成到结构验证的完整流程。
 
-[![skills.sh](https://skills.sh/b/devxia/protein-design-skills)](https://skills.sh/devxia/protein-design-skills)
-
 ## 架构
 
 本插件采用**三层架构** — 无需服务器：

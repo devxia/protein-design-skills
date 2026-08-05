@@ -4,8 +4,6 @@
 
 An **agent-agnostic** protein design plugin for coding agents (Claude Code, Codex CLI, Kimi Code, and any agent that reads skills). Orchestrates RFdiffusion, ProteinMPNN, AlphaFold3, Boltz-1, Chai-1, and 15+ other tools for end-to-end protein design workflows.
 
-[![skills.sh](https://skills.sh/b/devxia/protein-design-skills)](https://skills.sh/devxia/protein-design-skills)
-
 ## Architecture
 
 This plugin uses **three layers** — no server needed:
