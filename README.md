@@ -4,6 +4,8 @@
 
 An **agent-agnostic** protein design plugin for coding agents (Claude Code, Codex CLI, Kimi Code, and any agent that reads skills). Orchestrates RFdiffusion, ProteinMPNN, AlphaFold3, Boltz-1, Chai-1, and 15+ other tools for end-to-end protein design workflows.
 
+[![skills.sh](https://skills.sh/b/devxia/protein-design-skills)](https://skills.sh/devxia/protein-design-skills)
+
 ## Architecture
 
 This plugin uses **three layers** — no server needed:
@@ -87,6 +89,23 @@ git clone https://github.com/devxia/protein-design-skills.git
 cd protein-design-skills
 pip install -r requirements.txt
 ```
+
+### Skills.sh (Skill-Only Installation)
+
+Install the 76 skills via the [skills.sh](https://www.skills.sh) CLI:
+
+```bash
+# List available skills first (no installation)
+npx skills add devxia/protein-design-skills --list
+
+# Install all 76 skills to your detected agents
+npx skills add devxia/protein-design-skills
+
+# Or install specific skills only
+npx skills add devxia/protein-design-skills --skill structure-generation --skill sequence-design --skill structure-validation
+```
+
+> **Note:** `npx skills add` installs the skill knowledge only — it does **not** install the `scripts/`, the `protein_design/` package, or hooks. Use the marketplace or manual install above for the full plugin (scripts + hooks + skills).
 
 ### Advanced: Register Hooks in User Config
 

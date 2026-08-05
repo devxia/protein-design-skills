@@ -1,6 +1,8 @@
 ---
 name: translate-docs
 description: Translate and sync bilingual documentation between docs/en/ and docs/zh/, and between README.md and README.zh.md, following source-of-truth rules and terminology table below.
+metadata:
+  internal: true
 ---
 
 # Translate Docs
