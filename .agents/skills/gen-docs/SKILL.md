@@ -1,3 +1,10 @@
+---
+name: gen-docs
+description: Generate and maintain human-facing product documentation for the protein-design-skills plugin.
+metadata:
+  internal: true
+---
+
 # gen-docs
 
 Generate and maintain human-facing product documentation for the `protein-design-skills` plugin.

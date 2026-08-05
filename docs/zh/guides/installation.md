@@ -58,6 +58,16 @@ cd protein-design-skills
 pip install -r requirements.txt
 ```
 
+### 仅安装技能（skills.sh）
+
+如果只需要技能知识而不需要脚本和 hooks：
+
+```bash
+npx skills add devxia/protein-design-skills
+```
+
+这会通过 [skills.sh](https://www.skills.sh) CLI 将 76 个技能安装到检测到的编码智能体。它不会安装 `scripts/`、`protein_design/` 包或 hooks —— 需要完整插件时请使用上面的克隆安装方式。
+
 ### 安装 hooks（推荐）
 
 Hooks 提供自动上下文注入、GPU 安全检查以及桌面通知。

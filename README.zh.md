@@ -4,6 +4,8 @@
 
 一个用于端到端蛋白质设计工作流的通用插件，支持多种编程智能体（Claude Code、Codex CLI、Kimi Code 等）。编排 RFdiffusion、ProteinMPNN、AlphaFold3、Boltz-1、Chai-1 等 15+ 工具，完成从骨架生成到结构验证的完整流程。
 
+[![skills.sh](https://skills.sh/b/devxia/protein-design-skills)](https://skills.sh/devxia/protein-design-skills)
+
 ## 架构
 
 本插件采用**三层架构** — 无需服务器：
@@ -90,6 +92,23 @@ cd protein-design-skills
 # 安装 Python 依赖
 pip install -r requirements.txt
 ```
+
+### skills.sh 安装（仅技能）
+
+通过 [skills.sh](https://www.skills.sh) CLI 安装 76 个技能：
+
+```bash
+# 先列出可用技能（不会安装）
+npx skills add devxia/protein-design-skills --list
+
+# 安装全部 76 个技能到检测到的智能体
+npx skills add devxia/protein-design-skills
+
+# 或只安装指定技能
+npx skills add devxia/protein-design-skills --skill structure-generation --skill sequence-design --skill structure-validation
+```
+
+> **注意：** `npx skills add` 只安装技能知识 —— **不会**安装 `scripts/`、`protein_design/` 包或 hooks。需要完整插件（scripts + hooks + skills）时，请使用上面的插件市场安装或手动安装。
 
 ### 高级：将钩子注册到用户配置
 

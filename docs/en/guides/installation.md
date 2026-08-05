@@ -58,6 +58,16 @@ cd protein-design-skills
 pip install -r requirements.txt
 ```
 
+### Install skills only (skills.sh)
+
+If you only want the skill knowledge without the scripts and hooks:
+
+```bash
+npx skills add devxia/protein-design-skills
+```
+
+This installs the 76 skills to your detected coding agents via the [skills.sh](https://www.skills.sh) CLI. It does not install `scripts/`, the `protein_design/` package, or hooks — use the clone-and-install path above for the full plugin.
+
 ### Install hooks (recommended)
 
 Hooks provide automatic context injection, GPU safety checks, and desktop notifications.

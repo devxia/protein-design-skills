@@ -1,3 +1,10 @@
+---
+name: sync-changelog
+description: Generate and sync the project changelog from git commit history into docs/en/release-notes/changelog.md and docs/zh/release-notes/changelog.md.
+metadata:
+  internal: true
+---
+
 # sync-changelog
 
 Generate and sync the project changelog from git commit history into `docs/en/release-notes/changelog.md` and `docs/zh/release-notes/changelog.md`.
