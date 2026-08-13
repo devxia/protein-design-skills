@@ -282,3 +282,49 @@ def test_extract_content_text_malformed_shapes() -> None:
     assert extract_content_text({"content": [None]}) == ""
     assert extract_content_text({"content": [{"text": 123}]}) == ""
     assert extract_content_text(None) == ""
+
+
+# ---------------------------------------------------------------------------
+# probe_gpus — shared nvidia-smi probe
+# ---------------------------------------------------------------------------
+
+
+def test_probe_gpus_parses_csv(monkeypatch) -> None:
+    def fake_run(cmd, **kwargs):
+        class R:
+            stdout = "NVIDIA A100, 40000\nNVIDIA L4, 2000\n"
+
+        return R()
+
+    import protein_design.utils as utils
+
+    monkeypatch.setattr(utils.subprocess, "run", fake_run)
+    assert utils.probe_gpus() == [
+        {"name": "NVIDIA A100", "free_mb": 40000.0},
+        {"name": "NVIDIA L4", "free_mb": 2000.0},
+    ]
+
+
+def test_probe_gpus_none_when_nvidia_smi_missing(monkeypatch) -> None:
+    """Probe failure (missing nvidia-smi, timeout, nonzero exit) returns None (#29)."""
+    import protein_design.utils as utils
+
+    def raise_fnf(*args, **kwargs):
+        raise FileNotFoundError("nvidia-smi")
+
+    monkeypatch.setattr(utils.subprocess, "run", raise_fnf)
+    assert utils.probe_gpus() is None
+
+
+def test_probe_gpus_empty_list_when_no_gpu(monkeypatch) -> None:
+    """A working nvidia-smi reporting nothing means 'no GPU', not 'probe failed'."""
+    import protein_design.utils as utils
+
+    def fake_run(cmd, **kwargs):
+        class R:
+            stdout = ""
+
+        return R()
+
+    monkeypatch.setattr(utils.subprocess, "run", fake_run)
+    assert utils.probe_gpus() == []

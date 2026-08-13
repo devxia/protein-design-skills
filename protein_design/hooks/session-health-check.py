@@ -10,13 +10,17 @@ import re
 import subprocess
 from typing import Any
 import sys
-from protein_design.utils import read_hook_input
+from concurrent.futures import ThreadPoolExecutor
+from protein_design.utils import probe_gpus, read_hook_input
 
 
 def _check_tools() -> dict[str, Any]:
-    """Quick check for installed tools without heavy imports."""
-    tools = {}
-    for name, import_test in [
+    """Quick check for installed tools without heavy imports.
+
+    Probes run concurrently: ten sequential 5s-timeout probes could take ~50s
+    on slow machines, exceeding the 5s hook budget declared in hooks.json.
+    """
+    probes = [
         ("rfdiffusion", ["python", "-c", "import rfdiffusion"]),
         ("proteinmpnn", ["python", "-c", "import proteinmpnn"]),
         ("alphafold3", ["python", "-c", "import alphafold3"]),
@@ -27,27 +31,28 @@ def _check_tools() -> dict[str, Any]:
         ("chai1", ["python", "-c", "import chai_lab"]),
         ("protenix", ["python", "-c", "import protenix"]),
         ("openfold", ["python", "-c", "import openfold"]),
-    ]:
+    ]
+
+    def _probe(import_test: list[str]) -> bool:
         try:
-            subprocess.run(import_test, capture_output=True, timeout=5, check=True)
-            tools[name] = "✓"
+            subprocess.run(import_test, capture_output=True, timeout=3, check=True)
+            return True
         except Exception:
-            tools[name] = "✗"
+            return False
+
+    tools: dict[str, Any] = {}
+    with ThreadPoolExecutor(max_workers=len(probes)) as pool:
+        results = list(pool.map(lambda item: _probe(item[1]), probes))
+    for (name, _), ok in zip(probes, results):
+        tools[name] = "✓" if ok else "✗"
     return tools
 
 
 def _check_gpu() -> dict[str, Any]:
-    """Quick GPU check."""
-    try:
-        result = subprocess.run(
-            ["nvidia-smi", "--query-gpu=name,memory.free", "--format=csv,noheader,nounits"],
-            capture_output=True, text=True, timeout=5, check=True,
-        )
-        parts = [p.strip() for p in result.stdout.strip().split(",")]
-        if len(parts) >= 2:
-            return {"name": parts[0], "free_mb": int(float(parts[1]))}
-    except Exception:
-        pass
+    """Quick GPU check via the shared probe."""
+    gpus = probe_gpus()
+    if gpus:
+        return {"name": gpus[0]["name"], "free_mb": int(gpus[0]["free_mb"])}
     return {"name": "None", "free_mb": 0}
 
 
