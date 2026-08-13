@@ -200,3 +200,47 @@ def test_hook_matchers_do_not_overmatch():
             assert "run_chai1?" not in matcher
             assert "run_alphafold3?" not in matcher
             assert "run_openfold3?" not in matcher
+
+
+def _collect_json_values(obj, key):
+    """Recursively collect every value stored under ``key`` in a JSON tree."""
+    if isinstance(obj, dict):
+        for k, v in obj.items():
+            if k == key:
+                yield v
+            else:
+                yield from _collect_json_values(v, key)
+    elif isinstance(obj, list):
+        for item in obj:
+            yield from _collect_json_values(item, key)
+
+
+def test_version_consistency_across_all_manifests():
+    """Every version-bearing file must agree with protein_design.__version__ (#32)."""
+    import re
+
+    init_text = (_PROJECT_ROOT / "protein_design" / "__init__.py").read_text(encoding="utf-8")
+    canonical = re.search(r'__version__\s*=\s*"([^"]+)"', init_text).group(1)
+
+    version_files = [
+        "plugin.json",
+        "kimi.plugin.json",
+        ".claude-plugin/plugin.json",
+        ".claude-plugin/marketplace.json",
+        ".codex-plugin/plugin.json",
+        ".agents/plugins/marketplace.json",
+    ]
+    for rel in version_files:
+        data = json.loads((_PROJECT_ROOT / rel).read_text(encoding="utf-8"))
+        versions = list(_collect_json_values(data, "version"))
+        assert versions, f"no version field found in {rel}"
+        for v in versions:
+            assert v == canonical, f"{rel} declares {v}, expected {canonical}"
+
+
+def test_description_consistency_across_manifests():
+    """Manifest descriptions must match the canonical root plugin.json text (#32)."""
+    canonical = json.loads((_PROJECT_ROOT / "plugin.json").read_text(encoding="utf-8"))["description"]
+    for rel in ["kimi.plugin.json", ".claude-plugin/plugin.json", ".codex-plugin/plugin.json"]:
+        data = json.loads((_PROJECT_ROOT / rel).read_text(encoding="utf-8"))
+        assert data["description"] == canonical, f"{rel} description drifted"
