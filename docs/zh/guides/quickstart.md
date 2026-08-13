@@ -11,7 +11,7 @@ source: README.zh.md
 |-------|------|---------------|-----------|
 | 1 — 骨架生成 | RFdiffusion | **10** 个骨架 | `num_designs` |
 | 2 — 序列设计 | ProteinMPNN | 每个骨架 **8** 条序列 | `num_seq_per_target` |
-| 3 — 结构验证 | AlphaFold3 | **5** 个预测（1 种子 × 5 样本） | `num_seeds` × `num_samples` |
+| 3 — 结构验证 | AlphaFold3 | **5** 个预测（5 个种子） | `num_seeds` |
 
 **完整流程默认**：10 个骨架 × 8 条序列 × 5 次预测 = 最多 **400** 个 AlphaFold3 结果。
 

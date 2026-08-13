@@ -11,7 +11,7 @@ source: README.md
 |-------|------|---------------|-----------|
 | 1 — Backbone | RFdiffusion | **10** backbones | `num_designs` |
 | 2 — Sequence | ProteinMPNN | **8** sequences per backbone | `num_seq_per_target` |
-| 3 — Validation | AlphaFold3 | **5** predictions (1 seed × 5 samples) | `num_seeds` × `num_samples` |
+| 3 — Validation | AlphaFold3 | **5** predictions (5 seeds) | `num_seeds` |
 
 **Full pipeline default**: 10 backbones × 8 sequences × 5 predictions = up to **400** AlphaFold3 results.
 
