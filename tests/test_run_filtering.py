@@ -1,10 +1,5 @@
 """Tests for scripts/run_filtering.py pure functions."""
-import sys
-from pathlib import Path
-
 import pytest
-
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from scripts.run_filtering import compute_composite_score, filter_designs, parse_pdb_bfactor
 

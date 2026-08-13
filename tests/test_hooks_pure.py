@@ -1,19 +1,5 @@
 """Tests for pure helper functions in protein_design/hooks/*.py."""
-import importlib.util
-import sys
-from pathlib import Path
-
-_PROJECT_ROOT = Path(__file__).resolve().parents[1]
-
-
-def _load_hook_module(name: str):
-    """Load a hook module whose filename contains hyphens."""
-    file_path = _PROJECT_ROOT / "protein_design" / "hooks" / f"{name}.py"
-    spec = importlib.util.spec_from_file_location(name.replace("-", "_"), file_path)
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[spec.name] = module
-    spec.loader.exec_module(module)
-    return module
+from tests.helpers import load_hook_module as _load_hook_module
 
 
 _cost_estimator = _load_hook_module("cost-estimator")

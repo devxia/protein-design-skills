@@ -5,23 +5,13 @@ and .codex-plugin/plugin.json against the approved manifest cleanup conventions.
 """
 from __future__ import annotations
 
-import importlib.util
 import json
 import sys
 from pathlib import Path
-from types import ModuleType
+
+from tests.helpers import load_install_hooks_module as _load_install_hooks_module
 
 _PROJECT_ROOT = Path(__file__).resolve().parents[1]
-
-
-def _load_install_hooks_module() -> ModuleType:
-    """Load protein_design/hooks/install-hooks.py as an importable module."""
-    file_path = _PROJECT_ROOT / "protein_design" / "hooks" / "install-hooks.py"
-    spec = importlib.util.spec_from_file_location("install_hooks", file_path)
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[spec.name] = module
-    spec.loader.exec_module(module)
-    return module
 
 
 _INSTALL_HOOKS = _load_install_hooks_module()
