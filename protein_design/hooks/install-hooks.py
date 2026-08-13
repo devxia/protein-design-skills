@@ -449,13 +449,46 @@ def _uninstall_codex(config_path: Path) -> bool:
             print(f"  ⚠️  Could not clean up legacy Codex settings: {exc}")
 
     if LEGACY_CODEX_HOOKS_DIR.exists():
+        managed = _managed_hook_filenames(Path(__file__).resolve().parents[2])
         for f in LEGACY_CODEX_HOOKS_DIR.glob("*.py"):
-            if "protein" in f.name.lower():
+            if _is_managed_legacy_hook(f, managed):
                 f.unlink()
                 print(f"  ✅ Removed legacy hook file: {f}")
                 removed = True
 
     return removed
+
+
+def _managed_hook_filenames(project_root: Path) -> set:
+    """Return the basenames of hook scripts the installer manages (from hooks/hooks.json)."""
+    names = set()
+    try:
+        config = _load_hooks_source(project_root)
+    except (FileNotFoundError, json.JSONDecodeError):
+        return names
+    for event_groups in config.get("hooks", {}).values():
+        for group in event_groups:
+            for hook in group.get("hooks", []):
+                for token in hook.get("command", "").split():
+                    if token.endswith(".py"):
+                        names.add(Path(token).name)
+    return names
+
+
+def _is_managed_legacy_hook(path: Path, managed_names: set) -> bool:
+    """True only for files the installer itself placed in the legacy hooks dir.
+
+    A file qualifies when its name matches a canonical hook script from
+    hooks/hooks.json, or when its content carries the installer marker block.
+    Anything else — including user files that merely contain 'protein' in
+    their name — must survive cleanup.
+    """
+    if path.name in managed_names:
+        return True
+    try:
+        return PROTEIN_DESIGN_MARKER in path.read_text(encoding="utf-8", errors="ignore")
+    except OSError:
+        return False
 
 
 # ── Kimi Code installer ──────────────────────────────────────────────────
