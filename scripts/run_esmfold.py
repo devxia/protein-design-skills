@@ -16,11 +16,24 @@ import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from protein_design.utils import get_config, log_history
+from protein_design.utils import get_config, log_history, read_fasta
 
 import argparse
 import subprocess
 import time
+
+
+def _check_esm_installed() -> bool:
+    """True when the ESMFold Python dependencies (torch, esm) are importable."""
+    try:
+        result = subprocess.run(
+            [sys.executable, "-c", "import torch, esm"],
+            capture_output=True,
+            timeout=30,
+        )
+        return result.returncode == 0
+    except (subprocess.TimeoutExpired, OSError):
+        return False
 
 
 def run_esmfold_api(input_file, output_dir, verbose=False):
@@ -31,27 +44,18 @@ def run_esmfold_api(input_file, output_dir, verbose=False):
         print(f"ERROR: Input file not found: {input_file}", file=sys.stderr)
         return 1
 
+    # Probe the dependency before doing any work so a missing install exits 2
+    # (as documented) instead of surfacing as a generic execution failure.
+    if not _check_esm_installed():
+        print("ERROR: ESMFold is not installed (import torch, esm failed). "
+              "Install from: https://github.com/facebookresearch/esm", file=sys.stderr)
+        return 2
+
     out_path = Path(output_dir)
     out_path.mkdir(parents=True, exist_ok=True)
 
-    # Read sequences
-    sequences = []
-    current_id = None
-    current_seq = []
-
-    with open(input_file, encoding="utf-8") as f:
-        for line in f:
-            line = line.strip()
-            if line.startswith(">"):
-                if current_id is not None:
-                    sequences.append((current_id, "".join(current_seq)))
-                current_id = line[1:].split()[0]
-                current_seq = []
-            elif line:
-                current_seq.append(line)
-
-    if current_id is not None:
-        sequences.append((current_id, "".join(current_seq)))
+    # Read sequences via the shared FASTA parser.
+    sequences = read_fasta(input_file)
 
     if verbose:
         print(f"Loaded {len(sequences)} sequence(s)")
@@ -71,7 +75,7 @@ device = "cuda" if torch.cuda.is_available() else "cpu"
 model = model.eval().to(device)
 
 sequences = {sequences!r}
-output_dir = Path("{output_dir}")
+output_dir = Path(sys.argv[1])
 
 for seq_id, seq in sequences:
     if len(seq) > 2000:
@@ -97,7 +101,7 @@ print("Done!")
     start_time = time.time()
     try:
         result = subprocess.run(
-            [sys.executable, str(script_path)],
+            [sys.executable, str(script_path), str(out_path)],
             capture_output=True,
             text=True,
             timeout=3600
