@@ -156,6 +156,73 @@ def stage_summary(stage_key: str, stage_dir: Path, expected: dict[str, int]) -> 
     return lines
 
 
+def gather_dashboard_data(args) -> dict:
+    """Collect the dashboard's structured data (the --json contract).
+
+    Returns per-stage artifact counts, validation metric summaries, quality
+    distribution, expected counts, and a timestamp — all JSON-serializable.
+    """
+    root = Path(args.output_dir).expanduser()
+    stages = discover_stages(root)
+
+    expected = {
+        "backbones": args.expected_backbones,
+        "sequences": args.expected_sequences,
+        "validations": args.expected_validations,
+    }
+
+    data: dict = {
+        "output_dir": str(root),
+        "generated_at": time.strftime("%Y-%m-%dT%H:%M:%S"),
+        "expected": expected,
+        "stages": {},
+        "totals": {"backbones": 0, "sequences": 0, "validations": 0},
+    }
+
+    for key, info in stages.items():
+        stage_dir = info["dir"]
+        counts = count_stage_artifacts(stage_dir)
+        entry: dict = {"label": info["label"], "directory": str(stage_dir), "counts": counts}
+
+        if key == "backbone":
+            data["totals"]["backbones"] += counts["pdb"]
+        elif key == "sequence":
+            data["totals"]["sequences"] += counts["fasta"]
+        elif key == "validation":
+            data["totals"]["validations"] += counts["confidence_json"]
+            metrics = collect_validation_metrics(stage_dir)
+            if metrics.get("plddt"):
+                plddts = metrics["plddt"]
+                buckets = defaultdict(int)
+                for p in plddts:
+                    buckets[quality_bucket(p)] += 1
+                entry["plddt"] = {
+                    "mean": mean(plddts),
+                    "best": max(plddts),
+                    "worst": min(plddts),
+                    "distribution": dict(buckets),
+                }
+            if metrics.get("iptm"):
+                iptms = metrics["iptm"]
+                entry["iptm"] = {"mean": mean(iptms), "best": max(iptms)}
+        elif key == "filtering":
+            filtered_path = stage_dir / "filtered_results.json"
+            if filtered_path.exists():
+                try:
+                    with open(filtered_path, encoding="utf-8") as f:
+                        fdata = json.load(f)
+                    entry["filtering"] = {
+                        "total_designs": fdata.get("total_designs", 0),
+                        "passing_designs": fdata.get("passing_designs", 0),
+                    }
+                except Exception:
+                    pass
+
+        data["stages"][key] = entry
+
+    return data
+
+
 def build_dashboard(args) -> str:
     """Build the full dashboard string."""
     root = Path(args.output_dir).expanduser()
@@ -261,12 +328,10 @@ Examples:
 
     try:
         while True:
-            text = build_dashboard(args)
             if args.json:
-                # Simple JSON would need structured data; for now just text
-                print(json.dumps({"dashboard_text": text, "output_dir": str(args.output_dir)}))
+                print(json.dumps(gather_dashboard_data(args), indent=2))
             else:
-                print(text)
+                print(build_dashboard(args))
 
             if not args.watch:
                 break
