@@ -10,6 +10,8 @@ from typing import Any
 import pytest
 
 from protein_design.utils import (
+    _escape_applescript,
+    _escape_powershell,
     fasta_to_alphafold3_json,
     get_config,
     parse_confidence_json,
@@ -223,3 +225,37 @@ def test_send_notification_passes_timeout(monkeypatch) -> None:
     assert len(captured) == 1
     assert "timeout" in captured[0]
     assert captured[0]["timeout"] == 10
+
+
+def test_escape_powershell_hostile_strings() -> None:
+    """PowerShell escaping must neutralize subexpressions, backticks, quotes, newlines (#20)."""
+    assert _escape_powershell("$(whoami)") == "`$(whoami)"
+    assert _escape_powershell("back`tick") == "back``tick"
+    assert _escape_powershell('say "hi"') == 'say `"hi`"'
+    assert _escape_powershell("line1\nline2\r\nline3\r") == "line1`nline2`nline3`n"
+    # No raw $ or backtick survives unescaped.
+    hostile = _escape_powershell('$x`$(calc)\n"')
+    assert hostile == "`$x```$(calc)`n`\""
+
+
+def test_escape_applescript_hostile_strings() -> None:
+    """AppleScript escaping must flatten newlines and escape quotes/backslashes (#20)."""
+    assert _escape_applescript("line1\nline2\r\nline3") == "line1 line2 line3"
+    assert _escape_applescript('say "hi"') == 'say \\"hi\\"'
+    assert _escape_applescript("back\\slash") == "back\\\\slash"
+
+
+def test_run_notifier_uses_text_mode(monkeypatch) -> None:
+    """The notifier subprocess call matches the documented subprocess style (#20)."""
+    import protein_design.utils as utils
+
+    captured: list[dict[str, Any]] = []
+
+    def fake_run(*args, **kwargs):
+        captured.append(kwargs)
+        return None
+
+    monkeypatch.setattr(utils.subprocess, "run", fake_run)
+    monkeypatch.setattr(utils.platform, "system", lambda: "Darwin")
+    send_notification("title", "message")
+    assert captured[0].get("text") is True

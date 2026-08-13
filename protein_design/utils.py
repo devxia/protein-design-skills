@@ -298,13 +298,36 @@ def _store_metric(metrics: dict[str, Any], key: str, value: Any) -> None:
 # ---------------------------------------------------------------------------
 
 def _escape_applescript(s: str) -> str:
-    """Escape backslash and double-quote for AppleScript string interpolation."""
-    return s.replace("\\", "\\\\").replace('"', '\\"')
+    """Escape for AppleScript double-quoted string interpolation.
+
+    AppleScript string literals cannot span lines, so CR/LF are flattened
+    to spaces; backslash and double-quote are backslash-escaped.
+    """
+    return (
+        s.replace("\\", "\\\\")
+        .replace('"', '\\"')
+        .replace("\r\n", " ")
+        .replace("\r", " ")
+        .replace("\n", " ")
+    )
 
 
 def _escape_powershell(s: str) -> str:
-    """Escape double-quote and backslash for PowerShell string interpolation."""
-    return s.replace('"', '`"').replace("\\", "\\\\")
+    """Escape for PowerShell double-quoted string interpolation.
+
+    The backtick is PowerShell's escape character and must be doubled
+    first; ``$`` (subexpression/variable expansion), double-quote, and
+    newlines are each escaped with a backtick. Without this, notification
+    text containing ``$(...)`` would execute inside ``powershell -Command``.
+    """
+    return (
+        s.replace("`", "``")
+        .replace('"', '`"')
+        .replace("$", "`$")
+        .replace("\r\n", "`n")
+        .replace("\r", "`n")
+        .replace("\n", "`n")
+    )
 
 
 def send_notification(title: str, message: str) -> None:
@@ -342,7 +365,7 @@ def _run_notifier(argv: list[str]) -> None:
     the best-effort contract of :func:`send_notification`.
     """
     try:
-        subprocess.run(argv, capture_output=True, check=False, timeout=10)
+        subprocess.run(argv, capture_output=True, text=True, check=False, timeout=10)
     except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
         pass
 
