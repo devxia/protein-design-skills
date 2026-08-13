@@ -46,6 +46,23 @@ def test_parse_pdb_bfactor_missing_file():
     assert parse_pdb_bfactor("/nonexistent/path.pdb") is None
 
 
+def test_filter_designs_missing_plddt_fails_closed(tmp_path, capsys):
+    """A confidence.json without pLDDT must not pass the pLDDT gate (#19)."""
+    import json
+
+    conf_dir = tmp_path / "design1"
+    conf_dir.mkdir()
+    (conf_dir / "confidence.json").write_text(
+        json.dumps({"iptm": 0.9, "ptm": 0.9}), encoding="utf-8"
+    )
+
+    rc = filter_designs(str(tmp_path), min_plddt=70)
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert "0/1 designs passed" in out
+    assert "missing" in out.lower()
+
+
 def test_filter_designs_missing_dir(tmp_path):
     missing = tmp_path / "no_results"
     rc = filter_designs(str(missing))

@@ -87,11 +87,15 @@ def _evaluate_quality(metrics: dict[str, float], design_type: str) -> dict[str, 
         else:
             failed.append(f"{metric}: {actual:.2f} < {threshold}")
 
+    evaluated = len(passed) + len(failed)
     return {
         "design_type": design_type,
         "passed": passed,
         "failed": failed,
-        "is_passing": len(failed) == 0,
+        # Fail closed: when no threshold could be evaluated, the gate has
+        # no evidence to pass on, so it must not report success.
+        "is_passing": evaluated > 0 and len(failed) == 0,
+        "no_metrics_evaluated": evaluated == 0,
         "thresholds": thresholds,
     }
 
@@ -140,6 +144,11 @@ def main() -> int:
     if evaluation["is_passing"]:
         status = "✅ PASS"
         action = "Design meets quality thresholds. Proceed to Stage 4 (Filtering) or finalize."
+    elif evaluation.get("no_metrics_evaluated"):
+        status = "❌ FAIL"
+        action = ("No evaluable metrics matched this design type's thresholds "
+                  "(extracted metrics did not overlap). Failing closed: re-run "
+                  "validation or check that the tool reports the gated metrics.")
     else:
         status = "❌ FAIL"
         action = "Design below thresholds. Consider: regenerate with more samples, adjust parameters, or try alternative validation tool."
