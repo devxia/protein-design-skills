@@ -103,8 +103,7 @@ Run AlphaFold3 — standalone execution
 | `output_dir` | `--output-dir / --out-dir / -o` | Yes | — | string | Output directory |
 | `db_dir` | `--db-dir / -d` | No | — | string | Path to AlphaFold3 databases (~2.6TB) |
 | `no_msa` | `--no-msa` | No | false | flag | Skip MSA search (faster, less accurate) |
-| `num_seeds` | `--num-seeds` | No | 1 | int | Number of random seeds (default: 1) |
-| `num_samples` | `--num-samples` | No | 1 | int | Samples per seed (default: 1) |
+| `num_seeds` | `--num-seeds` | No | 1 | int | Number of random seeds; sets modelSeeds in the input JSON (default: 1) |
 | `verbose` | `--verbose / -v` | No | false | flag | Verbose output |
 
 ## `run_boltz.py`
