@@ -12,7 +12,7 @@ from typing import Any
 import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
-from protein_design.utils import read_hook_input
+from protein_design.utils import extract_content_text, read_hook_input
 
 
 def _parse_error(error_text: str) -> dict[str, Any]:
@@ -83,100 +83,100 @@ def _build_recovery_strategy(error_info: dict[str, Any], tool_name: str) -> list
     if error_type == "gpu_error":
         if subtype == "oom":
             strategies = [
-                "GPU 内存不足。解决方案:",
-                "  1. 减少 num_designs（例如从 50 降到 10）",
-                "  2. 降低 diffuser_T（例如从 50 降到 25）",
-                "  3. 关闭其他使用 GPU 的程序",
-                "  4. 使用更小的蛋白质长度",
+                "GPU out of memory. Solutions:",
+                "  1. Reduce num_designs (e.g. from 50 to 10)",
+                "  2. Lower diffuser_T (e.g. from 50 to 25)",
+                "  3. Close other programs using the GPU",
+                "  4. Use a shorter protein length",
             ]
         else:
             strategies = [
-                "CUDA/GPU 错误。解决方案:",
-                "  1. 检查 nvidia-smi 确认 GPU 可用",
-                "  2. 检查 CUDA 版本与 PyTorch 兼容性",
-                "  3. 尝试设置 CUDA_VISIBLE_DEVICES=0",
-                "  4. 重启 kernel/session",
+                "CUDA/GPU error. Solutions:",
+                "  1. Check nvidia-smi to confirm the GPU is available",
+                "  2. Check CUDA version compatibility with PyTorch",
+                "  3. Try setting CUDA_VISIBLE_DEVICES=0",
+                "  4. Restart the kernel/session",
             ]
 
     elif error_type == "file_not_found":
-        missing = error_info.get("missing_file", "文件")
+        missing = error_info.get("missing_file", "file")
         strategies = [
-            f"找不到文件: {missing}",
-            "  1. 检查文件路径是否正确（使用绝对路径）",
-            "  2. 确认文件存在于指定位置",
-            f"  3. 如果是输出文件，确保目录存在: mkdir -p $(dirname {missing})",
-            "  4. 检查文件权限",
+            f"File not found: {missing}",
+            "  1. Check the file path (use an absolute path)",
+            "  2. Confirm the file exists at the given location",
+            f"  3. If it is an output file, ensure the directory exists: mkdir -p $(dirname {missing})",
+            "  4. Check file permissions",
         ]
 
     elif error_type == "tool_not_found":
-        missing_tool = error_info.get("missing_tool", "工具")
+        missing_tool = error_info.get("missing_tool", "tool")
         alt_map = {
-            "rfdiffusion": "Chroma (`pip install chroma-ai`) 或 FrameDiff",
-            "proteinmpnn": "ESM-IF1 (`pip install fair-esm`) 或 LigandMPNN",
-            "alphafold": "ESMFold (`pip install fair-esm`) 或 OmegaFold (`pip install omegafold`) — 无需数据库",
-            "pdbfixer": "运行: `conda install -c conda-forge pdbfixer openmm`",
+            "rfdiffusion": "Chroma (`pip install chroma-ai`) or FrameDiff",
+            "proteinmpnn": "ESM-IF1 (`pip install fair-esm`) or LigandMPNN",
+            "alphafold": "ESMFold (`pip install fair-esm`) or OmegaFold (`pip install omegafold`) — no databases needed",
+            "pdbfixer": "Run: `conda install -c conda-forge pdbfixer openmm`",
         }
-        alt = alt_map.get(missing_tool, "参考 install-guide 技能")
+        alt = alt_map.get(missing_tool, "see the install-guide skill")
         strategies = [
-            f"{missing_tool} 未安装或未找到 / {missing_tool} not found or not installed",
-            f"  快速替代方案 / Quick alternative: {alt}",
-            f"  设置环境变量 / Set env var: {missing_tool.upper()}_PATH=/path/to/{missing_tool}",
-            "  参考安装指南 / See install-guide skill for full instructions",
+            f"{missing_tool} not found or not installed",
+            f"  Quick alternative: {alt}",
+            f"  Set env var: {missing_tool.upper()}_PATH=/path/to/{missing_tool}",
+            "  See the install-guide skill for full instructions",
         ]
 
     elif error_type == "parameter_error":
         if subtype == "contig":
             strategies = [
-                "Contig 参数错误 / Contig parameter error。检查 / Check:",
-                "  1. 语法格式 / Syntax: [A1-50/0 10-20/A71-150]",
-                "  2. 固定区域必须使用链ID前缀 / Fixed regions need chain prefix (如 A1-50)",
-                "  3. 生成区域不需要前缀 / Generated regions no prefix (如 10-20)",
-                "  4. 使用 / 分隔不同区域 / Use / to separate regions",
-                "  5. 使用 0 表示链断裂 / Use 0 for chain break (binder设计)",
-                "  6. 确保残基编号与输入 PDB 匹配 / Match residue numbers to input PDB",
+                "Contig parameter error. Check:",
+                "  1. Syntax: [A1-50/0 10-20/A71-150]",
+                "  2. Fixed regions need a chain prefix (e.g. A1-50)",
+                "  3. Generated regions need no prefix (e.g. 10-20)",
+                "  4. Use / to separate regions",
+                "  5. Use 0 for a chain break (binder design)",
+                "  6. Match residue numbers to the input PDB",
             ]
         else:
             strategies = [
-                "参数错误 / Parameter error。检查 / Check:",
-                "  1. 所有必需参数是否已提供 / All required params provided?",
-                "  2. 参数类型是否正确 / Correct param types (string/int/bool)?",
-                "  3. 参考 SKILL_INDEX.md 查看完整参数 / See SKILL_INDEX.md for full params",
+                "Parameter error. Check:",
+                "  1. All required params provided?",
+                "  2. Correct param types (string/int/bool)?",
+                "  3. See SKILL_INDEX.md for full params",
             ]
 
     elif error_type == "timeout":
         strategies = [
-            "作业超时。解决方案:",
-            "  1. 对于 AlphaFold3: 设置 run_data_pipeline=false 跳过 MSA",
-            "  2. 减少 num_designs 或 num_seeds",
-            "  3. 使用更短的蛋白质序列",
-            "  4. 检查 GPU 是否正常工作",
+            "Job timed out. Solutions:",
+            "  1. For AlphaFold3: set run_data_pipeline=false to skip MSA",
+            "  2. Reduce num_designs or num_seeds",
+            "  3. Use a shorter protein sequence",
+            "  4. Check the GPU is working",
         ]
 
     elif error_type == "msa_error":
         strategies = [
-            "MSA/数据库错误 / MSA/Database error。解决方案 / Solutions:",
-            "  1. 设置 run_data_pipeline=false 跳过 MSA / Skip MSA (fast but less accurate)",
-            "  2. 使用 ESMFold 或 OmegaFold 替代（无需数据库）/ Use ESMFold or OmegaFold (no DB needed)",
-            "  3. 检查数据库目录是否存在且完整 (~2.6TB) / Check DB dir exists and complete",
-            "  4. 检查磁盘空间是否充足 / Check disk space",
+            "MSA/Database error. Solutions:",
+            "  1. Set run_data_pipeline=false to skip MSA (fast but less accurate)",
+            "  2. Use ESMFold or OmegaFold instead (no databases needed)",
+            "  3. Check the database directory exists and is complete (~2.6TB)",
+            "  4. Check disk space",
         ]
 
     elif error_type == "environment_error":
         strategies = [
-            "环境/依赖错误。解决方案:",
-            "  1. 使用 conda_env 参数指定正确的 conda 环境",
-            "  2. 使用 wrapper_script 自定义环境设置",
-            "  3. 检查 conda 环境是否包含所需包",
-            "  4. 重新安装工具到正确的 conda 环境",
+            "Environment/dependency error. Solutions:",
+            "  1. Use the conda_env parameter to specify the correct conda environment",
+            "  2. Use wrapper_script for custom environment setup",
+            "  3. Check the conda environment contains the required packages",
+            "  4. Reinstall the tool into the correct conda environment",
         ]
 
     else:
         strategies = [
-            "未知错误。建议:",
-            "  1. 查看完整的 stderr 日志文件",
-            "  2. 检查输入文件格式是否正确",
-            "  3. 尝试简化参数后重试",
-            "  4. 参考文档中的故障排除部分",
+            "Unknown error. Suggestions:",
+            "  1. Inspect the full stderr log file",
+            "  2. Check the input file format",
+            "  3. Retry with simpler parameters",
+            "  4. See the troubleshooting section of the docs",
         ]
 
     return strategies
@@ -185,20 +185,17 @@ def _build_recovery_strategy(error_info: dict[str, Any], tool_name: str) -> list
 def _extract_tool_name(data: dict[str, Any]) -> str:
     """Extract the tool name from hook input data."""
     # Try to find tool name from various locations in the data
-    result = data.get("result", {})
-    if isinstance(result, dict):
-        content = result.get("content", [{}])
-        if content and isinstance(content, list):
-            text = content[0].get("text", "")
-            try:
-                result_json = json.loads(text)
-                # Check for tool name in result
-                if "tool_name" in result_json:
-                    return result_json["tool_name"]
-                if "tool" in result_json:
-                    return result_json["tool"]
-            except json.JSONDecodeError:
-                pass
+    text = extract_content_text(data.get("result"))
+    if text:
+        try:
+            result_json = json.loads(text)
+            # Check for tool name in result
+            if "tool_name" in result_json:
+                return result_json["tool_name"]
+            if "tool" in result_json:
+                return result_json["tool"]
+        except json.JSONDecodeError:
+            pass
 
     # Check for error message
     error = data.get("error", "")
@@ -225,10 +222,7 @@ def main() -> int:
     # Only process failed tool calls
     result = data.get("result", {})
     if isinstance(result, dict) and result.get("isError"):
-        error_text = ""
-        content = result.get("content", [{}])
-        if content and isinstance(content, list):
-            error_text = content[0].get("text", "")
+        error_text = extract_content_text(result)
 
         if not error_text:
             return 0
@@ -237,11 +231,11 @@ def main() -> int:
         error_info = _parse_error(error_text)
         strategies = _build_recovery_strategy(error_info, tool_name)
 
-        output = f"""[Error Recovery / 错误恢复建议] Tool / 工具: {tool_name} | Type / 类型: {error_info['type']}
+        output = f"""[Error Recovery] Tool: {tool_name} | Type: {error_info['type']}
 
 {chr(10).join(strategies)}
 
-Error summary / 原始错误摘要: {error_info['message'][:200]}
+Error summary: {error_info['message'][:200]}
 """
         print(output)
 

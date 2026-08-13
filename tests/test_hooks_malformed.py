@@ -14,6 +14,7 @@ HOOKS = [
     load_hook_module("pipeline-orchestrator"),
     load_hook_module("format-converter"),
     load_hook_module("quality-gate"),
+    load_hook_module("error-recovery"),
 ]
 
 MALFORMED_PAYLOADS = [
@@ -23,6 +24,8 @@ MALFORMED_PAYLOADS = [
     {"result": {"content": "a-string"}},
     {"result": {"content": []}},
     {"result": "not-a-dict"},
+    {"result": {"isError": True, "content": ["not-a-dict"]}},
+    {"result": {"isError": True, "content": [None]}},
 ]
 
 
