@@ -18,6 +18,7 @@ Exit codes:
     0 = Success (operation completed)
     1 = Job not found
     2 = Invalid command
+    3 = Wait timed out (job still running)
 """
 from __future__ import annotations
 
@@ -244,10 +245,17 @@ def cancel_job(job_id: str, verbose: bool = False) -> bool:
 
 
 def wait_job(job_id: str, timeout: int | None = None, verbose: bool = False) -> int:
-    """Wait for a job to complete."""
+    """Wait for a job to complete.
+
+    Returns the job's exit code on completion; 1 if the job does not exist;
+    3 if the wait timed out with the job still running.
+    """
     start = time.time()
     while True:
         status = get_job_status(job_id)
+        if "error" in status:
+            print(f"ERROR: {status['error']}", file=sys.stderr)
+            return 1
         if status.get("status") in ("completed", "cancelled"):
             exit_code = status.get("exit_code", 0)
             if verbose:
@@ -255,8 +263,11 @@ def wait_job(job_id: str, timeout: int | None = None, verbose: bool = False) -> 
             return exit_code
 
         if timeout and (time.time() - start) > timeout:
-            print(f"WARNING: Timeout waiting for job {job_id}", file=sys.stderr)
-            return -1
+            print(
+                f"WARNING: Timeout waiting for job {job_id} (still running)",
+                file=sys.stderr,
+            )
+            return 3
 
         time.sleep(2)
 

@@ -54,6 +54,22 @@ def test_missing_executable_records_exit_127(tmp_path, monkeypatch):
     assert status["exit_code"] == 127
 
 
+def test_wait_job_timeout_returns_documented_code(tmp_path, monkeypatch):
+    """A wait timeout must return the documented code 3, not -1 (-> shell 255) (#37)."""
+    jobs_dir = _patch_jobs_dir(tmp_path, monkeypatch)
+    job_id = jm.submit_job([sys.executable, "-c", "import time; time.sleep(30)"])
+    try:
+        assert jm.wait_job(job_id, timeout=-1) == 3
+    finally:
+        jm.cancel_job(job_id)
+
+
+def test_wait_job_unknown_id_returns_not_found(tmp_path, monkeypatch):
+    """Waiting on a nonexistent job must return 1 immediately, not loop (#37)."""
+    _patch_jobs_dir(tmp_path, monkeypatch)
+    assert jm.wait_job("no-such-job", timeout=None) == 1
+
+
 def test_list_jobs_honors_exit_marker_over_pid_liveness(tmp_path, monkeypatch):
     """A live PID must not mask the authoritative completion marker (#18)."""
     jobs_dir = _patch_jobs_dir(tmp_path, monkeypatch)
