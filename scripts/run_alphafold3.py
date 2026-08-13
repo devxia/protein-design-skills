@@ -20,6 +20,7 @@ from protein_design.utils import get_config, log_history
 from protein_design.conda_utils import find_conda_env, build_tool_command, resolve_wrapper_script
 
 import argparse
+import json
 import subprocess
 import time
 
@@ -77,8 +78,21 @@ def find_db_dir(config):
     return None
 
 
+def _set_model_seeds(json_path, num_seeds):
+    """Write the requested number of seeds into the input JSON's modelSeeds.
+
+    AlphaFold3 controls sampling through the input JSON's ``modelSeeds`` field
+    rather than CLI flags, so this rewrites that field in place.
+    """
+    with open(json_path, encoding="utf-8") as f:
+        data = json.load(f)
+    data["modelSeeds"] = list(range(1, num_seeds + 1))
+    with open(json_path, "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2)
+
+
 def run_alphafold3(json_path, output_dir, db_dir=None, run_data_pipeline=True,
-                   num_seeds=1, num_samples=1, verbose=False):
+                   num_seeds=1, verbose=False):
     """Run AlphaFold3 with given parameters."""
     config = get_config("alphafold3")
     alphafold_script = find_alphafold3(config)
@@ -91,6 +105,10 @@ def run_alphafold3(json_path, output_dir, db_dir=None, run_data_pipeline=True,
     if not Path(json_path).exists():
         print(f"ERROR: Input JSON not found: {json_path}", file=sys.stderr)
         return 1
+
+    # AlphaFold3 controls seeds via the input JSON's modelSeeds field.
+    if num_seeds and num_seeds > 1:
+        _set_model_seeds(json_path, num_seeds)
 
     # Create output directory
     out_path = Path(output_dir)
@@ -117,12 +135,6 @@ def run_alphafold3(json_path, output_dir, db_dir=None, run_data_pipeline=True,
         cmd.extend(["--db_dir", db_dir])
     else:
         cmd.append("--run_data_pipeline=false")
-
-    if num_seeds > 1:
-        cmd.extend(["--num_seeds", str(num_seeds)])
-
-    if num_samples > 1:
-        cmd.extend(["--num_samples", str(num_samples)])
 
     if verbose:
         print(f"Running: {' '.join(cmd)}")
@@ -185,7 +197,7 @@ Examples:
   python run_alphafold3.py --json design.json --output-dir outputs/af3/ --no-msa
 
   # Multiple seeds for confidence
-  python run_alphafold3.py --json design.json --output-dir outputs/af3/ --num-seeds 5 --num-samples 5
+  python run_alphafold3.py --json design.json --output-dir outputs/af3/ --num-seeds 5
 
   # With custom database path
   python run_alphafold3.py --json design.json --output-dir outputs/af3/ --db-dir /path/to/databases
@@ -200,9 +212,7 @@ Examples:
     parser.add_argument("--no-msa", action="store_true",
                         help="Skip MSA search (faster, less accurate)")
     parser.add_argument("--num-seeds", type=int, default=1,
-                        help="Number of random seeds (default: 1)")
-    parser.add_argument("--num-samples", type=int, default=1,
-                        help="Samples per seed (default: 1)")
+                        help="Number of random seeds; sets modelSeeds in the input JSON (default: 1)")
     parser.add_argument("--verbose", "-v", action="store_true",
                         help="Verbose output")
 
@@ -214,7 +224,6 @@ Examples:
         db_dir=args.db_dir,
         run_data_pipeline=not args.no_msa,
         num_seeds=args.num_seeds,
-        num_samples=args.num_samples,
         verbose=args.verbose,
     )
 

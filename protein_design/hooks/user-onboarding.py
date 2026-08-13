@@ -72,13 +72,13 @@ def _check_tools() -> dict[str, bool]:
     tools = {}
     for name, import_test in [
         ("RFdiffusion", ["python", "-c", "import rfdiffusion"]),
-        ("ProteinMPNN", ["python", "-c", "import protein_mpnn_run"]),
-        ("AlphaFold3", ["python", "-c", "import run_alphafold"]),
+        ("ProteinMPNN", ["python", "-c", "import proteinmpnn"]),
+        ("AlphaFold3", ["python", "-c", "import alphafold3"]),
         ("PDBFixer", ["python", "-c", "from pdbfixer import PDBFixer"]),
         ("ESMFold", ["python", "-c", "import esm"]),
         ("OmegaFold", ["python", "-c", "import omegafold"]),
         ("Boltz", ["python", "-c", "import boltz"]),
-        ("Chai-1", ["python", "-c", "import chai1"]),
+        ("Chai-1", ["python", "-c", "import chai_lab"]),
         ("Protenix", ["python", "-c", "import protenix"]),
         ("OpenFold", ["python", "-c", "import openfold"]),
     ]:

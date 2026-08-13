@@ -4,6 +4,10 @@ Standalone PDBFixer runner.
 
 Usage: python scripts/run_pdbfixer.py --input input.pdb --output fixed.pdb [options]
 
+PDBFixer is a library, not a CLI. This runner performs the repair through a
+small embedded wrapper that calls ``pdbfixer.PDBFixer`` directly, running it
+inside a conda environment when one is discovered.
+
 Exit codes:
     0 = Success
     1 = Input file not found
@@ -17,48 +21,74 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from protein_design.utils import get_config, log_history
-from protein_design.conda_utils import find_conda_env, build_tool_command, resolve_wrapper_script, is_bare_executable
+from protein_design.conda_utils import find_conda_env, resolve_wrapper_script
 
 import argparse
 import subprocess
 import time
 
 
-def find_pdbfixer(config):
-    """Locate PDBFixer executable or Python module."""
-    # 1. Configured path
-    if config.get("pdbfixer_path"):
-        path = Path(config["pdbfixer_path"])
-        if path.exists():
-            return str(path)
+# Embedded script that performs the actual repair via the PDBFixer library.
+PDBFIXER_WRAPPER = """\
+import sys
+from pdbfixer import PDBFixer
+from openmm.app import PDBFile
 
-    # 2. Common conda environment names
+input_pdb = sys.argv[1]
+output_pdb = sys.argv[2]
+keep_chains = sys.argv[3] if len(sys.argv) > 3 else ""
+add_atoms = sys.argv[4] if len(sys.argv) > 4 else "heavy"
+keep_heterogens = sys.argv[5] if len(sys.argv) > 5 else ""
+ph = float(sys.argv[6]) if len(sys.argv) > 6 else 7.0
+
+fixer = PDBFixer(filename=input_pdb)
+
+if keep_chains:
+    wanted = {c.strip() for c in keep_chains.split(",") if c.strip()}
+    fixer.removeChains([c.id for c in fixer.topology.chains() if c.id not in wanted])
+
+fixer.findMissingResidues()
+fixer.findNonstandardResidues()
+fixer.replaceNonstandardResidues()
+
+if not (keep_heterogens and keep_heterogens.lower() == "all"):
+    fixer.removeHeterogens(keepWater=bool(keep_heterogens) and "water" in keep_heterogens.lower())
+
+if add_atoms in ("heavy", "all"):
+    fixer.findMissingAtoms()
+    fixer.addMissingAtoms()
+if add_atoms == "all":
+    fixer.addMissingHydrogens(ph)
+
+with open(output_pdb, "w") as out:
+    PDBFile.writeFile(fixer.topology, fixer.positions, out)
+"""
+
+
+def find_pdbfixer_python(config):
+    """Return the Python interpreter prefix that can import PDBFixer.
+
+    Returns a list like ``["conda", "run", "-n", env, "python"]`` or
+    ``[sys.executable]``, or ``None`` if PDBFixer is not importable anywhere.
+    """
+    # 1. Conda environment with pdbfixer importable.
     env = find_conda_env(
         ["pdbfixer", "openmm", "protein-design"],
-        "import pdbfixer; print(pdbfixer.__file__)",
+        "import pdbfixer",
     )
     if env is not None:
-        return f"conda run -n {env} python -m pdbfixer"
+        return ["conda", "run", "-n", env, "python"]
 
-    # 3. Try direct python -m pdbfixer
+    # 2. Current interpreter can import pdbfixer.
     try:
         result = subprocess.run(
-            ["python", "-c", "import pdbfixer; print('ok')"],
-            capture_output=True, text=True, timeout=5
+            [sys.executable, "-c", "import pdbfixer"],
+            capture_output=True, text=True, timeout=5,
         )
         if result.returncode == 0:
-            return "python -m pdbfixer"
+            return [sys.executable]
     except FileNotFoundError:
         pass
-
-    # 4. Try PATH
-    for cmd in ["pdbfixer", "PDBFixer"]:
-        try:
-            result = subprocess.run(["which", cmd], capture_output=True, text=True, timeout=5)
-            if result.returncode == 0 and result.stdout.strip():
-                return cmd
-        except FileNotFoundError:
-            continue
 
     return None
 
@@ -67,40 +97,33 @@ def run_pdbfixer(input_pdb, output_pdb, keep_chains=None, add_atoms="heavy",
                  keep_heterogens=None, ph=7.0, verbose=False):
     """Run PDBFixer on input PDB and write to output."""
     config = get_config("pdbfixer")
-    pdbfixer_cmd = find_pdbfixer(config)
+    python_prefix = find_pdbfixer_python(config)
 
-    if not pdbfixer_cmd:
-        print("ERROR: PDBFixer not found. Install with: conda install -c conda-forge pdbfixer", file=sys.stderr)
+    if not python_prefix:
+        print("ERROR: PDBFixer not found. Install with: conda install -c conda-forge pdbfixer openmm", file=sys.stderr)
         return 2
 
     if not Path(input_pdb).exists():
         print(f"ERROR: Input file not found: {input_pdb}", file=sys.stderr)
         return 1
 
-    # Build PDBFixer command
+    cmd = list(python_prefix)
+    cmd.extend([
+        "-c", PDBFIXER_WRAPPER,
+        input_pdb,
+        output_pdb,
+        keep_chains or "",
+        add_atoms or "heavy",
+        keep_heterogens or "",
+        str(ph),
+    ])
+
     wrapper = resolve_wrapper_script(config, "pdbfixer")
-    cmd = build_tool_command(
-        pdbfixer_cmd, wrapper_script=wrapper, bare_executable=is_bare_executable(pdbfixer_cmd)
-    )
-    cmd.append(input_pdb)
-
-    # Add options
-    cmd.extend(["--output", output_pdb])
-
-    if keep_chains:
-        cmd.extend(["--keep-chains", keep_chains])
-
-    if add_atoms:
-        cmd.extend(["--add-atoms", add_atoms])
-
-    if keep_heterogens:
-        cmd.extend(["--keep-heterogens", keep_heterogens])
-
-    if add_atoms != "none":
-        cmd.extend(["--ph", str(ph)])
+    if wrapper:
+        cmd = [wrapper] + cmd
 
     if verbose:
-        print(f"Running: {' '.join(cmd)}")
+        print(f"Running: {' '.join(cmd[:5])} ... (embedded PDBFixer wrapper)")
 
     start_time = time.time()
     try:
@@ -141,7 +164,8 @@ def run_pdbfixer(input_pdb, output_pdb, keep_chains=None, add_atoms="heavy",
         return 3
     except Exception as e:
         print(f"ERROR: {e}", file=sys.stderr)
-        log_history("pdbfixer", {"input": input_pdb}, time.time() - start_time, False, config["output_dir"])
+        log_history("pdbfixer", {"input": input_pdb}, time.time() - start_time, False,
+                    config["output_dir"])
         return 3
 
 

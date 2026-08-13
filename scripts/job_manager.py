@@ -59,6 +59,7 @@ def submit_job(command: list[str], job_name: str = "", verbose: bool = False) ->
     log_file = log_dir / f"{job_id}.log"
     pid_file = jobs_dir / f"{job_id}.pid"
     meta_file = jobs_dir / f"{job_id}.json"
+    exit_file = jobs_dir / f"{job_id}.exit"
 
     # Start process
     if verbose:
@@ -71,8 +72,19 @@ def submit_job(command: list[str], job_name: str = "", verbose: bool = False) ->
         log.write("# " + "=" * 60 + "\n")
         log.flush()
 
+        # Wrap the command in a tiny Python launcher that records the real
+        # exit code (both in the log and in a completion-marker file) after
+        # the command finishes, so status/wait can report it truthfully
+        # regardless of whether the launcher process has been reaped yet.
+        wrapper_code = (
+            "import subprocess, sys; "
+            "r = subprocess.run(sys.argv[2:]); "
+            "open(sys.argv[1], 'w').write(str(r.returncode)); "
+            "print('EXIT_CODE: ' + str(r.returncode)); "
+            "sys.exit(r.returncode)"
+        )
         process = subprocess.Popen(
-            command,
+            [sys.executable, "-c", wrapper_code, str(exit_file)] + command,
             stdout=log,
             stderr=subprocess.STDOUT,
             start_new_session=True,  # Detach from parent
@@ -107,6 +119,7 @@ def get_job_status(job_id: str) -> dict:
     jobs_dir = get_jobs_dir()
     meta_file = jobs_dir / f"{job_id}.json"
     pid_file = jobs_dir / f"{job_id}.pid"
+    exit_file = jobs_dir / f"{job_id}.exit"
 
     if not meta_file.exists():
         return {"error": f"Job {job_id} not found"}
@@ -114,7 +127,18 @@ def get_job_status(job_id: str) -> dict:
     with open(meta_file, encoding="utf-8") as f:
         metadata = json.load(f)
 
-    # Check if process is still running
+    # The launcher writes a completion-marker file with the exit code as its
+    # final act, so its presence (not process liveness, which can't detect
+    # zombies) is the authoritative completion signal.
+    if exit_file.exists():
+        try:
+            metadata["exit_code"] = int(exit_file.read_text(encoding="utf-8").strip())
+        except (ValueError, OSError):
+            pass
+        metadata["status"] = "completed"
+        return metadata
+
+    # Fallback: best-effort liveness check for jobs still running.
     pid = metadata.get("pid")
     if pid and pid_file.exists():
         try:
@@ -122,19 +146,6 @@ def get_job_status(job_id: str) -> dict:
             metadata["status"] = "running"
         except ProcessLookupError:
             metadata["status"] = "completed"
-            # Try to get exit code
-            log_file = Path(metadata.get("log_file", ""))
-            if log_file.exists():
-                # Check last line for exit status
-                try:
-                    with open(log_file, encoding="utf-8") as f:
-                        lines = f.readlines()
-                        for line in reversed(lines):
-                            if "EXIT_CODE:" in line:
-                                metadata["exit_code"] = int(line.split(":")[1].strip())
-                                break
-                except Exception:
-                    pass
     else:
         metadata["status"] = "unknown"
 

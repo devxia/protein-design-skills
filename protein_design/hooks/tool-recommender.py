@@ -101,7 +101,7 @@ python scripts/run_rfdiffusion.py \\
   --diffuser-T 50
 python scripts/run_proteinmpnn.py --pdb-path "outputs/binder_*.pdb" --out-folder outputs/seqs/
 python scripts/convert_format.py --from fasta --to alphafold3_json --input outputs/seqs/ --output af3_input.json
-python scripts/run_alphafold3.py --json af3_input.json --output-dir outputs/af3/ --num-samples 5
+python scripts/run_alphafold3.py --json af3_input.json --output-dir outputs/af3/ --num-seeds 5
 python scripts/run_filtering.py --results-dir outputs/af3/ --min-iptm 0.8 --min-plddt 80""",
             "tips": [
                 "Provide target PDB as --input",
@@ -143,12 +143,10 @@ python scripts/run_filtering.py --results-dir outputs/af3/ --min-plddt 75""",
             "primary_script": "scripts/run_rfdiffusion.py",
             "key_params": {
                 "contig": '"[360]"  # total length for symmetric unit',
-                "symmetry": "c2  # or c3, c4, d2, tetrahedral",
                 "num-designs": "20",
             },
             "example": """python scripts/run_rfdiffusion.py \\
   --contig "[360]" \\
-  --symmetry c2 \\
   --output-prefix outputs/sym \\
   --num-designs 20 \\
   --diffuser-T 50
@@ -168,7 +166,6 @@ python scripts/run_filtering.py --results-dir outputs/af3/ --min-ptm 0.7""",
             "primary_script": "scripts/run_rfdiffusion.py",
             "key_params": {
                 "contig": '"[A1-50/0 10-20/A71-150]"  # keep termini, redesign loop',
-                "partial-T": "10",
                 "num-designs": "10",
                 "diffuser-T": "25",
             },
@@ -176,7 +173,6 @@ python scripts/run_filtering.py --results-dir outputs/af3/ --min-ptm 0.7""",
 python scripts/run_rfdiffusion.py \\
   --input-pdb structure_fixed.pdb \\
   --contig "[A1-50/0 10-20/A71-150]" \\
-  --partial-T 10 \\
   --output-prefix outputs/redesign \\
   --num-designs 10 \\
   --diffuser-T 25
@@ -231,7 +227,6 @@ python scripts/run_filtering.py --results-dir outputs/af3/ --min-plddt 80 --min-
             "tips": [
                 "sampling-temp: 0.1=conservative, 0.3=diverse, 0.5=maximum diversity",
                 "For binder-target complexes, use --pdb-path-chains to fix target",
-                "Use --soluble for soluble expression targets",
             ],
         },
         "validation": {
@@ -242,15 +237,13 @@ python scripts/run_filtering.py --results-dir outputs/af3/ --min-plddt 80 --min-
             "key_params": {
                 "json": "design_af3_input.json",
                 "output-dir": "outputs/af3",
-                "num-seeds": "1",
-                "num-samples": "5",
+                "num-seeds": "5",
             },
             "example": """python scripts/convert_format.py --from fasta --to alphafold3_json --input seqs.fa --output af3_input.json
 python scripts/run_alphafold3.py \\
   --json af3_input.json \\
   --output-dir outputs/af3/ \\
-  --num-seeds 1 \\
-  --num-samples 5""",
+  --num-seeds 5""",
             "tips": [
                 "Use convert_format.py to convert FASTA → AlphaFold3 JSON",
                 "For quick screening: --run-data-pipeline false (skips MSA)",

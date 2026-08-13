@@ -81,12 +81,10 @@ def run_omegafold(input_file, output_dir, subbatch_size=None, verbose=False):
     )
     cmd.extend([input_file, output_dir])
 
+    # OmegaFold uses an environment variable for subbatch size.
+    env = os.environ.copy()
     if subbatch_size:
-        # OmegaFold uses environment variable for subbatch size
-        env = os.environ.copy()
         env["SUBBATCH_SIZE"] = str(subbatch_size)
-    else:
-        env = os.environ
 
     if verbose:
         print(f"Running: {' '.join(cmd)}")

@@ -128,27 +128,23 @@ def _generate_validation_params(goal: dict[str, Any]) -> dict[str, Any]:
         return {
             "tool": "Boltz-1 or Chai-1",
             "reason": "Ligand-aware validation for complexes",
-            "num_seeds": 1,
-            "num_samples": 5,
+            "num_seeds": 5,
         }
     elif dt == "binder":
         return {
             "tool": "AlphaFold3 or Boltz-1 or Chai-1",
-            "num_seeds": 1,
-            "num_samples": 5,
+            "num_seeds": 5,
             "note": "ipTM > 0.8 for good binders",
         }
     elif dt == "peptide":
         return {
             "tool": "AlphaFold3",
-            "num_seeds": 1,
-            "num_samples": 5,
+            "num_seeds": 5,
         }
     else:
         return {
             "tool": "OmegaFold or ESMFold (fast pre-screen), then AlphaFold3/Boltz/Chai-1 (top designs)",
-            "num_seeds": 1,
-            "num_samples": 5,
+            "num_seeds": 5,
             "fast_screen": True,
         }
 

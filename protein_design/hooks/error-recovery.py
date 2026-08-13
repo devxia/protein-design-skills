@@ -144,7 +144,7 @@ def _build_recovery_strategy(error_info: dict[str, Any], tool_name: str) -> list
         strategies = [
             "作业超时。解决方案:",
             "  1. 对于 AlphaFold3: 设置 run_data_pipeline=false 跳过 MSA",
-            "  2. 减少 num_designs 或 num_samples",
+            "  2. 减少 num_designs 或 num_seeds",
             "  3. 使用更短的蛋白质序列",
             "  4. 检查 GPU 是否正常工作",
         ]

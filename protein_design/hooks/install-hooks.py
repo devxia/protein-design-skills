@@ -200,7 +200,11 @@ def _rewrite_hook_commands(hooks_config: dict, project_root: Path, absolute: boo
 
                 # Validate the resolved path is inside the plugin hooks dir.
                 resolved = _resolve_hook_script(script_path, project_root)
-                hook["command"] = f"{PYTHON} {resolved}"
+                if absolute:
+                    hook["command"] = f"{PYTHON} {resolved}"
+                else:
+                    rel = resolved.relative_to(project_root)
+                    hook["command"] = f"{PYTHON} ./{rel.as_posix()}"
     return config
 
 

@@ -17,6 +17,8 @@ def _load_hook_module(name: str):
 
 
 _cost_estimator = _load_hook_module("cost-estimator")
+_quality_gate = _load_hook_module("quality-gate")
+_gpu_check = _load_hook_module("gpu-check-hook")
 
 
 def test_detect_pipeline_defaults():
@@ -52,3 +54,33 @@ def test_estimate_cost_unknown_stage_uses_default():
     cost = _cost_estimator._estimate_cost(pipeline)
     assert cost["num_designs"] == 5
     assert cost["total_time_min"] > 0
+
+
+def test_quality_gate_fails_below_threshold():
+    metrics = {"plddt": 50.0, "ptm": 0.5}
+    evaluation = _quality_gate._evaluate_quality(metrics, "monomer")
+    assert evaluation["is_passing"] is False
+    assert any("plddt" in f for f in evaluation["failed"])
+    assert any("ptm" in f for f in evaluation["failed"])
+
+
+def test_quality_gate_passes_above_threshold():
+    metrics = {"plddt": 90.0, "ptm": 0.9}
+    evaluation = _quality_gate._evaluate_quality(metrics, "monomer")
+    assert evaluation["is_passing"] is True
+
+
+def test_quality_gate_ignores_absent_metrics():
+    # A binder missing ipTM should still be evaluated on the metrics present.
+    metrics = {"plddt": 90.0}
+    evaluation = _quality_gate._evaluate_quality(metrics, "binder")
+    assert evaluation["is_passing"] is True
+
+
+def test_gpu_check_fails_open_when_nvidia_smi_missing(monkeypatch):
+    def raise_file_not_found(*args, **kwargs):
+        raise FileNotFoundError("nvidia-smi")
+
+    monkeypatch.setattr(_gpu_check.subprocess, "run", raise_file_not_found)
+    ok, _msg = _gpu_check.check_gpu()
+    assert ok is True
