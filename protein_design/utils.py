@@ -374,6 +374,25 @@ def _run_notifier(argv: list[str]) -> None:
 # Hook input helper
 # ---------------------------------------------------------------------------
 
+def extract_content_text(result: Any) -> str:
+    """Best-effort extraction of the text payload from a tool-result object.
+
+    Hook payloads arrive from external tools and are not always well-formed:
+    ``content`` may be missing, not a list, or hold non-dict entries. This
+    helper never raises; it returns ``""`` whenever the text cannot be found.
+    """
+    if not isinstance(result, dict):
+        return ""
+    content = result.get("content")
+    if not isinstance(content, list) or not content:
+        return ""
+    first = content[0]
+    if not isinstance(first, dict):
+        return ""
+    text = first.get("text", "")
+    return text if isinstance(text, str) else ""
+
+
 def read_hook_input() -> dict[str, Any]:
     """Read JSON hook payload from stdin.
 

@@ -10,6 +10,8 @@ import json
 from typing import Any
 import sys
 
+from protein_design.utils import extract_content_text
+
 
 THRESHOLDS: dict[str, dict[str, float]] = {
     "binder": {
@@ -119,11 +121,7 @@ def main() -> int:
         return 0
 
     # Extract tool result
-    content = result.get("content", [{}]) if isinstance(result, dict) else [{}]
-    if not content or not isinstance(content, list):
-        return 0
-
-    text = content[0].get("text", "") if content else ""
+    text = extract_content_text(result)
     try:
         tool_result = json.loads(text) if text else {}
     except json.JSONDecodeError:

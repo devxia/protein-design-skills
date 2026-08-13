@@ -7,7 +7,7 @@ Supports macOS (osascript), Linux (notify-send), and Windows (powershell).
 import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
-from protein_design.utils import send_notification
+from protein_design.utils import extract_content_text, send_notification
 import traceback
 import json
 
@@ -40,9 +40,7 @@ def main() -> int:
         return 1
 
     # Check if this is a query_job response with completed status
-    result = data.get("result") or {}
-    content = result.get("content", [{}]) if isinstance(result, dict) else [{}]
-    result_text = content[0].get("text", "") if content else ""
+    result_text = extract_content_text(data.get("result"))
     try:
         result_json = json.loads(result_text)
     except json.JSONDecodeError:
