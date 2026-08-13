@@ -11,7 +11,7 @@ from typing import Any
 import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
-from protein_design.utils import read_hook_input
+from protein_design.utils import protein_keyword_pattern, read_hook_input
 
 
 def _parse_design_goal(text: str) -> dict[str, Any]:
@@ -193,10 +193,8 @@ def main() -> int:
         return 0
 
     # Only activate for protein design prompts
-    if not re.search(
-        r"\b(protein|design|binder|scaffold|rfdiffusion|proteinmpnn|alphafold|sequence|backbone)\b",
-        user_prompt, re.IGNORECASE,
-    ):
+    protein_keywords = re.compile(protein_keyword_pattern(), re.IGNORECASE)
+    if not protein_keywords.search(user_prompt):
         return 0
 
     goal = _parse_design_goal(user_prompt)

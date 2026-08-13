@@ -76,12 +76,18 @@ def submit_job(command: list[str], job_name: str = "", verbose: bool = False) ->
         # exit code (both in the log and in a completion-marker file) after
         # the command finishes, so status/wait can report it truthfully
         # regardless of whether the launcher process has been reaped yet.
+        # A command that cannot launch records 127 ("command not found"),
+        # so the marker is always written for started jobs.
         wrapper_code = (
-            "import subprocess, sys; "
-            "r = subprocess.run(sys.argv[2:]); "
-            "open(sys.argv[1], 'w').write(str(r.returncode)); "
-            "print('EXIT_CODE: ' + str(r.returncode)); "
-            "sys.exit(r.returncode)"
+            "import subprocess, sys\n"
+            "try:\n"
+            "    r = subprocess.run(sys.argv[2:])\n"
+            "    rc = r.returncode\n"
+            "except Exception:\n"
+            "    rc = 127\n"
+            "open(sys.argv[1], 'w').write(str(rc))\n"
+            "print('EXIT_CODE: ' + str(rc))\n"
+            "sys.exit(rc)\n"
         )
         process = subprocess.Popen(
             [sys.executable, "-c", wrapper_code, str(exit_file)] + command,

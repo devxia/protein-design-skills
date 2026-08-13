@@ -115,6 +115,43 @@ def test_health_check_probes_run_concurrently(monkeypatch):
     assert all(v == "✓" for v in tools.values())
 
 
+def test_health_check_stays_in_budget_with_slow_gpu(monkeypatch, capsys):
+    """Tools (2s) + GPU probe (4s) sequentially would exceed 5s; main must
+    run them concurrently and shrink the GPU probe timeout (#29)."""
+    import io
+    import json
+    import time
+
+    module = _load_hook_module("session-health-check")
+    gpu_calls = []
+
+    def slow_gpu_probe(timeout=5.0):
+        gpu_calls.append(timeout)
+        time.sleep(4)
+        return None
+
+    def slow_run(cmd, **kwargs):
+        time.sleep(2)
+
+        class R:
+            returncode = 0
+
+        return R()
+
+    monkeypatch.setattr(module, "probe_gpus", slow_gpu_probe)
+    monkeypatch.setattr(module.subprocess, "run", slow_run)
+    monkeypatch.setattr(
+        "sys.stdin", io.StringIO(json.dumps({"prompt": "Design a protein binder"}))
+    )
+    start = time.time()
+    rc = module.main()
+    elapsed = time.time() - start
+    capsys.readouterr()
+    assert rc == 0
+    assert elapsed < 5, f"checks appear sequential: {elapsed:.1f}s"
+    assert gpu_calls and gpu_calls[0] <= 3.0, f"GPU probe timeout not shrunk: {gpu_calls}"
+
+
 def test_gpu_check_fails_open_when_nvidia_smi_missing(monkeypatch):
     def raise_file_not_found(*args, **kwargs):
         raise FileNotFoundError("nvidia-smi")

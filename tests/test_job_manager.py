@@ -45,6 +45,15 @@ def test_successful_job_reports_zero_exit_code(tmp_path, monkeypatch):
     assert status.get("exit_code") == 0
 
 
+def test_missing_executable_records_exit_127(tmp_path, monkeypatch):
+    """A command that cannot launch must still record a truthful exit code (#18)."""
+    _patch_jobs_dir(tmp_path, monkeypatch)
+    job_id = jm.submit_job(["/nonexistent/binary-xyz-12345"])
+    status = _wait_for_completion(job_id)
+    assert status["status"] == "completed"
+    assert status["exit_code"] == 127
+
+
 def test_list_jobs_honors_exit_marker_over_pid_liveness(tmp_path, monkeypatch):
     """A live PID must not mask the authoritative completion marker (#18)."""
     jobs_dir = _patch_jobs_dir(tmp_path, monkeypatch)

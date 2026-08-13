@@ -420,6 +420,17 @@ keyword set; a parity test guards the two against drift.
 """
 
 
+def protein_keyword_pattern(extra_keywords: tuple[str, ...] = ()) -> str:
+    """Canonical protein-design keyword regex, optionally extended.
+
+    Hooks with intent-specific triggers (e.g. cost keywords for the cost
+    estimator) extend the canonical set rather than forking it, so adding a
+    canonical keyword still propagates to every re-matching hook.
+    """
+    keywords = PROTEIN_DESIGN_KEYWORDS + tuple(extra_keywords)
+    return r"\b(" + "|".join(keywords) + r")\b"
+
+
 # ---------------------------------------------------------------------------
 # Hook input helper
 # ---------------------------------------------------------------------------

@@ -51,8 +51,9 @@ def _check_tools() -> dict[str, Any]:
 
 
 def _check_gpu() -> dict[str, Any]:
-    """Quick GPU check via the shared probe."""
-    gpus = probe_gpus()
+    """Quick GPU check via the shared probe; timeout stays within the
+    overall 5s hook budget declared in hooks.json."""
+    gpus = probe_gpus(timeout=3.0)
     if gpus:
         return {"name": gpus[0]["name"], "free_mb": int(gpus[0]["free_mb"])}
     return {"name": "None", "free_mb": 0}
@@ -83,15 +84,18 @@ def main() -> int:
     user_prompt = data.get("prompt", "") if isinstance(data, dict) else ""
 
     # Only activate for protein design keywords
-    # Only activate for protein design keywords
     protein_keywords = re.compile(PROTEIN_DESIGN_PATTERN, re.IGNORECASE)
 
     if not protein_keywords.search(user_prompt):
         return 0
 
-    # Run quick checks
-    tools = _check_tools()
-    gpu = _check_gpu()
+    # Run quick checks concurrently to stay within the 5s hook budget:
+    # worst case is max(tools ~3s, GPU ~3s) rather than their sum.
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        tools_future = pool.submit(_check_tools)
+        gpu_future = pool.submit(_check_gpu)
+        tools = tools_future.result()
+        gpu = gpu_future.result()
     disk = _check_disk()
 
     # Build status string
