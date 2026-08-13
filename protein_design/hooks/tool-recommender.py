@@ -12,7 +12,7 @@ import json
 import re
 from typing import Any
 import sys
-from protein_design.utils import read_hook_input
+from protein_design.utils import PROTEIN_DESIGN_PATTERN, read_hook_input
 
 
 def _extract_keywords(text: str) -> set[str]:
@@ -310,13 +310,7 @@ def main() -> int:
     if not user_prompt.strip():
         return 0
 
-    protein_keywords = re.compile(
-        r"\b(protein|pdb|binder|alphafold|rfdiffusion|proteinmpnn|design|"
-        r"structure|sequence|residue|loop|scaffold|motif|oligomer|diffusion|"
-        r"backbone|monomer|complex|interface|epitope|target|fold|prediction|"
-        r"plddt|ptm|iptm|msa|validation|ranking|filter|chain)\b",
-        re.IGNORECASE,
-    )
+    protein_keywords = re.compile(PROTEIN_DESIGN_PATTERN, re.IGNORECASE)
 
     if not protein_keywords.search(user_prompt):
         return 0
