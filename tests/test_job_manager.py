@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+import os
 import sys
 import time
 from pathlib import Path
@@ -41,6 +43,27 @@ def test_successful_job_reports_zero_exit_code(tmp_path, monkeypatch):
     status = _wait_for_completion(job_id)
     assert status.get("status") == "completed"
     assert status.get("exit_code") == 0
+
+
+def test_list_jobs_honors_exit_marker_over_pid_liveness(tmp_path, monkeypatch):
+    """A live PID must not mask the authoritative completion marker (#18)."""
+    jobs_dir = _patch_jobs_dir(tmp_path, monkeypatch)
+    meta = {
+        "job_id": "job1",
+        "job_name": "t",
+        "command": ["true"],
+        "pid": os.getpid(),  # alive, so a PID-only check would say "running"
+        "status": "running",
+        "start_time": "2025-01-01T00:00:00",
+        "log_file": str(jobs_dir / "logs" / "job1.log"),
+    }
+    (jobs_dir / "job1.json").write_text(json.dumps(meta), encoding="utf-8")
+    (jobs_dir / "job1.pid").write_text(str(os.getpid()), encoding="utf-8")
+    (jobs_dir / "job1.exit").write_text("5", encoding="utf-8")
+
+    jobs = jm.list_jobs()
+    assert jobs[0]["current_status"] == "completed"
+    assert jobs[0]["exit_code"] == 5
 
 
 def test_wait_job_returns_real_exit_code(tmp_path, monkeypatch):

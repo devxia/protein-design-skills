@@ -164,9 +164,18 @@ def list_jobs(status_filter: str = "all", verbose: bool = False) -> list[dict]:
             with open(meta_file, encoding="utf-8") as f:
                 metadata = json.load(f)
 
-            # Update status
+            # The launcher's completion-marker file is the authoritative
+            # completion signal (a live PID may belong to a recycled process);
+            # fall back to best-effort PID liveness only while a job runs.
+            exit_file = jobs_dir / f"{meta_file.stem}.exit"
             pid = metadata.get("pid")
-            if pid:
+            if exit_file.exists():
+                metadata["current_status"] = "completed"
+                try:
+                    metadata["exit_code"] = int(exit_file.read_text(encoding="utf-8").strip())
+                except (ValueError, OSError):
+                    pass
+            elif pid:
                 try:
                     os.kill(pid, 0)
                     metadata["current_status"] = "running"
@@ -313,7 +322,7 @@ Examples:
     submit_parser = subparsers.add_parser("submit", help="Submit a background job")
     submit_parser.add_argument("--name", "-n", help="Job name")
     submit_parser.add_argument("--verbose", "-v", action="store_true")
-    submit_parser.add_argument("command", nargs=argparse.REMAINDER, help="Command to run")
+    submit_parser.add_argument("run_command", nargs=argparse.REMAINDER, help="Command to run")
 
     # List
     list_parser = subparsers.add_parser("list", help="List all jobs")
@@ -344,12 +353,14 @@ Examples:
     args = parser.parse_args()
 
     if args.command == "submit":
-        if not args.command or args.command[0] == "--":
+        run_command = args.run_command
+        # argparse keeps a leading "--" in REMAINDER; strip it.
+        if run_command and run_command[0] == "--":
+            run_command = run_command[1:]
+        if not run_command:
             print("ERROR: No command specified", file=sys.stderr)
             return 2
-        # Remove leading "--" if present
-        cmd = args.command[1:] if args.command[0] == "--" else args.command
-        job_id = submit_job(cmd, job_name=args.name, verbose=args.verbose)
+        job_id = submit_job(run_command, job_name=args.name, verbose=args.verbose)
         print(job_id)
         return 0
 
