@@ -370,6 +370,41 @@ def _run_notifier(argv: list[str]) -> None:
         pass
 
 
+def probe_gpus(timeout: float = 5.0) -> list[dict[str, Any]] | None:
+    """Probe NVIDIA GPUs via ``nvidia-smi``.
+
+    Returns:
+        A list of ``{"name": str, "free_mb": float}`` dicts — empty when the
+        probe works but no GPU is present — or ``None`` when ``nvidia-smi``
+        is unavailable or errors. The distinction matters for fail-open
+        policy: a probe failure (e.g. CPU-only host) must not be treated as
+        "no usable GPU".
+    """
+    try:
+        result = subprocess.run(
+            ["nvidia-smi", "--query-gpu=name,memory.free", "--format=csv,noheader,nounits"],
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+            check=True,
+        )
+    except (FileNotFoundError, subprocess.TimeoutExpired, subprocess.CalledProcessError, OSError):
+        return None
+
+    gpus: list[dict[str, Any]] = []
+    for line in result.stdout.strip().split("\n"):
+        line = line.strip()
+        if not line:
+            continue
+        parts = [p.strip() for p in line.split(",")]
+        if len(parts) >= 2:
+            try:
+                gpus.append({"name": parts[0], "free_mb": float(parts[1])})
+            except ValueError:
+                continue
+    return gpus
+
+
 # ---------------------------------------------------------------------------
 # Hook input helper
 # ---------------------------------------------------------------------------

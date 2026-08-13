@@ -10,36 +10,20 @@ Exit codes:
 import shutil
 import subprocess
 import sys
+from protein_design.utils import probe_gpus
 
 
 def check_gpu(min_free_mb: int = 1000) -> tuple[bool, str]:
-    """Check GPU availability and free memory."""
-    try:
-        result = subprocess.run(
-            ["nvidia-smi", "--query-gpu=name,memory.free", "--format=csv,noheader,nounits"],
-            capture_output=True,
-            text=True,
-            timeout=5,
-            check=True,
-        )
-        lines = [l.strip() for l in result.stdout.strip().split("\n") if l.strip()]
-        if not lines:
-            return False, "No NVIDIA GPU detected"
-
-        for line in lines:
-            parts = [p.strip() for p in line.split(",")]
-            if len(parts) >= 2:
-                free_mb = float(parts[1])
-                if free_mb >= min_free_mb:
-                    return True, f"GPU {parts[0]} has {int(free_mb)}MB free"
-
-        return False, f"GPU free memory < {min_free_mb}MB"
-    except FileNotFoundError:
-        return True, "nvidia-smi not found (CPU-only machine) — allowing"
-    except subprocess.TimeoutExpired:
-        return True, "GPU check timed out (allowing)"
-    except Exception as exc:
-        return True, f"GPU check error: {exc} (allowing)"
+    """Check GPU availability and free memory (fails open on probe errors)."""
+    gpus = probe_gpus()
+    if gpus is None:
+        return True, "GPU probe failed (CPU-only machine or nvidia-smi error) — allowing"
+    if not gpus:
+        return False, "No NVIDIA GPU detected"
+    for gpu in gpus:
+        if gpu["free_mb"] >= min_free_mb:
+            return True, f"GPU {gpu['name']} has {int(gpu['free_mb'])}MB free"
+    return False, f"GPU free memory < {min_free_mb}MB"
 
 
 def check_disk(min_free_gb: int = 1) -> tuple[bool, str]:

@@ -71,6 +71,29 @@ def test_quality_gate_fails_closed_with_no_evaluable_metrics():
     assert evaluation["no_metrics_evaluated"] is True
 
 
+def test_health_check_probes_run_concurrently(monkeypatch):
+    """Ten 2s probes must finish within the 5s hook budget, i.e. run in parallel (#29)."""
+    import time
+
+    module = _load_hook_module("session-health-check")
+
+    def slow_run(cmd, **kwargs):
+        time.sleep(2)
+
+        class R:
+            returncode = 0
+
+        return R()
+
+    monkeypatch.setattr(module.subprocess, "run", slow_run)
+    start = time.time()
+    tools = module._check_tools()
+    elapsed = time.time() - start
+    assert elapsed < 5, f"probes appear sequential: {elapsed:.1f}s"
+    assert len(tools) == 10
+    assert all(v == "✓" for v in tools.values())
+
+
 def test_gpu_check_fails_open_when_nvidia_smi_missing(monkeypatch):
     def raise_file_not_found(*args, **kwargs):
         raise FileNotFoundError("nvidia-smi")

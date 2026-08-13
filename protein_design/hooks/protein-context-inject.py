@@ -13,7 +13,7 @@ import json
 import subprocess
 from typing import Any
 import sys
-from protein_design.utils import read_hook_input
+from protein_design.utils import probe_gpus, read_hook_input
 
 
 def check_tool(name: str, command: list[str]) -> str:
@@ -26,20 +26,10 @@ def check_tool(name: str, command: list[str]) -> str:
 
 
 def get_gpu_info() -> dict[str, Any]:
-    """Get brief GPU info."""
-    try:
-        result = subprocess.run(
-            ["nvidia-smi", "--query-gpu=name,memory.free", "--format=csv,noheader,nounits"],
-            capture_output=True,
-            text=True,
-            timeout=5,
-            check=True,
-        )
-        parts = [p.strip() for p in result.stdout.strip().split(",")]
-        if len(parts) >= 2:
-            return {"name": parts[0], "free_mb": int(float(parts[1]))}
-    except Exception:
-        pass
+    """Get brief GPU info via the shared probe."""
+    gpus = probe_gpus()
+    if gpus:
+        return {"name": gpus[0]["name"], "free_mb": int(gpus[0]["free_mb"])}
     return {"name": "None", "free_mb": 0}
 
 
