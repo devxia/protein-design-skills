@@ -106,8 +106,14 @@ def filter_designs(results_dir, min_plddt=70, min_iptm=0.6, min_ptm=0.7,
 
     # Apply filters
     passing = []
+    missing_plddt = []
     for d in designs:
-        if d.get("plddt", 100) < min_plddt:
+        if "plddt" not in d:
+            # Fail closed: an unmeasured design must not pass the pLDDT gate
+            # (previously a missing pLDDT defaulted to a perfect 100).
+            missing_plddt.append(d)
+            continue
+        if d["plddt"] < min_plddt:
             continue
         if "iptm" in d and d["iptm"] < min_iptm:
             continue
@@ -128,6 +134,9 @@ def filter_designs(results_dir, min_plddt=70, min_iptm=0.6, min_ptm=0.7,
     # Output
     print(f"\n{'=' * 70}")
     print(f"Filtering Results: {len(passing)}/{len(designs)} designs passed")
+    if missing_plddt:
+        print(f"Excluded as unmeasured: {len(missing_plddt)} design(s) missing pLDDT "
+              f"(missing metrics never pass the gate)")
     print(f"Criteria: pLDDT ≥ {min_plddt}, ipTM ≥ {min_iptm}, pTM ≥ {min_ptm}, PAE ≤ {max_pae}")
     print(f"{'=' * 70}")
 
@@ -147,6 +156,7 @@ def filter_designs(results_dir, min_plddt=70, min_iptm=0.6, min_ptm=0.7,
         json.dump({
             "total_designs": len(designs),
             "passing_designs": len(passing),
+            "missing_plddt_designs": len(missing_plddt),
             "criteria": {
                 "min_plddt": min_plddt,
                 "min_iptm": min_iptm,

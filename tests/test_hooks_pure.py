@@ -63,6 +63,14 @@ def test_quality_gate_ignores_absent_metrics():
     assert evaluation["is_passing"] is True
 
 
+def test_quality_gate_fails_closed_with_no_evaluable_metrics():
+    # Metrics matching none of the design type's thresholds must not pass (#19).
+    metrics = {"iptm": 0.95}
+    evaluation = _quality_gate._evaluate_quality(metrics, "monomer")
+    assert evaluation["is_passing"] is False
+    assert evaluation["no_metrics_evaluated"] is True
+
+
 def test_gpu_check_fails_open_when_nvidia_smi_missing(monkeypatch):
     def raise_file_not_found(*args, **kwargs):
         raise FileNotFoundError("nvidia-smi")
