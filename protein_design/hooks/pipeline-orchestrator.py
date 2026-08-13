@@ -14,6 +14,8 @@ from typing import Any
 import sys
 from pathlib import Path
 
+from protein_design.utils import extract_content_text
+
 
 def _get_scripts_dir() -> Path:
     """Get the scripts directory."""
@@ -195,26 +197,23 @@ def _detect_next_stage(tool_name: str, result: dict[str, Any]) -> dict[str, Any]
 
 def _extract_tool_info(data: dict[str, Any]) -> tuple[str, dict[str, Any]]:
     """Extract tool name and result from hook input data."""
-    result = data.get("result") or {}
-    if isinstance(result, dict):
-        content = result.get("content", [{}])
-        if content and isinstance(content, list):
-            text = content[0].get("text", "")
-            try:
-                result_json = json.loads(text)
-                # Try to find tool name from result
-                tool_name = result_json.get("tool_name", "")
-                if not tool_name and "structures" in result_json:
-                    tool_name = "rfdiffusion"
-                elif not tool_name and "sequences" in result_json:
-                    tool_name = "proteinmpnn"
-                elif not tool_name and "metrics" in result_json:
-                    tool_name = "alphafold3"
-                elif not tool_name and "output_path" in result_json:
-                    tool_name = "pdbfixer"
-                return tool_name, result_json
-            except json.JSONDecodeError:
-                pass
+    text = extract_content_text(data.get("result"))
+    if text:
+        try:
+            result_json = json.loads(text)
+            # Try to find tool name from result
+            tool_name = result_json.get("tool_name", "")
+            if not tool_name and "structures" in result_json:
+                tool_name = "rfdiffusion"
+            elif not tool_name and "sequences" in result_json:
+                tool_name = "proteinmpnn"
+            elif not tool_name and "metrics" in result_json:
+                tool_name = "alphafold3"
+            elif not tool_name and "output_path" in result_json:
+                tool_name = "pdbfixer"
+            return tool_name, result_json
+        except json.JSONDecodeError:
+            pass
     return "", {}
 
 

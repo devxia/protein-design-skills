@@ -12,6 +12,7 @@ import pytest
 from protein_design.utils import (
     _escape_applescript,
     _escape_powershell,
+    extract_content_text,
     fasta_to_alphafold3_json,
     get_config,
     parse_confidence_json,
@@ -259,3 +260,25 @@ def test_run_notifier_uses_text_mode(monkeypatch) -> None:
     monkeypatch.setattr(utils.platform, "system", lambda: "Darwin")
     send_notification("title", "message")
     assert captured[0].get("text") is True
+
+
+# ---------------------------------------------------------------------------
+# extract_content_text — defensive tool-result payload extraction
+# ---------------------------------------------------------------------------
+
+
+def test_extract_content_text_happy_path() -> None:
+    result = {"content": [{"text": "{\"ok\": 1}"}]}
+    assert extract_content_text(result) == '{"ok": 1}'
+
+
+def test_extract_content_text_malformed_shapes() -> None:
+    """Malformed payloads return "" instead of raising (#27)."""
+    assert extract_content_text("not-a-dict") == ""
+    assert extract_content_text({}) == ""
+    assert extract_content_text({"content": "a-string"}) == ""
+    assert extract_content_text({"content": []}) == ""
+    assert extract_content_text({"content": ["not-a-dict"]}) == ""
+    assert extract_content_text({"content": [None]}) == ""
+    assert extract_content_text({"content": [{"text": 123}]}) == ""
+    assert extract_content_text(None) == ""

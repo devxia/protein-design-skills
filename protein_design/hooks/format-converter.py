@@ -9,6 +9,8 @@ import json
 from typing import Any
 import sys
 
+from protein_design.utils import extract_content_text
+
 
 def _detect_conversion_need(data: dict[str, Any]) -> dict[str, Any] | None:
     """Detect if format conversion is needed based on tool output."""
@@ -20,20 +22,18 @@ def _detect_conversion_need(data: dict[str, Any]) -> dict[str, Any] | None:
         return None
 
     # Check if result contains sequences (FASTA output)
-    if isinstance(result, dict):
-        content = result.get("content", [{}])
-        if content and isinstance(content, list):
-            text = content[0].get("text", "")
-            try:
-                tool_result = json.loads(text)
-                if "sequences" in tool_result or "fasta" in str(tool_result).lower():
-                    return {
-                        "from_format": "fasta",
-                        "to_format": "alphafold3_json",
-                        "input_path": tool_result.get("output_path", "outputs/sequences.fa"),
-                    }
-            except (json.JSONDecodeError, IndexError):
-                pass
+    text = extract_content_text(result)
+    if text:
+        try:
+            tool_result = json.loads(text)
+            if "sequences" in tool_result or "fasta" in str(tool_result).lower():
+                return {
+                    "from_format": "fasta",
+                    "to_format": "alphafold3_json",
+                    "input_path": tool_result.get("output_path", "outputs/sequences.fa"),
+                }
+        except (json.JSONDecodeError, IndexError):
+            pass
 
     return None
 
