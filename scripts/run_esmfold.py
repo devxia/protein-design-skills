@@ -23,46 +23,6 @@ import subprocess
 import time
 
 
-def find_esmfold():
-    """Locate ESMFold installation."""
-    # 1. Try pip-installed
-    try:
-        result = subprocess.run(
-            ["python", "-c", "import esm; print(esm.__file__)"],
-            capture_output=True, text=True, timeout=5
-        )
-        if result.returncode == 0:
-            return "python_api"
-    except FileNotFoundError:
-        pass
-
-    # 2. Try direct command
-    try:
-        result = subprocess.run(
-            ["which", "esmfold"],
-            capture_output=True, text=True, timeout=5
-        )
-        if result.returncode == 0 and result.stdout.strip():
-            return "esmfold"
-    except FileNotFoundError:
-        pass
-
-    # 3. Conda environments
-    conda_envs = ["esmfold", "esm", "protein-design"]
-    for env in conda_envs:
-        try:
-            result = subprocess.run(
-                ["conda", "run", "-n", env, "python", "-c", "import esm; print('ok')"],
-                capture_output=True, text=True, timeout=10
-            )
-            if result.returncode == 0:
-                return f"conda_api:{env}"
-        except (subprocess.TimeoutExpired, FileNotFoundError):
-            continue
-
-    return None
-
-
 def run_esmfold_api(input_file, output_dir, verbose=False):
     """Run ESMFold using Python API (most common installation)."""
     config = get_config("esmfold")
@@ -107,7 +67,8 @@ import esm
 
 # Load model
 model = esm.pretrained.esmfold_v1()
-model = model.eval().cuda()
+device = "cuda" if torch.cuda.is_available() else "cpu"
+model = model.eval().to(device)
 
 sequences = {sequences!r}
 output_dir = Path("{output_dir}")
@@ -136,7 +97,7 @@ print("Done!")
     start_time = time.time()
     try:
         result = subprocess.run(
-            ["python", str(script_path)],
+            [sys.executable, str(script_path)],
             capture_output=True,
             text=True,
             timeout=3600

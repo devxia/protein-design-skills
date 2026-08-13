@@ -80,6 +80,19 @@ def run_pipeline_stages(stages: list[dict], verbose: bool = False) -> bool:
     return True
 
 
+def _concat_fasta_command(seq_dir: Path, out_fasta: Path) -> list[str]:
+    """Build a command that concatenates all FASTA files in ``seq_dir``."""
+    script = (
+        "import glob, sys\n"
+        "files = sorted(glob.glob(sys.argv[1] + '/*.fa')) + sorted(glob.glob(sys.argv[1] + '/*.fasta'))\n"
+        "with open(sys.argv[2], 'w') as out:\n"
+        "    for p in files:\n"
+        "        with open(p) as f:\n"
+        "            out.write(f.read())\n"
+    )
+    return [sys.executable, "-c", script, str(seq_dir), str(out_fasta)]
+
+
 def build_standard_pipeline(args) -> list[dict]:
     """Build standard 5-stage pipeline from CLI args."""
     stages = []
@@ -132,6 +145,12 @@ def build_standard_pipeline(args) -> list[dict]:
 
     # Stage 3: Validation (if requested)
     if args.validator and args.stage <= 3:
+        seq_dir = args.output_dir / "sequences"
+        all_seqs = seq_dir / "all_sequences.fa"
+        stages.append({
+            "name": "Stage 2b: Concatenate sequences",
+            "command": _concat_fasta_command(seq_dir, all_seqs),
+        })
         validator_scripts = {
             "alphafold3": "run_alphafold3.py",
             "boltz": "run_boltz.py",
@@ -151,7 +170,7 @@ def build_standard_pipeline(args) -> list[dict]:
                         "python", str(scripts_dir / "convert_format.py"),
                         "--from", "fasta",
                         "--to", "alphafold3_json",
-                        "--input", str(args.output_dir / "sequences" / "seqs.fa"),
+                        "--input", str(all_seqs),
                         "--output", str(args.output_dir / "af3_input.json"),
                         "--verbose",
                     ],
@@ -170,7 +189,7 @@ def build_standard_pipeline(args) -> list[dict]:
                     "name": f"Stage 3: {args.validator}",
                     "command": [
                         "python", str(scripts_dir / script_name),
-                        "--input", str(args.output_dir / "sequences" / "seqs.fa"),
+                        "--input", str(all_seqs),
                         "--output-dir", str(args.output_dir / "validation"),
                         "--verbose",
                     ],
@@ -208,12 +227,16 @@ def load_pipeline_config(config_path: Path) -> list[dict]:
     stages = config.get("stages", [])
     scripts_dir = Path(__file__).parent
 
-    # Resolve script paths
+    # Resolve script paths anywhere in each command.
     for stage in stages:
         cmd = stage.get("command", [])
-        if cmd and cmd[0].startswith("scripts/"):
-            cmd[0] = str(scripts_dir / cmd[0].replace("scripts/", ""))
-            stage["command"] = cmd
+        resolved = []
+        for token in cmd:
+            if isinstance(token, str) and token.startswith("scripts/"):
+                resolved.append(str(scripts_dir / token[len("scripts/"):]))
+            else:
+                resolved.append(token)
+        stage["command"] = resolved
 
     return stages
 

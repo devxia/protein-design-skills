@@ -110,8 +110,6 @@ def pdb_to_fasta(pdb_path, verbose=False):
 
 def json_results_to_csv(results_dir, output_csv, verbose=False):
     """Summarize validation results to CSV."""
-    import statistics
-
     results_path = Path(results_dir)
     rows = []
 

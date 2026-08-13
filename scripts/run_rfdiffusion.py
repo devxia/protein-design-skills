@@ -2,7 +2,7 @@
 """
 Standalone RFdiffusion runner.
 
-Usage: python scripts/run_rfdiffusion.py --config config.yaml [options]
+Usage: python scripts/run_rfdiffusion.py [options]
 
 All user-supplied input structures are automatically preprocessed with
 PDBFixer before being passed to RFdiffusion. Use ``--skip-preprocessing`` to
@@ -109,7 +109,7 @@ def find_rfdiffusion(config):
             if result.returncode == 0:
                 # Try to find run_inference.py
                 result2 = subprocess.run(
-                    ["conda", "run", "-n", env, "find", "~", "-name", "run_inference.py", "-path", "*/RFdiffusion/*"],
+                    ["conda", "run", "-n", env, "find", str(Path.home()), "-name", "run_inference.py", "-path", "*/RFdiffusion/*"],
                     capture_output=True, text=True, timeout=10
                 )
                 if result2.returncode == 0 and result2.stdout.strip():
@@ -121,7 +121,7 @@ def find_rfdiffusion(config):
     return None
 
 
-def run_rfdiffusion(config_file=None, output_prefix=None, num_designs=50,
+def run_rfdiffusion(output_prefix=None, num_designs=50,
                     contig=None, hotspot_res=None, diffuser_t=50,
                     input_pdb=None, skip_preprocessing=False, verbose=False):
     """Run RFdiffusion with given parameters.
@@ -239,7 +239,6 @@ Examples:
   python run_rfdiffusion.py --input-pdb motif.pdb --contig "[A1-10/0 50-60/A11-20]" --num-designs 100
         """
     )
-    parser.add_argument("--config", "-c", help="Hydra config file")
     parser.add_argument("--output-prefix", "-o", help="Output file prefix")
     parser.add_argument("--num-designs", "-n", type=int, default=50, help="Number of designs")
     parser.add_argument("--contig", help="Contig string for generation")
@@ -255,7 +254,6 @@ Examples:
     hotspot_res = args.hotspot_res.split(",") if args.hotspot_res else None
 
     return run_rfdiffusion(
-        config_file=args.config,
         output_prefix=args.output_prefix,
         num_designs=args.num_designs,
         contig=args.contig,

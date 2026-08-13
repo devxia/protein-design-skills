@@ -52,8 +52,7 @@ def _detect_design_params(text: str) -> dict[str, Any]:
                 "stage3": {
                     "tool": "run_alphafold3",
                     "params": {
-                        "num_seeds": 1,
-                        "num_samples": 5,
+                        "num_seeds": 5,
                     }
                 },
                 "stage4": {
@@ -99,8 +98,7 @@ def _detect_design_params(text: str) -> dict[str, Any]:
                 "stage3": {
                     "tool": "run_alphafold3",
                     "params": {
-                        "num_seeds": 1,
-                        "num_samples": 5,
+                        "num_seeds": 5,
                     }
                 },
                 "stage4": {
@@ -150,8 +148,7 @@ def _detect_design_params(text: str) -> dict[str, Any]:
                 "stage3": {
                     "tool": "run_alphafold3",
                     "params": {
-                        "num_seeds": 1,
-                        "num_samples": 5,
+                        "num_seeds": 5,
                     }
                 },
                 "stage4": {
@@ -196,8 +193,7 @@ def _detect_design_params(text: str) -> dict[str, Any]:
                 "stage3": {
                     "tool": "run_alphafold3",
                     "params": {
-                        "num_seeds": 1,
-                        "num_samples": 5,
+                        "num_seeds": 5,
                     }
                 },
                 "stage4": {
@@ -239,8 +235,7 @@ def _detect_design_params(text: str) -> dict[str, Any]:
             "stage3": {
                 "tool": "run_alphafold3",
                 "params": {
-                    "num_seeds": 1,
-                    "num_samples": 5,
+                    "num_seeds": 5,
                 }
             },
             "stage4": {

@@ -4,7 +4,7 @@
   "description": "Agent-agnostic protein design pipeline: RFdiffusion backbone generation, ProteinMPNN sequence design, AlphaFold3 structure validation — skills + hooks + scripts",
   "keywords": ["protein", "protein-design", "alphafold", "proteinmpnn", "rfdiffusion", "bioinformatics"],
   "author": {
-    "name": "Protein Design Team"
+    "name": "DevXia"
   },
   "repository": "https://github.com/devxia/protein-design-skills",
   "license": "MIT"

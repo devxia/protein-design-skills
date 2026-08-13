@@ -176,7 +176,7 @@ def _detect_next_stage(tool_name: str, result: dict[str, Any]) -> dict[str, Any]
             "next_skill": "structure-validation or pipeline-selection",
             "tip": "For top designs, validate with more seeds. For poor results, relax criteria or regenerate.",
             "examples": [
-                "Top design: run_alphafold3 with num_seeds=5, num_samples=10",
+                "Top design: run_alphafold3 with num_seeds=10",
                 "Validate with Boltz-1/Chai-1 for commercial-friendly licensing",
                 "Quick re-screen: use ESMFold or OmegaFold for fast turnaround",
                 "Iterate: go back to Stage 1 with adjusted parameters",

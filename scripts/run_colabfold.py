@@ -46,7 +46,7 @@ def find_colabfold(config):
             capture_output=True, text=True, timeout=5
         )
         if result.returncode == 0 and result.stdout.strip():
-            return result.stdout.strip()
+            return "colabfold_batch"
     except FileNotFoundError:
         pass
 
@@ -98,7 +98,7 @@ def run_colabfold(input_file, output_dir, num_models=None, msa_mode=None,
 
     # Build command
     wrapper = resolve_wrapper_script(config, "colabfold")
-    cmd = build_tool_command(colabfold_cmd, wrapper_script=wrapper)
+    cmd = build_tool_command(colabfold_cmd, wrapper_script=wrapper, bare_executable=True)
 
     cmd.extend([input_file, output_dir])
 

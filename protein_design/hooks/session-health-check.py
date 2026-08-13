@@ -17,13 +17,13 @@ def _check_tools() -> dict[str, Any]:
     tools = {}
     for name, import_test in [
         ("rfdiffusion", ["python", "-c", "import rfdiffusion"]),
-        ("proteinmpnn", ["python", "-c", "import protein_mpnn_run"]),
-        ("alphafold3", ["python", "-c", "import run_alphafold"]),
+        ("proteinmpnn", ["python", "-c", "import proteinmpnn"]),
+        ("alphafold3", ["python", "-c", "import alphafold3"]),
         ("pdbfixer", ["python", "-c", "from pdbfixer import PDBFixer"]),
         ("esmfold", ["python", "-c", "import esm"]),
         ("omegafold", ["python", "-c", "import omegafold"]),
         ("boltz", ["python", "-c", "import boltz"]),
-        ("chai1", ["python", "-c", "import chai1"]),
+        ("chai1", ["python", "-c", "import chai_lab"]),
         ("protenix", ["python", "-c", "import protenix"]),
         ("openfold", ["python", "-c", "import openfold"]),
     ]:

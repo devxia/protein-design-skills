@@ -77,7 +77,9 @@ def _evaluate_quality(metrics: dict[str, float], design_type: str) -> dict[str, 
     failed = []
 
     for metric, threshold in thresholds.items():
-        actual = metrics.get(metric)
+        # Threshold keys are prefixed with "min_"; extracted metric keys are
+        # not (e.g. "min_plddt" vs "plddt"). Normalize before lookup.
+        actual = metrics.get(metric.removeprefix("min_"))
         if actual is None:
             continue
         if actual >= threshold:

@@ -64,18 +64,7 @@ def find_openfold3():
         except (subprocess.TimeoutExpired, FileNotFoundError):
             continue
 
-    # 4. Check pip-installed in current env
-    try:
-        result = subprocess.run(
-            ["python", "-c", "import openfold; print(openfold.__file__)"],
-            capture_output=True, text=True, timeout=5
-        )
-        if result.returncode == 0:
-            return "python_api"
-    except FileNotFoundError:
-        pass
-
-    # 5. Check common install paths
+    # 4. Check common install paths
     common_paths = [
         Path.home() / "software" / "openfold3",
         Path.home() / "software" / "openfold",
@@ -110,51 +99,7 @@ def run_openfold3(input_file, out_dir, model_dir=None, db_dir=None,
     out_path.mkdir(parents=True, exist_ok=True)
 
     # Build command based on installation type
-    if openfold_cmd == "python_api":
-        # Use Python API with a wrapper script
-        script_content = f'''
-import sys
-from pathlib import Path
-
-import torch
-
-sys.path.insert(0, ".")
-
-input_file = Path("{input_file}")
-out_dir = Path("{out_dir}")
-model_dir = "{model_dir or ''}"
-db_dir = "{db_dir or ''}"
-
-# Try multiple import paths for OpenFold3
-try:
-    from openfold.model.model import AlphaFold
-    from openfold.data import data_pipeline
-    OPENFOLD_VER = 2
-except ImportError:
-    try:
-        from openfold3.model import AlphaFold3
-        from openfold3.data import data_pipeline
-        OPENFOLD_VER = 3
-    except ImportError:
-        print("ERROR: Cannot import OpenFold. Ensure it is installed: pip install openfold")
-        sys.exit(1)
-
-print(f"OpenFold version: {{OPENFOLD_VER}}")
-print(f"Input: {{input_file}}")
-print(f"Output: {{out_dir}}")
-
-# Note: Full OpenFold3 inference requires extensive setup (model weights,
-# databases, config files). This wrapper provides the scaffolding; users
-# must complete the setup per OpenFold3 documentation.
-print("WARNING: OpenFold3 requires manual model weight and database setup.")
-print("See: https://github.com/aqlaboratory/openfold3")
-'''
-        script_path = out_path / "_openfold3_run.py"
-        with open(script_path, "w", encoding="utf-8") as f:
-            f.write(script_content)
-        cmd = ["python", str(script_path)]
-
-    elif openfold_cmd.startswith("conda_api:"):
+    if openfold_cmd.startswith("conda_api:"):
         wrapper = resolve_wrapper_script(config, "openfold3")
         cmd = build_tool_command(openfold_cmd, wrapper_script=wrapper)
         if Path(input_file).suffix == ".json":
@@ -224,11 +169,6 @@ print("See: https://github.com/aqlaboratory/openfold3")
         log_history("openfold3", {"input": input_file}, time.time() - start_time, False,
                     config["output_dir"])
         return 3
-    finally:
-        # Cleanup temp script
-        temp_script = out_path / "_openfold3_run.py"
-        if temp_script.exists():
-            temp_script.unlink()
 
 
 def main():

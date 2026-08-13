@@ -161,3 +161,52 @@ def test_validate_marketplace_rejects_object_source():
     assert validate(good) == [], (
         f"expected no validation errors for valid marketplace {good!r}, got {validate(good)!r}"
     )
+
+
+def test_rewrite_hook_commands_local_uses_relative_paths():
+    rewrite = _INSTALL_HOOKS._rewrite_hook_commands
+    source = {
+        "hooks": {
+            "UserPromptSubmit": [
+                {
+                    "hooks": [
+                        {
+                            "type": "command",
+                            "command": "python ${CLAUDE_PLUGIN_ROOT}/protein_design/hooks/user-onboarding.py",
+                        }
+                    ]
+                }
+            ]
+        }
+    }
+    rewritten = rewrite(source, _PROJECT_ROOT, absolute=False)
+    cmd = rewritten["hooks"]["UserPromptSubmit"][0]["hooks"][0]["command"]
+    parts = cmd.split(maxsplit=1)
+    assert parts[0] == sys.executable
+    assert parts[1].startswith("./protein_design/hooks/")
+    assert not Path(parts[1]).is_absolute()
+    assert "${PLUGIN_ROOT}" not in cmd
+    assert "${CLAUDE_PLUGIN_ROOT}" not in cmd
+
+
+def test_all_manifests_use_canonical_author():
+    plugin = json.loads((_PROJECT_ROOT / "plugin.json").read_text(encoding="utf-8"))
+    kimi = json.loads((_PROJECT_ROOT / "kimi.plugin.json").read_text(encoding="utf-8"))
+    agents = json.loads((_PROJECT_ROOT / ".agents" / "plugins" / "marketplace.json").read_text(encoding="utf-8"))
+
+    assert plugin["author"]["name"] == "DevXia"
+    assert kimi["author"]["name"] == "DevXia"
+    assert kimi["interface"]["developerName"] == "DevXia"
+    assert agents["owner"]["name"] == "DevXia"
+    for entry in agents["plugins"]:
+        assert entry["author"]["name"] == "DevXia"
+
+
+def test_hook_matchers_do_not_overmatch():
+    hooks = json.loads((_PROJECT_ROOT / "hooks" / "hooks.json").read_text(encoding="utf-8"))
+    for event_groups in hooks["hooks"].values():
+        for group in event_groups:
+            matcher = group.get("matcher", "")
+            assert "run_chai1?" not in matcher
+            assert "run_alphafold3?" not in matcher
+            assert "run_openfold3?" not in matcher

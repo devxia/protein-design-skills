@@ -4,7 +4,7 @@
   "description": "Protein design pipeline: RFdiffusion backbone generation, ProteinMPNN sequence design, AlphaFold3 structure validation — skills + hooks + scripts",
   "keywords": ["protein", "protein-design", "alphafold", "proteinmpnn", "rfdiffusion", "bioinformatics"],
   "author": {
-    "name": "Protein Design Team"
+    "name": "DevXia"
   },
   "homepage": "https://github.com/devxia/protein-design-skills",
   "license": "MIT",
@@ -16,7 +16,7 @@
   "interface": {
     "displayName": "Protein Design",
     "shortDescription": "Protein design pipeline — skills + hooks + scripts",
-    "developerName": "Protein Design Team"
+    "developerName": "DevXia"
   },
   "hooks": [
     {
@@ -75,67 +75,67 @@
     },
     {
       "event": "PreToolUse",
-      "matcher": "(?i)\\b(run_pdbfixer|run_rfdiffusion|run_proteinmpnn|run_alphafold3?|run_filtering|run_boltz|run_chai1?|run_esmfold|run_omegafold|run_openfold3?|run_protenix|run_colabfold|run_esm_if1|run_ligandmpnn)\\b",
+      "matcher": "(?i)\\b(run_pdbfixer|run_rfdiffusion|run_proteinmpnn|run_alphafold3|run_filtering|run_boltz|run_chai1|run_esmfold|run_omegafold|run_openfold3|run_protenix|run_colabfold|run_esm_if1|run_ligandmpnn)\\b",
       "command": "python ./protein_design/hooks/alternative-tool-recommender.py",
       "timeout": 5
     },
     {
       "event": "PreToolUse",
-      "matcher": "(?i)\\b(run_pdbfixer|run_rfdiffusion|run_proteinmpnn|run_alphafold3?|run_filtering|run_boltz|run_chai1?|run_esmfold|run_omegafold|run_openfold3?|run_protenix|run_colabfold|run_esm_if1|run_ligandmpnn)\\b",
+      "matcher": "(?i)\\b(run_pdbfixer|run_rfdiffusion|run_proteinmpnn|run_alphafold3|run_filtering|run_boltz|run_chai1|run_esmfold|run_omegafold|run_openfold3|run_protenix|run_colabfold|run_esm_if1|run_ligandmpnn)\\b",
       "command": "python ./protein_design/hooks/execution-adapter.py",
       "timeout": 5
     },
     {
       "event": "PreToolUse",
-      "matcher": "(?i)\\b(run_pdbfixer|run_rfdiffusion|run_proteinmpnn|run_alphafold3?|run_filtering|run_boltz|run_chai1?|run_esmfold|run_omegafold|run_openfold3?|run_protenix|run_colabfold|run_esm_if1|run_ligandmpnn)\\b",
+      "matcher": "(?i)\\b(run_pdbfixer|run_rfdiffusion|run_proteinmpnn|run_alphafold3|run_filtering|run_boltz|run_chai1|run_esmfold|run_omegafold|run_openfold3|run_protenix|run_colabfold|run_esm_if1|run_ligandmpnn)\\b",
       "command": "python ./protein_design/hooks/gpu-check-hook.py",
       "timeout": 5
     },
     {
       "event": "PostToolUse",
-      "matcher": "(?i)\\b(run_pdbfixer|run_rfdiffusion|run_proteinmpnn|run_alphafold3?|run_filtering|run_boltz|run_chai1?|run_esmfold|run_omegafold|run_openfold3?|run_protenix|run_colabfold|run_esm_if1|run_ligandmpnn|batch_runner|job_manager)\\b",
+      "matcher": "(?i)\\b(run_pdbfixer|run_rfdiffusion|run_proteinmpnn|run_alphafold3|run_filtering|run_boltz|run_chai1|run_esmfold|run_omegafold|run_openfold3|run_protenix|run_colabfold|run_esm_if1|run_ligandmpnn|batch_runner|job_manager)\\b",
       "command": "python ./protein_design/hooks/design-complete-notify.py",
       "timeout": 5
     },
     {
       "event": "PostToolUse",
-      "matcher": "(?i)\\b(run_pdbfixer|run_rfdiffusion|run_proteinmpnn|run_alphafold3?|run_filtering|run_boltz|run_chai1?|run_esmfold|run_omegafold|run_openfold3?|run_protenix|run_colabfold|run_esm_if1|run_ligandmpnn|batch_runner|job_manager)\\b",
+      "matcher": "(?i)\\b(run_pdbfixer|run_rfdiffusion|run_proteinmpnn|run_alphafold3|run_filtering|run_boltz|run_chai1|run_esmfold|run_omegafold|run_openfold3|run_protenix|run_colabfold|run_esm_if1|run_ligandmpnn|batch_runner|job_manager)\\b",
       "command": "python ./protein_design/hooks/design-comparator.py",
       "timeout": 5
     },
     {
       "event": "PostToolUse",
-      "matcher": "(?i)\\b(run_pdbfixer|run_rfdiffusion|run_proteinmpnn|run_alphafold3?|run_filtering|run_boltz|run_chai1?|run_esmfold|run_omegafold|run_openfold3?|run_protenix|run_colabfold|run_esm_if1|run_ligandmpnn|batch_runner|job_manager)\\b",
+      "matcher": "(?i)\\b(run_pdbfixer|run_rfdiffusion|run_proteinmpnn|run_alphafold3|run_filtering|run_boltz|run_chai1|run_esmfold|run_omegafold|run_openfold3|run_protenix|run_colabfold|run_esm_if1|run_ligandmpnn|batch_runner|job_manager)\\b",
       "command": "python ./protein_design/hooks/design-report.py",
       "timeout": 5
     },
     {
       "event": "PostToolUse",
-      "matcher": "(?i)\\b(run_pdbfixer|run_rfdiffusion|run_proteinmpnn|run_alphafold3?|run_filtering|run_boltz|run_chai1?|run_esmfold|run_omegafold|run_openfold3?|run_protenix|run_colabfold|run_esm_if1|run_ligandmpnn|batch_runner|job_manager)\\b",
+      "matcher": "(?i)\\b(run_pdbfixer|run_rfdiffusion|run_proteinmpnn|run_alphafold3|run_filtering|run_boltz|run_chai1|run_esmfold|run_omegafold|run_openfold3|run_protenix|run_colabfold|run_esm_if1|run_ligandmpnn|batch_runner|job_manager)\\b",
       "command": "python ./protein_design/hooks/error-recovery.py",
       "timeout": 5
     },
     {
       "event": "PostToolUse",
-      "matcher": "(?i)\\b(run_pdbfixer|run_rfdiffusion|run_proteinmpnn|run_alphafold3?|run_filtering|run_boltz|run_chai1?|run_esmfold|run_omegafold|run_openfold3?|run_protenix|run_colabfold|run_esm_if1|run_ligandmpnn|batch_runner|job_manager)\\b",
+      "matcher": "(?i)\\b(run_pdbfixer|run_rfdiffusion|run_proteinmpnn|run_alphafold3|run_filtering|run_boltz|run_chai1|run_esmfold|run_omegafold|run_openfold3|run_protenix|run_colabfold|run_esm_if1|run_ligandmpnn|batch_runner|job_manager)\\b",
       "command": "python ./protein_design/hooks/format-converter.py",
       "timeout": 5
     },
     {
       "event": "PostToolUse",
-      "matcher": "(?i)\\b(run_pdbfixer|run_rfdiffusion|run_proteinmpnn|run_alphafold3?|run_filtering|run_boltz|run_chai1?|run_esmfold|run_omegafold|run_openfold3?|run_protenix|run_colabfold|run_esm_if1|run_ligandmpnn|batch_runner|job_manager)\\b",
+      "matcher": "(?i)\\b(run_pdbfixer|run_rfdiffusion|run_proteinmpnn|run_alphafold3|run_filtering|run_boltz|run_chai1|run_esmfold|run_omegafold|run_openfold3|run_protenix|run_colabfold|run_esm_if1|run_ligandmpnn|batch_runner|job_manager)\\b",
       "command": "python ./protein_design/hooks/job-monitor.py",
       "timeout": 5
     },
     {
       "event": "PostToolUse",
-      "matcher": "(?i)\\b(run_pdbfixer|run_rfdiffusion|run_proteinmpnn|run_alphafold3?|run_filtering|run_boltz|run_chai1?|run_esmfold|run_omegafold|run_openfold3?|run_protenix|run_colabfold|run_esm_if1|run_ligandmpnn|batch_runner|job_manager)\\b",
+      "matcher": "(?i)\\b(run_pdbfixer|run_rfdiffusion|run_proteinmpnn|run_alphafold3|run_filtering|run_boltz|run_chai1|run_esmfold|run_omegafold|run_openfold3|run_protenix|run_colabfold|run_esm_if1|run_ligandmpnn|batch_runner|job_manager)\\b",
       "command": "python ./protein_design/hooks/pipeline-orchestrator.py",
       "timeout": 5
     },
     {
       "event": "PostToolUse",
-      "matcher": "(?i)\\b(run_pdbfixer|run_rfdiffusion|run_proteinmpnn|run_alphafold3?|run_filtering|run_boltz|run_chai1?|run_esmfold|run_omegafold|run_openfold3?|run_protenix|run_colabfold|run_esm_if1|run_ligandmpnn|batch_runner|job_manager)\\b",
+      "matcher": "(?i)\\b(run_pdbfixer|run_rfdiffusion|run_proteinmpnn|run_alphafold3|run_filtering|run_boltz|run_chai1|run_esmfold|run_omegafold|run_openfold3|run_protenix|run_colabfold|run_esm_if1|run_ligandmpnn|batch_runner|job_manager)\\b",
       "command": "python ./protein_design/hooks/quality-gate.py",
       "timeout": 5
     },

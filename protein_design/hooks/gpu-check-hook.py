@@ -35,7 +35,7 @@ def check_gpu(min_free_mb: int = 1000) -> tuple[bool, str]:
 
         return False, f"GPU free memory < {min_free_mb}MB"
     except FileNotFoundError:
-        return False, "nvidia-smi not found (no NVIDIA GPU)"
+        return True, "nvidia-smi not found (CPU-only machine) — allowing"
     except subprocess.TimeoutExpired:
         return True, "GPU check timed out (allowing)"
     except Exception as exc:
