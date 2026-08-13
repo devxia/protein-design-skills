@@ -9,6 +9,7 @@ import json
 import re
 from typing import Any
 import sys
+from protein_design.utils import read_hook_input
 
 
 COST_TABLE: dict[str, dict[str, Any]] = {
@@ -189,24 +190,28 @@ def _estimate_cost(pipeline: dict[str, Any]) -> dict[str, Any]:
 def main() -> int:
     """Main entry point."""
     try:
-        text = sys.stdin.read()
+        data = read_hook_input()
+    except json.JSONDecodeError:
+        return 0
     except KeyboardInterrupt:
         return 130
     except Exception:
         traceback.print_exc()
         return 1
 
-    if not text.strip():
+    user_prompt = data.get("prompt", "") if isinstance(data, dict) else ""
+
+    if not user_prompt.strip():
         return 0
 
     # Only activate for protein design prompts
     if not re.search(
         r"\b(protein|design|binder|scaffold|rfdiffusion|proteinmpnn|alphafold|pipeline|cost|time|gpu|resource)\b",
-        text, re.IGNORECASE,
+        user_prompt, re.IGNORECASE,
     ):
         return 0
 
-    pipeline = _detect_pipeline(text)
+    pipeline = _detect_pipeline(user_prompt)
     cost = _estimate_cost(pipeline)
 
     output = f"""[Cost Estimator] Pipeline: {pipeline['stage1']} → {pipeline['stage2']} → {pipeline['stage3']}

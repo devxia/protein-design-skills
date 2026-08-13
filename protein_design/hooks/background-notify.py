@@ -6,7 +6,7 @@ Supports macOS, Linux, and Windows desktop notifications.
 import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
-from protein_design.utils import send_notification
+from protein_design.utils import send_notification, read_hook_input
 import traceback
 import json
 
@@ -14,8 +14,7 @@ import json
 def main() -> int:
     """Main entry point."""
     try:
-        input_data = sys.stdin.read()
-        data = json.loads(input_data) if input_data.strip() else {}
+        data = read_hook_input()
     except json.JSONDecodeError:
         return 0
     except KeyboardInterrupt:

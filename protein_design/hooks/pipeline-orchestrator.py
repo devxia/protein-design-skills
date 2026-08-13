@@ -14,7 +14,7 @@ from typing import Any
 import sys
 from pathlib import Path
 
-from protein_design.utils import extract_content_text
+from protein_design.utils import extract_content_text, read_hook_input
 
 
 def _get_scripts_dir() -> Path:
@@ -220,8 +220,7 @@ def _extract_tool_info(data: dict[str, Any]) -> tuple[str, dict[str, Any]]:
 def main() -> int:
     """Main entry point."""
     try:
-        input_data = sys.stdin.read()
-        data = json.loads(input_data) if input_data.strip() else {}
+        data = read_hook_input()
     except json.JSONDecodeError:
         return 0
     except KeyboardInterrupt:

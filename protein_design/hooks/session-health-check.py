@@ -10,6 +10,7 @@ import re
 import subprocess
 from typing import Any
 import sys
+from protein_design.utils import read_hook_input
 
 
 def _check_tools() -> dict[str, Any]:
@@ -63,14 +64,16 @@ def _check_disk() -> dict[str, Any]:
 def main() -> int:
     """Main entry point."""
     try:
-        text = sys.stdin.read()
+        data = read_hook_input()
+    except json.JSONDecodeError:
+        return 0
     except KeyboardInterrupt:
         return 130
     except Exception:
         traceback.print_exc()
         return 1
 
-    user_prompt = text
+    user_prompt = data.get("prompt", "") if isinstance(data, dict) else ""
 
     # Only activate for protein design keywords
     protein_keywords = re.compile(

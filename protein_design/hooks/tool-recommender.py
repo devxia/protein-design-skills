@@ -12,6 +12,7 @@ import json
 import re
 from typing import Any
 import sys
+from protein_design.utils import read_hook_input
 
 
 def _extract_keywords(text: str) -> set[str]:
@@ -295,14 +296,16 @@ python scripts/run_alphafold3.py \\
 def main() -> int:
     """Main entry point. Reads prompt from stdin, prints recommendations to stdout."""
     try:
-        text = sys.stdin.read()
+        data = read_hook_input()
+    except json.JSONDecodeError:
+        return 0
     except KeyboardInterrupt:
         return 130
     except Exception:
         traceback.print_exc()
         return 1
 
-    user_prompt = text
+    user_prompt = data.get("prompt", "") if isinstance(data, dict) else ""
 
     if not user_prompt.strip():
         return 0

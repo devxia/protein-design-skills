@@ -10,7 +10,7 @@ import json
 from typing import Any
 import sys
 
-from protein_design.utils import extract_content_text
+from protein_design.utils import extract_content_text, read_hook_input
 
 
 THRESHOLDS: dict[str, dict[str, float]] = {
@@ -105,8 +105,7 @@ def _evaluate_quality(metrics: dict[str, float], design_type: str) -> dict[str, 
 def main() -> int:
     """Main entry point."""
     try:
-        input_data = sys.stdin.read()
-        data = json.loads(input_data) if input_data.strip() else {}
+        data = read_hook_input()
     except json.JSONDecodeError:
         return 0
     except KeyboardInterrupt:
