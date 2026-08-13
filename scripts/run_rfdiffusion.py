@@ -107,9 +107,15 @@ def find_rfdiffusion(config):
                 capture_output=True, text=True, timeout=10
             )
             if result.returncode == 0:
-                # Try to find run_inference.py
+                # Targeted probe: run_inference.py sits next to the package in
+                # the canonical repo layout (<repo>/scripts/run_inference.py).
+                # No home-wide find — the scan was slow and environment-dependent.
                 result2 = subprocess.run(
-                    ["conda", "run", "-n", env, "find", str(Path.home()), "-name", "run_inference.py", "-path", "*/RFdiffusion/*"],
+                    ["conda", "run", "-n", env, "python", "-c",
+                     "import rfdiffusion, pathlib; "
+                     "p = pathlib.Path(rfdiffusion.__file__).resolve().parent; "
+                     "c = [p.parent / 'scripts' / 'run_inference.py', p / 'scripts' / 'run_inference.py']; "
+                     "print(next((str(x) for x in c if x.exists()), ''))"],
                     capture_output=True, text=True, timeout=10
                 )
                 if result2.returncode == 0 and result2.stdout.strip():
