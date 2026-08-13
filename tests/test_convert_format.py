@@ -26,6 +26,18 @@ def test_fasta_to_boltz_yaml_basic():
     assert "sequence: ACDEFG" in yaml
 
 
+def test_fasta_to_boltz_yaml_special_characters_roundtrip():
+    """YAML-special characters must survive Boltz YAML serialization (#25)."""
+    import yaml as pyyaml
+
+    sequences = [("seq1", "ACD:EFG #hash"), ("seq2", 'MK"LA')]
+    text = fasta_to_boltz_yaml(sequences)
+    data = pyyaml.safe_load(text)
+    assert data["sequences"][0]["protein"]["sequence"] == "ACD:EFG #hash"
+    assert data["sequences"][1]["protein"]["sequence"] == 'MK"LA'
+    assert data["sequences"][0]["protein"]["id"] == "A"
+
+
 def test_fasta_to_chai_fasta_basic():
     sequences = [("seq1", "ACDEFGHIJKLMNOPQRSTUVWXYZACDEFG")]
     fasta = fasta_to_chai_fasta(sequences)
