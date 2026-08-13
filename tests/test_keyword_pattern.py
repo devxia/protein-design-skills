@@ -28,7 +28,27 @@ def test_hooks_json_matcher_keyword_parity():
 
 
 def test_rematching_hooks_use_canonical_pattern():
-    """Hooks that re-match prompts must import the canonical pattern, not inline copies."""
-    for name in ("session-health-check", "tool-recommender"):
+    """Hooks that re-match prompts must build on the canonical keyword set, not inline copies."""
+    for name in (
+        "session-health-check",
+        "tool-recommender",
+        "auto-parameter-tuner",
+        "cost-estimator",
+        "parameter-generator",
+    ):
         text = (PROJECT_ROOT / "protein_design" / "hooks" / f"{name}.py").read_text(encoding="utf-8")
-        assert "PROTEIN_DESIGN_PATTERN" in text, f"{name} still uses an inline keyword regex"
+        uses_canonical = "PROTEIN_DESIGN_PATTERN" in text or "protein_keyword_pattern" in text
+        assert uses_canonical, f"{name} still uses an inline keyword regex"
+        assert 'r"\\b(protein|' not in text and "r'\\b(protein|" not in text, name
+
+
+def test_protein_keyword_pattern_extends_canonical():
+    """Hook-specific extras extend, never replace, the canonical keyword set."""
+    from protein_design.utils import protein_keyword_pattern
+
+    extended = re.compile(protein_keyword_pattern(("cost", "gpu")), re.IGNORECASE)
+    assert extended.search("protein design")
+    assert extended.search("how much GPU time")
+    bare = re.compile(protein_keyword_pattern(), re.IGNORECASE)
+    assert bare.search("binder scaffold")
+    assert not bare.search("how much GPU time")

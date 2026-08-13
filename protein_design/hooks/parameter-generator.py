@@ -11,7 +11,7 @@ from typing import Any
 import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
-from protein_design.utils import read_hook_input
+from protein_design.utils import protein_keyword_pattern, read_hook_input
 
 
 def _detect_design_params(text: str) -> dict[str, Any]:
@@ -275,11 +275,7 @@ def main() -> int:
         return 0
 
     # Only activate for protein design keywords
-    protein_keywords = re.compile(
-        r"\b(design|generate|create|protein|backbone|sequence|binder|"
-        r"scaffold|motif|monomer|oligomer|symmetric|cyclic|peptide)\b",
-        re.IGNORECASE,
-    )
+    protein_keywords = re.compile(protein_keyword_pattern(), re.IGNORECASE)
 
     if not protein_keywords.search(user_prompt):
         return 0

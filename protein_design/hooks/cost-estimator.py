@@ -11,7 +11,7 @@ from typing import Any
 import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
-from protein_design.utils import read_hook_input
+from protein_design.utils import protein_keyword_pattern, read_hook_input
 
 
 COST_TABLE: dict[str, dict[str, Any]] = {
@@ -206,11 +206,12 @@ def main() -> int:
     if not user_prompt.strip():
         return 0
 
-    # Only activate for protein design prompts
-    if not re.search(
-        r"\b(protein|design|binder|scaffold|rfdiffusion|proteinmpnn|alphafold|pipeline|cost|time|gpu|resource)\b",
-        user_prompt, re.IGNORECASE,
-    ):
+    # Only activate for protein design or resource/cost prompts
+    protein_keywords = re.compile(
+        protein_keyword_pattern(("pipeline", "cost", "time", "gpu", "resource")),
+        re.IGNORECASE,
+    )
+    if not protein_keywords.search(user_prompt):
         return 0
 
     pipeline = _detect_pipeline(user_prompt)
