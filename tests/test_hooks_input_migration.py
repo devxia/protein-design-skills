@@ -62,3 +62,25 @@ def test_cost_estimator_ignores_keywords_outside_prompt(monkeypatch, capsys):
     out = capsys.readouterr().out
     assert rc == 0
     assert "Cost Estimator" not in out
+
+
+def test_hooks_run_standalone_from_any_cwd(tmp_path):
+    """Production fidelity: hooks execute as plain scripts with the repo root
+    NOT importable (no PYTHONPATH, foreign cwd) — exactly how agents run them."""
+    import os
+    import subprocess
+    import sys
+
+    env = {k: v for k, v in os.environ.items() if k != "PYTHONPATH"}
+    for path in ALL_HOOK_FILES:
+        proc = subprocess.run(
+            [sys.executable, str(path)],
+            input="{}",
+            capture_output=True,
+            text=True,
+            cwd=tmp_path,
+            env=env,
+            timeout=60,
+        )
+        assert "ModuleNotFoundError" not in proc.stderr, f"{path.name}: {proc.stderr[-200:]}"
+        assert "Traceback" not in proc.stderr, f"{path.name}: {proc.stderr[-200:]}"
