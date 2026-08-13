@@ -10,7 +10,7 @@ Exit codes:
     0 = Pipeline completed successfully
     1 = Stage failed
     2 = Invalid config
-    3 = Input not found
+    3 = Config file not found
 """
 
 import argparse
@@ -212,16 +212,27 @@ def build_standard_pipeline(args) -> list[dict]:
 
 
 def load_pipeline_config(config_path: Path) -> list[dict]:
-    """Load pipeline config from YAML or JSON file."""
+    """Load pipeline config from YAML or JSON file.
+
+    Any load failure — malformed YAML/JSON, a missing pyyaml fallback, or a
+    non-mapping document — produces a readable error and an empty stage list
+    (which the caller turns into the documented exit code), never a traceback.
+    """
     try:
         import yaml
-        with open(config_path, encoding="utf-8") as f:
-            config = yaml.safe_load(f)
     except ImportError:
+        yaml = None
+
+    try:
         with open(config_path, encoding="utf-8") as f:
-            config = json.load(f)
+            config = yaml.safe_load(f) if yaml is not None else json.load(f)
     except Exception as e:
         print(f"ERROR: Could not load config: {e}", file=sys.stderr)
+        return []
+
+    if not isinstance(config, dict):
+        print(f"ERROR: Invalid config format in {config_path}: expected a mapping with a 'stages' list",
+              file=sys.stderr)
         return []
 
     stages = config.get("stages", [])
