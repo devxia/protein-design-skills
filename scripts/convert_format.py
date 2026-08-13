@@ -27,38 +27,38 @@ from protein_design.utils import read_fasta, write_fasta, fasta_to_alphafold3_js
 import argparse
 import csv
 import json
+import yaml
 
 
-def fasta_to_boltz_yaml(sequences, ligands=None, verbose=False):
-    """Convert FASTA sequences to Boltz-1 YAML input format."""
-    yaml_lines = ["sequences:"]
+def fasta_to_boltz_yaml(sequences, ligands=None):
+    """Convert FASTA sequences to Boltz-1 YAML input format.
 
+    Built as a dict and serialized with ``yaml.safe_dump`` so ids or
+    sequences containing YAML-special characters can never corrupt the file.
+    """
+    entries = []
     for i, (seq_id, seq) in enumerate(sequences):
         chain_id = chr(65 + i) if i < 26 else f"X{i}"
-        yaml_lines.append(f"  - protein:")
-        yaml_lines.append(f"      id: {chain_id}")
-        yaml_lines.append(f"      sequence: {seq}")
+        entries.append({"protein": {"id": chain_id, "sequence": seq}})
 
     if ligands:
         for ligand in ligands:
-            yaml_lines.append(f"  - ligand:")
-            yaml_lines.append(f"      id: {ligand['id']}")
-            yaml_lines.append(f"      smiles: '{ligand['smiles']}'")
+            entries.append({"ligand": {"id": ligand["id"], "smiles": ligand["smiles"]}})
 
-    return "\n".join(yaml_lines)
+    return yaml.safe_dump({"sequences": entries}, sort_keys=False)
 
 
-def fasta_to_chai_fasta(sequences, verbose=False):
+def fasta_to_chai_fasta(sequences):
     """Convert to Chai-1 compatible FASTA with entity comments."""
     lines = []
-    for i, (seq_id, seq) in enumerate(sequences):
+    for seq_id, seq in sequences:
         lines.append(f">{seq_id}|protein")
         for j in range(0, len(seq), 60):
             lines.append(seq[j:j+60])
     return "\n".join(lines)
 
 
-def csv_to_fasta(csv_path, id_col=0, seq_col=1, verbose=False):
+def csv_to_fasta(csv_path, id_col=0, seq_col=1):
     """Convert CSV to FASTA format."""
     sequences = []
     with open(csv_path, encoding="utf-8") as f:
@@ -70,7 +70,7 @@ def csv_to_fasta(csv_path, id_col=0, seq_col=1, verbose=False):
     return sequences
 
 
-def pdb_to_fasta(pdb_path, verbose=False):
+def pdb_to_fasta(pdb_path):
     """Extract sequences from PDB file."""
     try:
         from Bio import PDB
@@ -108,7 +108,7 @@ def pdb_to_fasta(pdb_path, verbose=False):
         return None
 
 
-def json_results_to_csv(results_dir, output_csv, verbose=False):
+def json_results_to_csv(results_dir, output_csv):
     """Summarize validation results to CSV."""
     results_path = Path(results_dir)
     rows = []
@@ -160,28 +160,28 @@ def convert_format(from_fmt, to_fmt, input_path, output_path, job_name="design",
 
         elif conversion_key in ["fasta→boltz_yaml", "fasta→boltz-yaml", "fasta→boltz"]:
             sequences = read_fasta(input_path)
-            result = fasta_to_boltz_yaml(sequences, ligands, verbose)
+            result = fasta_to_boltz_yaml(sequences, ligands)
             with open(output_path, "w", encoding="utf-8") as f:
                 f.write(result)
 
         elif conversion_key in ["fasta→chai_fasta", "fasta→chai-fasta", "fasta→chai"]:
             sequences = read_fasta(input_path)
-            result = fasta_to_chai_fasta(sequences, verbose)
+            result = fasta_to_chai_fasta(sequences)
             with open(output_path, "w", encoding="utf-8") as f:
                 f.write(result)
 
         elif conversion_key in ["csv→fasta"]:
-            sequences = csv_to_fasta(input_path, verbose=verbose)
+            sequences = csv_to_fasta(input_path)
             write_fasta(sequences, output_path)
 
         elif conversion_key in ["pdb→fasta"]:
-            sequences = pdb_to_fasta(input_path, verbose)
+            sequences = pdb_to_fasta(input_path)
             if sequences is None:
                 return 3
             write_fasta(sequences, output_path)
 
         elif conversion_key in ["json→csv", "json_results→csv"]:
-            result = json_results_to_csv(input_path, output_path, verbose)
+            result = json_results_to_csv(input_path, output_path)
             if result is None:
                 return 2
 
