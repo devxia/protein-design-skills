@@ -7,6 +7,43 @@ from pathlib import Path
 from scripts.batch_runner import load_pipeline_config
 
 
+def test_load_pipeline_config_malformed_yaml_reports_error(tmp_path, capsys):
+    """Malformed YAML must produce a readable error, never a traceback (#23)."""
+    cfg = tmp_path / "bad.yaml"
+    cfg.write_text("stages: [unclosed\n  bad indent: :\n", encoding="utf-8")
+    stages = load_pipeline_config(cfg)
+    assert stages == []
+    assert "ERROR" in capsys.readouterr().err
+
+
+def test_load_pipeline_config_malformed_json_fallback(tmp_path, monkeypatch, capsys):
+    """Without pyyaml, a malformed JSON fallback must also be a readable error (#23)."""
+    import builtins
+
+    real_import = builtins.__import__
+
+    def fake_import(name, *args, **kwargs):
+        if name == "yaml":
+            raise ImportError("No module named 'yaml'")
+        return real_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", fake_import)
+    cfg = tmp_path / "bad.json"
+    cfg.write_text("{not valid json", encoding="utf-8")
+    stages = load_pipeline_config(cfg)
+    assert stages == []
+    assert "ERROR" in capsys.readouterr().err
+
+
+def test_load_pipeline_config_non_dict_config(tmp_path, capsys):
+    """A syntactically valid but non-mapping config is invalid, not a crash (#23)."""
+    cfg = tmp_path / "list.yaml"
+    cfg.write_text("- just\n- a\n- list\n", encoding="utf-8")
+    stages = load_pipeline_config(cfg)
+    assert stages == []
+    assert "ERROR" in capsys.readouterr().err
+
+
 def test_load_pipeline_config_resolves_script_tokens_anywhere(tmp_path):
     cfg = tmp_path / "pipeline.yaml"
     cfg.write_text(
