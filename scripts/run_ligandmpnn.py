@@ -55,9 +55,13 @@ def find_ligandmpnn(config):
     conda_envs = ["ligandmpnn", "ligandmpnn_env", "protein-design"]
     for env in conda_envs:
         try:
+            # Targeted probe: a LigandMPNN checkout inside the env's
+            # site-packages. No home-wide find (slow, environment-dependent).
             result = subprocess.run(
-                ["conda", "run", "-n", env, "find", str(Path.home()), "-name", "run.py",
-                 "-path", "*/LigandMPNN/*"],
+                ["conda", "run", "-n", env, "python", "-c",
+                 "import site, pathlib; "
+                 "c = [pathlib.Path(sp) / 'LigandMPNN' / 'run.py' for sp in site.getsitepackages()]; "
+                 "print(next((str(x) for x in c if x.exists()), ''))"],
                 capture_output=True, text=True, timeout=10
             )
             if result.returncode == 0 and result.stdout.strip():

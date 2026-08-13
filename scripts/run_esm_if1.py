@@ -56,10 +56,14 @@ def find_esm_if1(config):
     conda_envs = ["esm_if1", "esm", "protein-design"]
     for env in conda_envs:
         try:
-            # Canonical upstream CLI: examples/inverse_folding/sample_sequences.py
+            # Canonical upstream CLI: examples/inverse_folding/sample_sequences.py,
+            # probed relative to the installed esm package (repo layout). The old
+            # home-wide find was slow and environment-dependent.
             result = subprocess.run(
-                ["conda", "run", "-n", env, "find", str(Path.home()), "-name", "sample_sequences.py",
-                 "-path", "*/inverse_folding/*"],
+                ["conda", "run", "-n", env, "python", "-c",
+                 "import esm, pathlib; "
+                 "p = pathlib.Path(esm.__file__).resolve().parent.parent / 'examples' / 'inverse_folding' / 'sample_sequences.py'; "
+                 "print(p if p.exists() else '')"],
                 capture_output=True, text=True, timeout=10
             )
             if result.returncode == 0 and result.stdout.strip():
