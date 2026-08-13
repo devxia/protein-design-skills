@@ -51,6 +51,15 @@ Run protein design pipeline using standalone scripts
 | `top_n` | `--top-n` | No | 10 | int | Top N designs to report (default: 10) |
 | `verbose` | `--verbose / -v` | No | false | flag | Verbose output |
 
+### Exit codes
+
+| Code | Meaning |
+|------|---------|
+| 0 | Pipeline completed successfully |
+| 1 | Stage failed |
+| 2 | Invalid config (malformed, or no stages to run) |
+| 3 | Config file not found |
+
 ## `convert_format.py`
 
 Convert between protein design file formats
@@ -76,6 +85,18 @@ Lightweight job manager — process tracking
 |-----------|------|----------|---------|------|-------------|
 | `command` | `command` | No | — | enum | Command |
 
+### Usage
+
+```bash
+python scripts/job_manager.py submit --name rfdiff -- python scripts/run_rfdiffusion.py --contig "150-150"
+python scripts/job_manager.py list
+python scripts/job_manager.py status <job_id>
+```
+
+Completion is tracked through a per-job `.exit` marker file written by the
+launcher, so `list` and `status` agree on finished jobs even when a PID has
+been recycled.
+
 ## `project_dashboard.py`
 
 Project-wide pipeline dashboard
@@ -89,7 +110,7 @@ Project-wide pipeline dashboard
 | `expected_sequences` | `--expected-sequences` | No | 0 | int | Expected sequence count |
 | `expected_validations` | `--expected-validations` | No | 0 | int | Expected validation count |
 | `watch` | `--watch / -w` | No | false | flag | Refresh every 30 seconds |
-| `json` | `--json` | No | false | flag | Output JSON instead of text |
+| `json` | `--json` | No | false | flag | Emit structured JSON (stages, totals, expected counts, pLDDT distribution) instead of text |
 
 ## `run_alphafold3.py`
 
@@ -103,7 +124,7 @@ Run AlphaFold3 — standalone execution
 | `output_dir` | `--output-dir / --out-dir / -o` | Yes | — | string | Output directory |
 | `db_dir` | `--db-dir / -d` | No | — | string | Path to AlphaFold3 databases (~2.6TB) |
 | `no_msa` | `--no-msa` | No | false | flag | Skip MSA search (faster, less accurate) |
-| `num_seeds` | `--num-seeds` | No | 1 | int | Number of random seeds; sets modelSeeds in the input JSON (default: 1) |
+| `num_seeds` | `--num-seeds` | No | 1 | int | Number of random seeds; writes a seed-expanded copy of the input JSON into the output directory, leaving the original file unchanged (default: 1) |
 | `verbose` | `--verbose / -v` | No | false | flag | Verbose output |
 
 ## `run_boltz.py`
@@ -200,6 +221,10 @@ Filter and rank protein designs by validation metrics
 | `max_pae` | `--max-pae` | No | 10.0 | float | Maximum PAE threshold (default: 10) |
 | `top_n` | `--top-n` | No | — | int | Only show top N designs |
 | `verbose` | `--verbose / -v` | No | false | flag | Verbose output with statistics |
+
+> **Fail-closed semantics:** a design without a pLDDT value never passes the
+> pLDDT gate. Unmeasured designs are excluded and reported separately
+> (counted as `missing_plddt_designs` in `filtered_results.json`).
 
 ## `run_ligandmpnn.py`
 

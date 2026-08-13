@@ -51,6 +51,15 @@ Run protein design pipeline using standalone scripts
 | `top_n` | `--top-n` | No | 10 | int | Top N designs to report (default: 10) |
 | `verbose` | `--verbose / -v` | No | false | flag | Verbose output |
 
+### 退出码
+
+| 代码 | 含义 |
+|------|------|
+| 0 | 流水线成功完成 |
+| 1 | 阶段失败 |
+| 2 | 配置无效（格式错误或无阶段可运行） |
+| 3 | 配置文件不存在 |
+
 ## `convert_format.py`
 
 Convert between protein design file formats
@@ -76,6 +85,17 @@ Lightweight job manager — process tracking
 |------|------|------|--------|------|------|
 | `command` | `command` | No | — | enum | Command |
 
+### 用法
+
+```bash
+python scripts/job_manager.py submit --name rfdiff -- python scripts/run_rfdiffusion.py --contig "150-150"
+python scripts/job_manager.py list
+python scripts/job_manager.py status <job_id>
+```
+
+作业完成情况由启动器写入的每个作业专属的 `.exit` 标记文件跟踪，因此即使
+PID 被回收复用，`list` 与 `status` 对已结束的作业也能给出一致的状态。
+
 ## `project_dashboard.py`
 
 Project-wide pipeline dashboard
@@ -89,7 +109,7 @@ Project-wide pipeline dashboard
 | `expected_sequences` | `--expected-sequences` | No | 0 | int | Expected sequence count |
 | `expected_validations` | `--expected-validations` | No | 0 | int | Expected validation count |
 | `watch` | `--watch / -w` | No | false | flag | Refresh every 30 seconds |
-| `json` | `--json` | No | false | flag | Output JSON instead of text |
+| `json` | `--json` | No | false | flag | 输出结构化 JSON（各阶段计数、总计、预期数量、pLDDT 分布）而非文本 |
 
 ## `run_alphafold3.py`
 
@@ -103,7 +123,7 @@ Run AlphaFold3 — standalone execution
 | `output_dir` | `--output-dir / --out-dir / -o` | Yes | — | string | Output directory |
 | `db_dir` | `--db-dir / -d` | No | — | string | Path to AlphaFold3 databases (~2.6TB) |
 | `no_msa` | `--no-msa` | No | false | flag | Skip MSA search (faster, less accurate) |
-| `num_seeds` | `--num-seeds` | No | 1 | int | Number of random seeds; sets modelSeeds in the input JSON (default: 1) |
+| `num_seeds` | `--num-seeds` | No | 1 | int | 随机种子数量；将扩展种子后的输入 JSON 副本写入输出目录，原始文件保持不变（默认：1） |
 | `verbose` | `--verbose / -v` | No | false | flag | Verbose output |
 
 ## `run_boltz.py`
@@ -200,6 +220,9 @@ Filter and rank protein designs by validation metrics
 | `max_pae` | `--max-pae` | No | 10.0 | float | Maximum PAE threshold (default: 10) |
 | `top_n` | `--top-n` | No | — | int | Only show top N designs |
 | `verbose` | `--verbose / -v` | No | false | flag | Verbose output with statistics |
+
+> **失败关闭语义：** 缺少 pLDDT 值的设计永远不会通过 pLDDT 门槛。未测量的设计会被排除并单独报告
+> （在 `filtered_results.json` 中计为 `missing_plddt_designs`）。
 
 ## `run_ligandmpnn.py`
 
