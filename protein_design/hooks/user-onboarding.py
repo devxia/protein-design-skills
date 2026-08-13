@@ -9,6 +9,7 @@ import traceback
 import json
 import subprocess
 import sys
+from protein_design.utils import read_hook_input
 
 
 TRIGGER_KEYWORDS = [
@@ -203,8 +204,7 @@ python protein_design/hooks/install-hooks.py
 def main() -> int:
     """Main entry point."""
     try:
-        input_data = sys.stdin.read()
-        data = json.loads(input_data) if input_data.strip() else {}
+        data = read_hook_input()
     except json.JSONDecodeError:
         return 0
     except KeyboardInterrupt:

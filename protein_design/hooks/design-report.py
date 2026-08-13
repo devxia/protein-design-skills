@@ -7,7 +7,7 @@ produces a real summary of designs with counts, rankings, and recommendations.
 import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
-from protein_design.utils import parse_confidence_json
+from protein_design.utils import parse_confidence_json, read_hook_input
 import traceback
 import json
 from typing import Any
@@ -261,8 +261,7 @@ def _generate_report(data: dict[str, Any]) -> str:
 def main() -> int:
     """Main entry point."""
     try:
-        input_data = sys.stdin.read()
-        data = json.loads(input_data) if input_data.strip() else {}
+        data = read_hook_input()
     except json.JSONDecodeError:
         return 0
     except KeyboardInterrupt:

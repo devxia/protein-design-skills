@@ -9,9 +9,11 @@ Works with any coding agent that supports hook context injection (Claude Code,
 Kimi Code >= 0.6.0, Codex CLI).
 """
 import traceback
+import json
 import subprocess
 from typing import Any
 import sys
+from protein_design.utils import read_hook_input
 
 
 def check_tool(name: str, command: list[str]) -> str:
@@ -44,7 +46,9 @@ def get_gpu_info() -> dict[str, Any]:
 def main() -> int:
     """Main entry point. Reads prompt from stdin, prints context to stdout."""
     try:
-        _ = sys.stdin.read()
+        read_hook_input()  # Payload read but unused; this hook injects static context.
+    except json.JSONDecodeError:
+        pass
     except KeyboardInterrupt:
         return 130
     except Exception:

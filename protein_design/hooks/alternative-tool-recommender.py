@@ -8,6 +8,7 @@ import traceback
 import json
 from typing import Any
 import sys
+from protein_design.utils import read_hook_input
 
 
 PIPELINE_OPTIONS: list[dict[str, Any]] = [
@@ -722,8 +723,7 @@ def _recommend_pipelines(detected: dict[str, float], text_lower: str = "") -> li
 def main() -> int:
     """Main entry point for hook."""
     try:
-        input_data = sys.stdin.read()
-        data = json.loads(input_data) if input_data.strip() else {}
+        data = read_hook_input()
     except json.JSONDecodeError:
         return 0
     except KeyboardInterrupt:

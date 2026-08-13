@@ -9,6 +9,7 @@ import json
 import re
 from typing import Any
 import sys
+from protein_design.utils import read_hook_input
 
 
 def _parse_design_goal(text: str) -> dict[str, Any]:
@@ -175,24 +176,28 @@ def _generate_filtering_params(goal: dict[str, Any]) -> dict[str, Any]:
 def main() -> int:
     """Main entry point."""
     try:
-        text = sys.stdin.read()
+        data = read_hook_input()
+    except json.JSONDecodeError:
+        return 0
     except KeyboardInterrupt:
         return 130
     except Exception:
         traceback.print_exc()
         return 1
 
-    if not text.strip():
+    user_prompt = data.get("prompt", "") if isinstance(data, dict) else ""
+
+    if not user_prompt.strip():
         return 0
 
     # Only activate for protein design prompts
     if not re.search(
         r"\b(protein|design|binder|scaffold|rfdiffusion|proteinmpnn|alphafold|sequence|backbone)\b",
-        text, re.IGNORECASE,
+        user_prompt, re.IGNORECASE,
     ):
         return 0
 
-    goal = _parse_design_goal(text)
+    goal = _parse_design_goal(user_prompt)
     if goal["design_type"] == "unknown":
         return 0
 

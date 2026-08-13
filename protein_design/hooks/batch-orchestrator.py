@@ -8,6 +8,7 @@ import traceback
 import json
 from typing import Any
 import sys
+from protein_design.utils import read_hook_input
 
 
 def _detect_batch_needs(context: str) -> dict[str, Any]:
@@ -128,17 +129,21 @@ check_batch_progress(task_ids=task_ids)
 def main() -> int:
     """Main entry point."""
     try:
-        text = sys.stdin.read()
+        data = read_hook_input()
+    except json.JSONDecodeError:
+        return 0
     except KeyboardInterrupt:
         return 130
     except Exception:
         traceback.print_exc()
         return 1
 
-    if not text.strip():
+    user_prompt = data.get("prompt", "") if isinstance(data, dict) else ""
+
+    if not user_prompt.strip():
         return 0
 
-    info = _detect_batch_needs(text)
+    info = _detect_batch_needs(user_prompt)
     if not info["has_batch"] and info["count"] < 10:
         return 0
 
