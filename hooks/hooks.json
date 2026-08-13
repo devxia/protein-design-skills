@@ -2,7 +2,7 @@
   "hooks": {
     "UserPromptSubmit": [
       {
-        "matcher": "(?i)\\b(protein|pdb|binder|alphafold|rfdiffusion|proteinmpnn|design|structure|sequence|residue|loop|scaffold|diffusion|mpnn|fold|validation|filter|rank)\\b",
+        "matcher": "(?i)\\b(protein|pdb|binder|alphafold|rfdiffusion|proteinmpnn|design|structure|sequence|residue|loop|scaffold|motif|oligomer|diffusion|backbone|monomer|complex|interface|epitope|target|fold|prediction|plddt|ptm|iptm|msa|validation|ranking|filter|chain)\\b",
         "hooks": [
           {
             "type": "command",

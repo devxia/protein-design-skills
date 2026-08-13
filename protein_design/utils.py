@@ -406,6 +406,26 @@ def probe_gpus(timeout: float = 5.0) -> list[dict[str, Any]] | None:
 
 
 # ---------------------------------------------------------------------------
+# Protein-keyword matching (canonical pattern for hooks and hooks.json)
+# ---------------------------------------------------------------------------
+
+PROTEIN_DESIGN_KEYWORDS: tuple[str, ...] = (
+    "protein", "pdb", "binder", "alphafold", "rfdiffusion", "proteinmpnn",
+    "design", "structure", "sequence", "residue", "loop", "scaffold",
+    "motif", "oligomer", "diffusion", "backbone", "monomer", "complex",
+    "interface", "epitope", "target", "fold", "prediction",
+    "plddt", "ptm", "iptm", "msa", "validation", "ranking", "filter", "chain",
+)
+
+PROTEIN_DESIGN_PATTERN: str = r"\b(" + "|".join(PROTEIN_DESIGN_KEYWORDS) + r")\b"
+"""Canonical protein-design keyword regex (without flags; add re.IGNORECASE).
+
+The declarative UserPromptSubmit matcher in hooks/hooks.json mirrors this
+keyword set; a parity test guards the two against drift.
+"""
+
+
+# ---------------------------------------------------------------------------
 # Hook input helper
 # ---------------------------------------------------------------------------
 

@@ -11,7 +11,7 @@ import subprocess
 from typing import Any
 import sys
 from concurrent.futures import ThreadPoolExecutor
-from protein_design.utils import probe_gpus, read_hook_input
+from protein_design.utils import PROTEIN_DESIGN_PATTERN, probe_gpus, read_hook_input
 
 
 def _check_tools() -> dict[str, Any]:
@@ -81,13 +81,8 @@ def main() -> int:
     user_prompt = data.get("prompt", "") if isinstance(data, dict) else ""
 
     # Only activate for protein design keywords
-    protein_keywords = re.compile(
-        r"\b(protein|pdb|binder|alphafold|rfdiffusion|proteinmpnn|design|"
-        r"structure|sequence|residue|loop|scaffold|motif|oligomer|diffusion|"
-        r"backbone|monomer|complex|interface|epitope|target|fold|prediction|"
-        r"plddt|ptm|iptm|msa|validation|ranking|filter|chain)\b",
-        re.IGNORECASE,
-    )
+    # Only activate for protein design keywords
+    protein_keywords = re.compile(PROTEIN_DESIGN_PATTERN, re.IGNORECASE)
 
     if not protein_keywords.search(user_prompt):
         return 0
