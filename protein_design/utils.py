@@ -204,6 +204,19 @@ def fasta_to_alphafold3_json(
 # Confidence JSON parsing
 # ---------------------------------------------------------------------------
 
+# Confidence-metric keys probed in both nested and flat confidence JSON layouts.
+_CONFIDENCE_METRIC_KEYS = (
+    "plddt",
+    "iptm",
+    "ptm",
+    "pae",
+    "mean_plddt",
+    "ranking_score",
+    "confidence_score",
+    "has_clash",
+)
+
+
 def parse_confidence_json(json_path: str | Path) -> dict[str, Any]:
     """Parse a ``confidence.json`` file from AlphaFold3, Boltz-1, Chai-1, etc.
 
@@ -233,31 +246,13 @@ def parse_confidence_json(json_path: str | Path) -> dict[str, Any]:
     # 1. Nested ``confidence`` block (AlphaFold3 / OpenFold3).
     conf = data.get("confidence")
     if isinstance(conf, dict):
-        for key in (
-            "plddt",
-            "iptm",
-            "ptm",
-            "pae",
-            "mean_plddt",
-            "ranking_score",
-            "confidence_score",
-            "has_clash",
-        ):
+        for key in _CONFIDENCE_METRIC_KEYS:
             value = conf.get(key)
             if value is not None:
                 _store_metric(metrics, key, value)
 
     # 2. Flat keys (Boltz-1 / Chai-1 / ESMFold / OmegaFold).
-    for key in (
-        "plddt",
-        "iptm",
-        "ptm",
-        "pae",
-        "mean_plddt",
-        "ranking_score",
-        "confidence_score",
-        "has_clash",
-    ):
+    for key in _CONFIDENCE_METRIC_KEYS:
         if key in metrics:
             continue
         value = data.get(key)

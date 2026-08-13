@@ -71,6 +71,27 @@ def test_quality_gate_fails_closed_with_no_evaluable_metrics():
     assert evaluation["no_metrics_evaluated"] is True
 
 
+def test_error_recovery_speaks_english(monkeypatch, capsys):
+    """Recovery suggestions must be English like every other hook (#33)."""
+    import io
+    import json
+    import re
+
+    module = _load_hook_module("error-recovery")
+    payload = {
+        "result": {
+            "isError": True,
+            "content": [{"text": "RuntimeError: CUDA out of memory. Tried to allocate 2.0 GiB"}],
+        }
+    }
+    monkeypatch.setattr("sys.stdin", io.StringIO(json.dumps(payload)))
+    rc = module.main()
+    out = capsys.readouterr().out
+    assert rc == 0
+    assert "GPU out of memory" in out
+    assert not re.search(r"[\u4e00-\u9fff]", out), f"non-English output: {out[:200]}"
+
+
 def test_health_check_probes_run_concurrently(monkeypatch):
     """Ten 2s probes must finish within the 5s hook budget, i.e. run in parallel (#29)."""
     import time
