@@ -10,7 +10,9 @@ import re
 import subprocess
 from typing import Any
 import sys
+from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from protein_design.utils import PROTEIN_DESIGN_PATTERN, probe_gpus, read_hook_input
 
 

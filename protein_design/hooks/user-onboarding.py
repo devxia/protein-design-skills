@@ -9,6 +9,8 @@ import traceback
 import json
 import subprocess
 import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from protein_design.utils import read_hook_input
 
 
