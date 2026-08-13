@@ -78,17 +78,25 @@ def find_db_dir(config):
     return None
 
 
-def _set_model_seeds(json_path, num_seeds):
-    """Write the requested number of seeds into the input JSON's modelSeeds.
+def _set_model_seeds(json_path, num_seeds, output_path):
+    """Write a seed-expanded copy of the input JSON, leaving the original untouched.
 
     AlphaFold3 controls sampling through the input JSON's ``modelSeeds`` field
-    rather than CLI flags, so this rewrites that field in place.
+    rather than CLI flags. The augmented JSON is written to ``output_path``
+    (parent directories are created); the user's original input file is never
+    modified, so re-running with different seeds cannot corrupt a curated input.
+
+    Returns:
+        Path to the augmented JSON copy.
     """
     with open(json_path, encoding="utf-8") as f:
         data = json.load(f)
     data["modelSeeds"] = list(range(1, num_seeds + 1))
-    with open(json_path, "w", encoding="utf-8") as f:
+    output_path = Path(output_path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(output_path, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2)
+    return output_path
 
 
 def run_alphafold3(json_path, output_dir, db_dir=None, run_data_pipeline=True,
@@ -107,8 +115,12 @@ def run_alphafold3(json_path, output_dir, db_dir=None, run_data_pipeline=True,
         return 1
 
     # AlphaFold3 controls seeds via the input JSON's modelSeeds field.
+    # Expand into a copy inside the output directory; never mutate the input.
     if num_seeds and num_seeds > 1:
-        _set_model_seeds(json_path, num_seeds)
+        seeds_json = Path(output_dir) / f"{Path(json_path).stem}.seeds{num_seeds}.json"
+        json_path = str(_set_model_seeds(json_path, num_seeds, seeds_json))
+        if verbose:
+            print(f"Wrote seed-expanded input JSON: {json_path}")
 
     # Create output directory
     out_path = Path(output_dir)
