@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-from __future__ import annotations
 """Summarize protein design pipeline outputs.
 
 Scans an output directory and reports counts of backbones, sequences,
@@ -16,7 +15,12 @@ Examples:
     # Expected counts for progress percentage
     python scripts/summarize_outputs.py --output-dir outputs/ \
         --expected-backbones 50 --expected-sequences 200
+
+Exit codes:
+    0 = Success
+    1 = Output directory not found
 """
+from __future__ import annotations
 
 import sys
 from pathlib import Path
