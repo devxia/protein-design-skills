@@ -28,55 +28,55 @@
   "hooks": [
     {
       "event": "UserPromptSubmit",
-      "matcher": "(?i)\\b(protein|pdb|binder|alphafold|rfdiffusion|proteinmpnn|design|structure|sequence|residue|loop|scaffold|diffusion|mpnn|fold|validation|filter|rank)\\b",
+      "matcher": "(?i)\\b(protein|pdb|binder|alphafold|rfdiffusion|proteinmpnn|design|structure|sequence|residue|loop|scaffold|motif|oligomer|diffusion|backbone|monomer|complex|interface|epitope|target|fold|prediction|plddt|ptm|iptm|msa|validation|ranking|filter|chain)\\b",
       "command": "python ./protein_design/hooks/user-onboarding.py",
       "timeout": 5
     },
     {
       "event": "UserPromptSubmit",
-      "matcher": "(?i)\\b(protein|pdb|binder|alphafold|rfdiffusion|proteinmpnn|design|structure|sequence|residue|loop|scaffold|diffusion|mpnn|fold|validation|filter|rank)\\b",
+      "matcher": "(?i)\\b(protein|pdb|binder|alphafold|rfdiffusion|proteinmpnn|design|structure|sequence|residue|loop|scaffold|motif|oligomer|diffusion|backbone|monomer|complex|interface|epitope|target|fold|prediction|plddt|ptm|iptm|msa|validation|ranking|filter|chain)\\b",
       "command": "python ./protein_design/hooks/session-health-check.py",
       "timeout": 5
     },
     {
       "event": "UserPromptSubmit",
-      "matcher": "(?i)\\b(protein|pdb|binder|alphafold|rfdiffusion|proteinmpnn|design|structure|sequence|residue|loop|scaffold|diffusion|mpnn|fold|validation|filter|rank)\\b",
+      "matcher": "(?i)\\b(protein|pdb|binder|alphafold|rfdiffusion|proteinmpnn|design|structure|sequence|residue|loop|scaffold|motif|oligomer|diffusion|backbone|monomer|complex|interface|epitope|target|fold|prediction|plddt|ptm|iptm|msa|validation|ranking|filter|chain)\\b",
       "command": "python ./protein_design/hooks/protein-context-inject.py",
       "timeout": 5
     },
     {
       "event": "UserPromptSubmit",
-      "matcher": "(?i)\\b(protein|pdb|binder|alphafold|rfdiffusion|proteinmpnn|design|structure|sequence|residue|loop|scaffold|diffusion|mpnn|fold|validation|filter|rank)\\b",
+      "matcher": "(?i)\\b(protein|pdb|binder|alphafold|rfdiffusion|proteinmpnn|design|structure|sequence|residue|loop|scaffold|motif|oligomer|diffusion|backbone|monomer|complex|interface|epitope|target|fold|prediction|plddt|ptm|iptm|msa|validation|ranking|filter|chain)\\b",
       "command": "python ./protein_design/hooks/tool-recommender.py",
       "timeout": 5
     },
     {
       "event": "UserPromptSubmit",
-      "matcher": "(?i)\\b(protein|pdb|binder|alphafold|rfdiffusion|proteinmpnn|design|structure|sequence|residue|loop|scaffold|diffusion|mpnn|fold|validation|filter|rank)\\b",
+      "matcher": "(?i)\\b(protein|pdb|binder|alphafold|rfdiffusion|proteinmpnn|design|structure|sequence|residue|loop|scaffold|motif|oligomer|diffusion|backbone|monomer|complex|interface|epitope|target|fold|prediction|plddt|ptm|iptm|msa|validation|ranking|filter|chain)\\b",
       "command": "python ./protein_design/hooks/auto-parameter-tuner.py",
       "timeout": 5
     },
     {
       "event": "UserPromptSubmit",
-      "matcher": "(?i)\\b(protein|pdb|binder|alphafold|rfdiffusion|proteinmpnn|design|structure|sequence|residue|loop|scaffold|diffusion|mpnn|fold|validation|filter|rank)\\b",
+      "matcher": "(?i)\\b(protein|pdb|binder|alphafold|rfdiffusion|proteinmpnn|design|structure|sequence|residue|loop|scaffold|motif|oligomer|diffusion|backbone|monomer|complex|interface|epitope|target|fold|prediction|plddt|ptm|iptm|msa|validation|ranking|filter|chain)\\b",
       "command": "python ./protein_design/hooks/batch-orchestrator.py",
       "timeout": 5
     },
     {
       "event": "UserPromptSubmit",
-      "matcher": "(?i)\\b(protein|pdb|binder|alphafold|rfdiffusion|proteinmpnn|design|structure|sequence|residue|loop|scaffold|diffusion|mpnn|fold|validation|filter|rank)\\b",
+      "matcher": "(?i)\\b(protein|pdb|binder|alphafold|rfdiffusion|proteinmpnn|design|structure|sequence|residue|loop|scaffold|motif|oligomer|diffusion|backbone|monomer|complex|interface|epitope|target|fold|prediction|plddt|ptm|iptm|msa|validation|ranking|filter|chain)\\b",
       "command": "python ./protein_design/hooks/progress-query-helper.py",
       "timeout": 5
     },
     {
       "event": "UserPromptSubmit",
-      "matcher": "(?i)\\b(protein|pdb|binder|alphafold|rfdiffusion|proteinmpnn|design|structure|sequence|residue|loop|scaffold|diffusion|mpnn|fold|validation|filter|rank)\\b",
+      "matcher": "(?i)\\b(protein|pdb|binder|alphafold|rfdiffusion|proteinmpnn|design|structure|sequence|residue|loop|scaffold|motif|oligomer|diffusion|backbone|monomer|complex|interface|epitope|target|fold|prediction|plddt|ptm|iptm|msa|validation|ranking|filter|chain)\\b",
       "command": "python ./protein_design/hooks/cost-estimator.py",
       "timeout": 5
     },
     {
       "event": "UserPromptSubmit",
-      "matcher": "(?i)\\b(protein|pdb|binder|alphafold|rfdiffusion|proteinmpnn|design|structure|sequence|residue|loop|scaffold|diffusion|mpnn|fold|validation|filter|rank)\\b",
+      "matcher": "(?i)\\b(protein|pdb|binder|alphafold|rfdiffusion|proteinmpnn|design|structure|sequence|residue|loop|scaffold|motif|oligomer|diffusion|backbone|monomer|complex|interface|epitope|target|fold|prediction|plddt|ptm|iptm|msa|validation|ranking|filter|chain)\\b",
       "command": "python ./protein_design/hooks/parameter-generator.py",
       "timeout": 5
     },

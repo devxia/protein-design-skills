@@ -14,12 +14,17 @@ Run this after installing the plugin:
   python install-hooks.py
 
 This installer uses Skills + Hooks + Standalone Scripts only.
+
+Exit codes:
+  0 — success (--list finished, --validate passed, or every requested
+      install/uninstall completed without error)
+  1 — no supported agents detected, no valid agents specified, --validate
+      failed, or at least one requested install/uninstall failed
 """
 from __future__ import annotations
 
 import argparse
 import json
-import os
 import shutil
 import sys
 from pathlib import Path
@@ -126,14 +131,19 @@ def _resolve_hook_script(script_arg: str, project_root: Path) -> Path:
         ValueError: If the script path escapes the allowed hooks directory
                     or contains shell metacharacters.
     """
+    # Disallow shell metacharacters / command separators in the *declared*
+    # path. The plugin-root placeholders are excluded from the screen (they
+    # themselves contain "$", "(" and ")"), and the check runs BEFORE
+    # substitution so legitimate project roots containing characters like
+    # "&" are not falsely rejected.
+    checkable = script_arg.replace("${PLUGIN_ROOT}", "").replace("${CLAUDE_PLUGIN_ROOT}", "")
+    forbidden = set(";|&$()`\n\r\x00")
+    if any(ch in forbidden for ch in checkable):
+        raise ValueError(f"Hook script path contains forbidden characters: {script_arg!r}")
+
     # Resolve plugin-root placeholders first so validation works on literal paths.
     script_arg = script_arg.replace("${PLUGIN_ROOT}", str(project_root))
     script_arg = script_arg.replace("${CLAUDE_PLUGIN_ROOT}", str(project_root))
-
-    # Disallow shell metacharacters / command separators.
-    forbidden = set(";|&$()`\n\r\x00")
-    if any(ch in forbidden for ch in script_arg):
-        raise ValueError(f"Hook script path contains forbidden characters: {script_arg!r}")
 
     script_path = Path(script_arg)
     if not script_path.is_absolute():
@@ -208,13 +218,9 @@ def _rewrite_hook_commands(hooks_config: dict, project_root: Path, absolute: boo
     return config
 
 
-def _which(cmd: str) -> Path | None:
+def _which(cmd: str) -> str | None:
     """Return the path to an executable if it exists in PATH."""
-    for directory in os.environ.get("PATH", "").split(os.pathsep):
-        candidate = Path(directory) / cmd
-        if candidate.exists() and os.access(candidate, os.X_OK):
-            return candidate
-    return None
+    return shutil.which(cmd)
 
 
 def _detect_agents() -> list[str]:
@@ -242,12 +248,66 @@ def _detect_agents() -> list[str]:
 # ── Claude Code installer ────────────────────────────────────────────────
 
 
+def _is_our_hook_command(command: str) -> bool:
+    """True if a hook command runs a script from this repo's protein_design/hooks/."""
+    return "protein_design/hooks" in command
+
+
+def _claude_hooks_to_nested(hooks_setting: object) -> dict:
+    """Normalize a Claude settings.json 'hooks' value to the nested event layout.
+
+    Claude Code expects each event name to map to a list of matcher groups
+    ({"matcher": ..., "hooks": [...]}) — the same layout as hooks/hooks.json.
+    Old installer versions wrote a flat list of {"event", "matcher",
+    "command", "timeout"} entries instead; those are folded into the nested
+    layout here. Event values that cannot be interpreted are preserved
+    verbatim so user configuration is never lost.
+    """
+    nested: dict = {}
+    if isinstance(hooks_setting, dict):
+        for event, groups in hooks_setting.items():
+            if isinstance(groups, list):
+                nested[event] = [g for g in groups if isinstance(g, dict)]
+            else:
+                nested[event] = groups
+        return nested
+    if isinstance(hooks_setting, list):
+        # Legacy flat layout written by old installer versions.
+        for entry in hooks_setting:
+            if not isinstance(entry, dict) or not entry.get("event"):
+                continue
+            hook = {"type": "command", "command": entry.get("command", "")}
+            if "timeout" in entry:
+                hook["timeout"] = entry["timeout"]
+            matcher = entry.get("matcher", "")
+            for group in nested.setdefault(entry["event"], []):
+                if group.get("matcher", "") == matcher:
+                    group["hooks"].append(hook)
+                    break
+            else:
+                nested[entry["event"]].append({"matcher": matcher, "hooks": [hook]})
+    return nested
+
+
 def _install_claude(config_path: Path, hooks_config: dict, force: bool = False) -> bool:
     """Install hooks for Claude Code into settings.json.
 
+    Writes Claude Code's nested hook schema (the same layout as
+    hooks/hooks.json):
+
+        {"hooks": {"<Event>": [{"matcher": "...",
+                                "hooks": [{"type": "command", "command": "...",
+                                           "timeout": N}]}]}}
+
+    Existing user hooks (and other settings keys) are preserved. Entries
+    previously written by this installer — including flat-list entries from
+    old installer versions — are removed first, so repeated installs (with
+    or without --force) never duplicate hooks; without --force, an entry
+    whose command is still current is kept in place.
+
     Args:
         config_path: Path to settings.json.
-        hooks_config: Canonical hooks configuration.
+        hooks_config: Canonical hooks configuration (paths already rewritten).
         force: If True, reinstall hooks even if already registered.
     """
     config_path.parent.mkdir(parents=True, exist_ok=True)
@@ -262,30 +322,87 @@ def _install_claude(config_path: Path, hooks_config: dict, force: bool = False) 
             shutil.copy2(config_path, config_path.with_suffix(".json.bak"))
             settings = {}
 
-    existing_hooks = settings.get("hooks", [])
-    hook_commands = {h.get("command", "") for h in existing_hooks}
+    hooks_by_event = _claude_hooks_to_nested(settings.get("hooks"))
 
-    new_hooks = []
+    # Entries this run wants to register.
+    desired: list[tuple[str, str, dict]] = []
     for event_name, event_groups in hooks_config.get("hooks", {}).items():
         for group in event_groups:
             matcher = group.get("matcher", "")
             for hook in group.get("hooks", []):
-                cmd = hook.get("command", "")
-                if cmd in hook_commands and not force:
-                    print(f"  ⚠️  Hook already registered: {Path(cmd).name}")
+                entry = dict(hook)
+                entry.setdefault("type", "command")
+                entry.setdefault("timeout", 5)
+                desired.append((event_name, matcher, entry))
+    desired_commands = {entry["command"] for _, _, entry in desired}
+
+    # Drop hooks this installer wrote previously (any layout, including
+    # legacy flat entries converted above) so reinstalls never duplicate.
+    # Without --force, an up-to-date entry is kept as-is.
+    kept_commands: set = set()
+    replaced = 0
+    for event_name, groups in list(hooks_by_event.items()):
+        if not isinstance(groups, list):
+            continue
+        kept_groups = []
+        for group in groups:
+            group_hooks = group.get("hooks")
+            if not isinstance(group_hooks, list):
+                # Not a matcher group we understand — leave untouched.
+                kept_groups.append(group)
+                continue
+            kept_hooks = []
+            for hook in group_hooks:
+                if not isinstance(hook, dict):
+                    kept_hooks.append(hook)
                     continue
-                new_hooks.append({
-                    "event": event_name,
-                    "matcher": matcher,
-                    "command": cmd,
-                    "timeout": hook.get("timeout", 5),
-                })
+                command = hook.get("command", "")
+                if not _is_our_hook_command(command):
+                    kept_hooks.append(hook)
+                elif (
+                    not force
+                    and command in desired_commands
+                    and command not in kept_commands
+                ):
+                    kept_hooks.append(hook)
+                    kept_commands.add(command)
+                else:
+                    replaced += 1
+            if kept_hooks:
+                group["hooks"] = kept_hooks
+                kept_groups.append(group)
+        if kept_groups:
+            hooks_by_event[event_name] = kept_groups
+        else:
+            hooks_by_event.pop(event_name, None)
+
+    if replaced:
+        print(f"  ℹ️  Replaced {replaced} previously installed hook entries")
+
+    # Register the desired entries, skipping any that were kept above.
+    new_hooks = 0
+    for event_name, matcher, entry in desired:
+        if entry["command"] in kept_commands:
+            print(f"  ⚠️  Hook already registered: {Path(entry['command']).name}")
+            continue
+        groups = hooks_by_event.get(event_name)
+        if not isinstance(groups, list):
+            groups = []
+            hooks_by_event[event_name] = groups
+        for group in groups:
+            if group.get("matcher", "") == matcher and isinstance(group.get("hooks"), list):
+                group["hooks"].append(entry)
+                break
+        else:
+            groups.append({"matcher": matcher, "hooks": [entry]})
+        new_hooks += 1
 
     if new_hooks:
-        settings["hooks"] = existing_hooks + new_hooks
-        print(f"  ✅ Registered {len(new_hooks)} hooks in {config_path}")
+        print(f"  ✅ Registered {new_hooks} hooks in {config_path}")
     else:
         print("  ℹ️  All hooks already registered.")
+
+    settings["hooks"] = hooks_by_event
 
     # Set skills+hooks+scripts mode
     settings["protein_design_mode"] = "skills-hooks-scripts"
@@ -303,7 +420,11 @@ def _install_claude(config_path: Path, hooks_config: dict, force: bool = False) 
 
 
 def _uninstall_claude(config_path: Path) -> bool:
-    """Remove Protein Design hooks from Claude Code settings.json."""
+    """Remove Protein Design hooks from Claude Code settings.json.
+
+    Handles both the nested event layout and the legacy flat list written
+    by old installer versions, preserving all foreign hooks.
+    """
     if not config_path.exists():
         print(f"  ℹ️  No config found at {config_path}")
         return False
@@ -315,12 +436,43 @@ def _uninstall_claude(config_path: Path) -> bool:
         print(f"  ⚠️  {config_path} is invalid JSON — cannot uninstall: {exc}")
         return False
 
-    original_count = len(settings.get("hooks", []))
-    settings["hooks"] = [
-        h for h in settings.get("hooks", [])
-        if "protein_design/hooks" not in h.get("command", "")
-    ]
-    removed = original_count - len(settings["hooks"])
+    hooks_setting = settings.get("hooks")
+    removed = 0
+    if isinstance(hooks_setting, list):
+        # Legacy flat layout written by old installer versions.
+        kept = [
+            h for h in hooks_setting
+            if not _is_our_hook_command(h.get("command", "") if isinstance(h, dict) else "")
+        ]
+        removed = len(hooks_setting) - len(kept)
+        if kept:
+            settings["hooks"] = kept
+        else:
+            settings.pop("hooks", None)
+    elif isinstance(hooks_setting, dict):
+        for event_name, groups in list(hooks_setting.items()):
+            if not isinstance(groups, list):
+                continue
+            kept_groups = []
+            for group in groups:
+                group_hooks = group.get("hooks") if isinstance(group, dict) else None
+                if not isinstance(group_hooks, list):
+                    kept_groups.append(group)
+                    continue
+                kept_hooks = [
+                    h for h in group_hooks
+                    if not _is_our_hook_command(
+                        h.get("command", "") if isinstance(h, dict) else ""
+                    )
+                ]
+                removed += len(group_hooks) - len(kept_hooks)
+                if kept_hooks:
+                    group["hooks"] = kept_hooks
+                    kept_groups.append(group)
+            if kept_groups:
+                hooks_setting[event_name] = kept_groups
+            else:
+                hooks_setting.pop(event_name, None)
 
     settings.pop("protein_design_mode", None)
     settings.pop("protein_design_instructions", None)
@@ -596,7 +748,7 @@ def install_hooks(
     local: bool = False,
     force: bool = False,
     uninstall: bool = False,
-) -> None:
+) -> bool:
     """Install or uninstall hook scripts for detected or specified coding agents.
 
     Args:
@@ -605,6 +757,10 @@ def install_hooks(
         local: If True, install project-local hooks (Claude/Codex only).
         force: If True, reinstall hooks even if already registered.
         uninstall: If True, remove hooks instead of installing.
+
+    Returns:
+        True if every requested install/uninstall completed without error,
+        False if at least one agent's operation failed.
     """
     source_dir = Path(__file__).parent.resolve()
     project_root = source_dir.parent.parent
@@ -627,6 +783,7 @@ def install_hooks(
     if not uninstall:
         print("Mode: Skills + Hooks + Standalone Scripts\n")
 
+    all_ok = True
     for agent_id in agents:
         cfg = AGENT_CONFIGS.get(agent_id)
         if not cfg:
@@ -662,6 +819,7 @@ def install_hooks(
                 _install_kimi(config_path, hooks_config, force=force)
         except Exception as exc:
             print(f"  ❌ Failed to {action.lower()} for {cfg['name']}: {exc}")
+            all_ok = False
         print()
 
     if not uninstall:
@@ -676,26 +834,31 @@ def install_hooks(
         print("   4. Read skill 'pipeline-selection' to choose a design pipeline")
         print("   5. Read skill 'install-guide' to install the tools you need")
 
+    return all_ok
 
-def _count_protein_hooks(data: dict, flat: bool = False) -> int:
+
+def _count_protein_hooks(data: dict) -> int:
     """Count Protein Design hooks in JSON data.
 
-    Args:
-        data: Parsed JSON config.
-        flat: If True, hooks is a flat list (Claude settings.json).
-              If False, hooks is nested by event (Codex hooks.json).
+    Handles the nested event layout (hooks/hooks.json, Codex hooks.json and
+    current Claude settings.json) as well as the legacy flat list layout
+    written by old installer versions into Claude settings.json.
     """
-    if flat:
+    hooks = data.get("hooks")
+    if isinstance(hooks, list):
+        # Legacy flat layout (old Claude settings.json installs).
         return sum(
-            1 for h in data.get("hooks", [])
-            if "protein_design/hooks" in h.get("command", "")
+            1 for h in hooks
+            if _is_our_hook_command(h.get("command", "") if isinstance(h, dict) else "")
         )
+    if not isinstance(hooks, dict):
+        return 0
 
     count = 0
-    for event_groups in data.get("hooks", {}).values():
+    for event_groups in hooks.values():
         for group in event_groups:
             for hook in group.get("hooks", []):
-                if "protein_design/hooks" in hook.get("command", ""):
+                if _is_our_hook_command(hook.get("command", "")):
                     count += 1
     return count
 
@@ -779,7 +942,7 @@ def list_hooks() -> None:
                 elif cfg["format"] == "hooks-json":
                     with open(config_path, "r", encoding="utf-8") as f:
                         data = json.load(f)
-                    count = _count_protein_hooks(data, flat=False)
+                    count = _count_protein_hooks(data)
                     if count:
                         print(f"  ✅ Protein Design hooks registered ({count})")
                     else:
@@ -787,7 +950,7 @@ def list_hooks() -> None:
                 else:
                     with open(config_path, "r", encoding="utf-8") as f:
                         data = json.load(f)
-                    count = _count_protein_hooks(data, flat=True)
+                    count = _count_protein_hooks(data)
                     if count:
                         print(f"  ✅ Protein Design hooks registered ({count})")
                     else:
@@ -833,7 +996,7 @@ def validate_plugin(project_root: Path) -> bool:
                     print(f"  ❌ Missing top-level 'hooks' key")
                     ok = False
                 else:
-                    count = _count_protein_hooks(data, flat=False)
+                    count = _count_protein_hooks(data)
                     print(f"  ✅ Valid hooks config ({count} hooks)")
                     # Verify referenced scripts exist and are inside allowed dir.
                     missing_scripts = []
@@ -991,4 +1154,5 @@ Examples:
             print(f"No valid agents specified. Valid: {list(AGENT_CONFIGS.keys())}")
             sys.exit(1)
 
-    install_hooks(agents=agents, local=args.local, force=args.force, uninstall=args.uninstall)
+    ok = install_hooks(agents=agents, local=args.local, force=args.force, uninstall=args.uninstall)
+    sys.exit(0 if ok else 1)

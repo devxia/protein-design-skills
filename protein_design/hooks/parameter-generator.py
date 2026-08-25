@@ -17,7 +17,6 @@ from protein_design.utils import protein_keyword_pattern, read_hook_input
 def _detect_design_params(text: str) -> dict[str, Any]:
     """Detect design goal and return optimal parameters."""
     text_lower = text.lower()
-    words = set(re.findall(r"[a-z0-9_]+", text_lower))
 
     # Extract length if specified
     length_match = re.search(r"(\d+)\s*(?:aa|residue|amino acid)", text_lower)

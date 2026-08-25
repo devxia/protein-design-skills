@@ -24,11 +24,11 @@ def _get_scripts_dir() -> Path:
 
 
 def _build_script_cmd(script_name: str, args: list[str]) -> str:
-    """Build a standalone script command."""
+    """Build a standalone script command (empty args are dropped)."""
     scripts_dir = _get_scripts_dir()
     script_path = scripts_dir / script_name
     if script_path.exists():
-        return f"python {script_path} {' '.join(args)}"
+        return f"python {script_path} {' '.join(a for a in args if a)}"
     return ""
 
 
@@ -229,6 +229,10 @@ def main() -> int:
     except Exception:
         traceback.print_exc()
         return 1
+
+    # Only process dict payloads (non-dict JSON is ignored, not an error)
+    if not isinstance(data, dict):
+        return 0
 
     # Only process successful tool completions
     result = data.get("result", {})

@@ -90,7 +90,7 @@ def _build_recommendation(design_type: str) -> dict[str, Any]:
             "primary_script": "scripts/run_rfdiffusion.py",
             "key_params": {
                 "contig": '"[B1-100/0 100-100]"  # adjust target/binder lengths',
-                "hotspot-res": "A30 A33 A34",
+                "hotspot-res": "A30,A33,A34",
                 "num-designs": "50",
                 "diffuser-T": "50",
             },
@@ -98,7 +98,7 @@ def _build_recommendation(design_type: str) -> dict[str, Any]:
 python scripts/run_rfdiffusion.py \\
   --input-pdb target_fixed.pdb \\
   --contig "[B1-100/0 100-100]" \\
-  --hotspot-res A30 A33 A34 \\
+  --hotspot-res A30,A33,A34 \\
   --output-prefix outputs/binder \\
   --num-designs 50 \\
   --diffuser-T 50
@@ -249,8 +249,8 @@ python scripts/run_alphafold3.py \\
   --num-seeds 5""",
             "tips": [
                 "Use convert_format.py to convert FASTA → AlphaFold3 JSON",
-                "For quick screening: --run-data-pipeline false (skips MSA)",
-                "For accurate predictions: --run-data-pipeline true (requires ~2.6TB DBs)",
+                "For quick screening: --no-msa (skips MSA)",
+                "For accurate predictions: leave MSA on (requires ~2.6TB DBs, set --db-dir)",
                 "Key metrics: pLDDT (per-atom), pTM (topology), ipTM (interface)",
             ],
         },

@@ -71,9 +71,17 @@ def _should_welcome(prompt: str) -> bool:
 
 
 def _check_tools() -> dict[str, bool]:
-    """Quick check for installed tools."""
-    tools = {}
-    for name, import_test in [
+    """Quick check for installed tools.
+
+    Probes run concurrently: ten sequential probes could take ~50s on slow
+    machines (heavy packages like torch import on first use), far exceeding
+    the 5s hook budget declared in hooks.json — the same fix session-health-
+    check.py already received. Per-probe timeout is 3s; wall-clock stays
+    within budget because all probes overlap.
+    """
+    from concurrent.futures import ThreadPoolExecutor
+
+    probes = [
         ("RFdiffusion", ["python", "-c", "import rfdiffusion"]),
         ("ProteinMPNN", ["python", "-c", "import proteinmpnn"]),
         ("AlphaFold3", ["python", "-c", "import alphafold3"]),
@@ -84,13 +92,18 @@ def _check_tools() -> dict[str, bool]:
         ("Chai-1", ["python", "-c", "import chai_lab"]),
         ("Protenix", ["python", "-c", "import protenix"]),
         ("OpenFold", ["python", "-c", "import openfold"]),
-    ]:
+    ]
+
+    def _probe(import_test: list[str]) -> bool:
         try:
-            subprocess.run(import_test, capture_output=True, timeout=5, check=True)
-            tools[name] = True
+            subprocess.run(import_test, capture_output=True, timeout=3, check=True)
+            return True
         except Exception:
-            tools[name] = False
-    return tools
+            return False
+
+    with ThreadPoolExecutor(max_workers=len(probes)) as pool:
+        results = list(pool.map(lambda item: _probe(item[1]), probes))
+    return {name: ok for (name, _), ok in zip(probes, results)}
 
 
 def _build_welcome() -> str:
@@ -215,7 +228,7 @@ def main() -> int:
         traceback.print_exc()
         return 1
 
-    prompt = str(data.get("user_prompt", ""))
+    prompt = str(data.get("prompt", "")) if isinstance(data, dict) else ""
     if not prompt or not _should_welcome(prompt):
         return 0
 

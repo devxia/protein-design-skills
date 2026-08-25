@@ -16,11 +16,20 @@ from protein_design.utils import extract_content_text, read_hook_input
 
 def _detect_conversion_need(data: dict[str, Any]) -> dict[str, Any] | None:
     """Detect if format conversion is needed based on tool output."""
-    tool_name = data.get("tool", "")
+    if not isinstance(data, dict):
+        return None
     result = data.get("result") or {}
 
-    # Only process proteinmpnn completions
-    if "proteinmpnn" not in tool_name.lower() and "submit_job" not in tool_name.lower():
+    # Prefilter: sequence-design completions. The FASTA-content check below
+    # is the real gate; this only avoids parsing unrelated results. Legacy
+    # MCP-era "submit_job" is kept for backward compatibility.
+    params = data.get("params")
+    tool_name = str(data.get("tool") or data.get("tool_name") or "")
+    if not tool_name and isinstance(params, dict):
+        tool_name = str(params.get("tool", ""))
+    lowered = tool_name.lower()
+    if not ("proteinmpnn" in lowered or "submit_job" in lowered
+            or lowered.startswith("run_")):
         return None
 
     # Check if result contains sequences (FASTA output)
@@ -108,7 +117,7 @@ If your design includes a receptor/target, add `receptor_pdb` to the convert_for
 ## Alternative: Boltz/Chai-1/Protenix Input
 These tools accept different formats:
 - **Boltz-1**: YAML schema or FASTA with entity types
-- **Chai-1**: FASTA with `|protein|` or `|ligand|` prefixes
+- **Chai-1**: FASTA with `>protein|name=<id>` or `>ligand|name=<id>` headers
 - **Protenix**: YAML config or FASTA
 
 See respective skills for format details.

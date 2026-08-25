@@ -20,10 +20,12 @@ def _parse_error(error_text: str) -> dict[str, Any]:
     error_lower = error_text.lower()
     result: dict[str, Any] = {"type": "unknown", "message": error_text[:500]}
 
-    # GPU / CUDA errors
-    if any(kw in error_lower for kw in ["cuda", "gpu", "out of memory", "oom", "cudnn"]):
+    # GPU / CUDA errors ("oom" needs a word-boundary match so words like
+    # "bedroom" do not trigger the OOM path)
+    is_oom = "out of memory" in error_lower or re.search(r"\boom\b", error_lower) is not None
+    if any(kw in error_lower for kw in ["cuda", "gpu", "cudnn"]) or is_oom:
         result["type"] = "gpu_error"
-        if "out of memory" in error_lower or "oom" in error_lower:
+        if is_oom:
             result["subtype"] = "oom"
             result["message"] = "GPU out of memory"
         elif "cuda" in error_lower:
@@ -220,6 +222,9 @@ def main() -> int:
         return 1
 
     # Only process failed tool calls
+    if not isinstance(data, dict):
+        return 0
+
     result = data.get("result", {})
     if isinstance(result, dict) and result.get("isError"):
         error_text = extract_content_text(result)

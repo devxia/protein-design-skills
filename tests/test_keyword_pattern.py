@@ -27,6 +27,19 @@ def test_hooks_json_matcher_keyword_parity():
     assert set(alternations[0].split("|")) == set(PROTEIN_DESIGN_KEYWORDS)
 
 
+def test_kimi_plugin_matcher_keyword_parity():
+    """kimi.plugin.json UserPromptSubmit matchers must use the same keyword set
+    as hooks.json, or the same prompt triggers on some agents but not Kimi (#30)."""
+    manifest = json.loads((PROJECT_ROOT / "kimi.plugin.json").read_text(encoding="utf-8"))
+    prompt_submit = [h for h in manifest["hooks"] if h.get("event") == "UserPromptSubmit"]
+    assert prompt_submit, "kimi.plugin.json lost its UserPromptSubmit hooks"
+    for hook in prompt_submit:
+        matcher = hook["matcher"]
+        alternations = [g for g in re.findall(r"\(([^()]+)\)", matcher) if "|" in g]
+        assert len(alternations) == 1, f"unexpected matcher shape: {matcher}"
+        assert set(alternations[0].split("|")) == set(PROTEIN_DESIGN_KEYWORDS)
+
+
 def test_rematching_hooks_use_canonical_pattern():
     """Hooks that re-match prompts must build on the canonical keyword set, not inline copies."""
     for name in (
