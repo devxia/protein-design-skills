@@ -7,9 +7,8 @@ Usage: python scripts/run_esmfold.py --input sequences.fasta --output-dir output
 Exit codes:
     0 = Success
     1 = Input file not found
-    2 = ESMFold not installed / not found
+    2 = ESMFold not installed / not found (argparse usage errors also exit 2)
     3 = Execution error
-    4 = Invalid arguments
 """
 
 import sys
@@ -17,6 +16,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from protein_design.utils import get_config, log_history, read_fasta
+from protein_design.conda_utils import probe_conda_envs
 
 import argparse
 import subprocess
@@ -36,6 +36,34 @@ def _check_esm_installed() -> bool:
         return False
 
 
+def find_esmfold_python(config):
+    """Return the Python interpreter prefix that can import torch and esm.
+
+    Returns a list like ``["conda", "run", "-n", env, "python"]`` or
+    ``[sys.executable]``, or ``None`` if ESMFold is not importable anywhere.
+    """
+    # 1. Configured path / environment variable: a Python interpreter with
+    #    the esm dependencies importable.
+    if config.get("esmfold_path"):
+        path = Path(config["esmfold_path"])
+        if path.exists():
+            return [str(path)]
+
+    # 2. Conda environment with the dependencies importable.
+    env = probe_conda_envs(
+        ["esmfold", "esm", "protein-design"],
+        ["python", "-c", "import torch, esm"],
+    )
+    if env is not None:
+        return ["conda", "run", "-n", env, "python"]
+
+    # 3. Current interpreter can import the dependencies.
+    if _check_esm_installed():
+        return [sys.executable]
+
+    return None
+
+
 def run_esmfold_api(input_file, output_dir, verbose=False):
     """Run ESMFold using Python API (most common installation)."""
     config = get_config("esmfold")
@@ -46,7 +74,8 @@ def run_esmfold_api(input_file, output_dir, verbose=False):
 
     # Probe the dependency before doing any work so a missing install exits 2
     # (as documented) instead of surfacing as a generic execution failure.
-    if not _check_esm_installed():
+    python_prefix = find_esmfold_python(config)
+    if not python_prefix:
         print("ERROR: ESMFold is not installed (import torch, esm failed). "
               "Install from: https://github.com/facebookresearch/esm", file=sys.stderr)
         return 2
@@ -56,6 +85,17 @@ def run_esmfold_api(input_file, output_dir, verbose=False):
 
     # Read sequences via the shared FASTA parser.
     sequences = read_fasta(input_file)
+
+    if not sequences:
+        print(f"ERROR: No sequences found in FASTA file: {input_file}", file=sys.stderr)
+        return 1
+
+    # ESMFold truncates sequences longer than 2000 aa below; surface that
+    # destructive behaviour even when --verbose is off.
+    for seq_id, seq in sequences:
+        if len(seq) > 2000:
+            print(f"NOTICE: Sequence {seq_id} is {len(seq)} aa and will be "
+                  f"truncated to 2000 aa")
 
     if verbose:
         print(f"Loaded {len(sequences)} sequence(s)")

@@ -19,6 +19,7 @@ Usage::
 
 from __future__ import annotations
 
+import shlex
 import subprocess
 from typing import Any
 
@@ -50,7 +51,7 @@ def find_conda_env(envs: list[str], import_check: str, timeout: int = 10) -> str
             )
             if result.returncode == 0:
                 return env
-        except (subprocess.TimeoutExpired, FileNotFoundError):
+        except (subprocess.TimeoutExpired, OSError):
             continue
     return None
 
@@ -92,14 +93,17 @@ def probe_conda_envs(
             if result.returncode == 0:
                 if not require_stdout or result.stdout.strip():
                     return env
-        except (subprocess.TimeoutExpired, FileNotFoundError):
+        except (subprocess.TimeoutExpired, OSError):
             continue
     return None
 
 
 def is_conda_command(command: str) -> bool:
     """Return True if ``command`` is a ``conda run`` or ``conda_api:`` marker."""
-    return command.startswith("conda run") or command.startswith("conda_api:")
+    if command.startswith("conda_api:"):
+        return True
+    # Token-level check so "conda runner ..." is not mistaken for "conda run".
+    return command.split()[:2] == ["conda", "run"]
 
 
 def is_bare_executable(command: str) -> bool:
@@ -123,10 +127,13 @@ def is_bare_executable(command: str) -> bool:
 def parse_conda_api(command: str) -> str | None:
     """Extract the env name from a ``conda_api:<env>`` marker string.
 
-    Returns ``None`` if ``command`` is not a ``conda_api:`` marker.
+    Returns ``None`` if ``command`` is not a ``conda_api:`` marker. The env
+    name is stripped of surrounding whitespace; a marker with an empty name
+    (e.g. ``"conda_api:"``) returns an empty string, which
+    :func:`build_tool_command` rejects as malformed.
     """
     if command.startswith("conda_api:"):
-        return command.split(":", 1)[1]
+        return command.split(":", 1)[1].strip()
     return None
 
 
@@ -166,16 +173,25 @@ def build_tool_command(
 
     Returns:
         An argv list suitable for ``subprocess.run(..., shell=False)``.
+
+    Raises:
+        ValueError: If ``command`` is a ``conda_api:`` marker with an empty
+            env name, or is empty/whitespace-only.
     """
+    command = command.strip()
+    if not command:
+        raise ValueError(f"Empty tool command: {command!r}")
     api_env = parse_conda_api(command)
     if api_env is not None:
+        if not api_env:
+            raise ValueError(f"conda_api: marker has an empty env name: {command!r}")
         argv = ["conda", "run", "-n", api_env, "python"]
     elif is_conda_command(command):
-        argv = command.split()
+        argv = shlex.split(command)
     elif bare_executable:
         argv = [command]
     elif command.startswith("python "):
-        argv = command.split()
+        argv = shlex.split(command)
     else:
         argv = ["python", command]
 

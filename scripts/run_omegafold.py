@@ -7,9 +7,8 @@ Usage: python scripts/run_omegafold.py --input sequences.fasta --output-dir outp
 Exit codes:
     0 = Success
     1 = Input file not found
-    2 = OmegaFold not installed / not found
+    2 = OmegaFold not installed / not found (argparse usage errors also exit 2)
     3 = Execution error
-    4 = Invalid arguments
 """
 
 import sys
@@ -25,9 +24,15 @@ import subprocess
 import time
 
 
-def find_omegafold():
+def find_omegafold(config):
     """Locate OmegaFold installation."""
-    # 1. Try direct command
+    # 1. Configured path / environment variable
+    if config.get("omegafold_path"):
+        path = Path(config["omegafold_path"])
+        if path.exists():
+            return str(path)
+
+    # 2. Try direct command
     try:
         result = subprocess.run(
             ["which", "omegafold"],
@@ -38,20 +43,20 @@ def find_omegafold():
     except FileNotFoundError:
         pass
 
-    # 2. Conda environments
+    # 3. Conda environments
     env = probe_conda_envs(["omegafold", "protein-design"], ["omegafold", "--help"])
     if env is not None:
         return f"conda run -n {env} omegafold"
 
-    # 3. pip-installed in current env
+    # 4. pip-installed in current env
     try:
         result = subprocess.run(
-            ["python", "-m", "omegafold", "--help"],
+            [sys.executable, "-m", "omegafold", "--help"],
             capture_output=True, text=True, timeout=5
         )
         if result.returncode == 0:
             return "python -m omegafold"
-    except FileNotFoundError:
+    except (subprocess.TimeoutExpired, OSError):
         pass
 
     return None
@@ -60,7 +65,7 @@ def find_omegafold():
 def run_omegafold(input_file, output_dir, subbatch_size=None, verbose=False):
     """Run OmegaFold prediction."""
     config = get_config("omegafold")
-    omegafold_cmd = find_omegafold()
+    omegafold_cmd = find_omegafold(config)
 
     if not omegafold_cmd:
         print("ERROR: OmegaFold not found. Install with: pip install OmegaFold", file=sys.stderr)

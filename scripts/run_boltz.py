@@ -7,9 +7,8 @@ Usage: python scripts/run_boltz.py --input input.yaml --out-dir outputs/boltz/ [
 Exit codes:
     0 = Success
     1 = Input file not found
-    2 = Boltz-1 not installed / not found
+    2 = Boltz-1 not installed / not found (argparse usage errors also exit 2)
     3 = Execution error
-    4 = Invalid arguments
 """
 
 import sys
@@ -43,20 +42,22 @@ def find_boltz(config):
     except FileNotFoundError:
         pass
 
-    # 2. Conda environments
+    # 3. Conda environments
     env = probe_conda_envs(["boltz", "boltz-1", "protein-design"], ["boltz", "--help"])
     if env is not None:
         return f"conda run -n {env} boltz"
 
-    # 3. pip-installed in current env
+    # 4. pip-installed in current env
     try:
         result = subprocess.run(
-            ["python", "-m", "boltz", "--help"],
+            [sys.executable, "-m", "boltz", "--help"],
             capture_output=True, text=True, timeout=5
         )
         if result.returncode == 0:
             return "python -m boltz"
-    except FileNotFoundError:
+    # Importing boltz pulls in torch and can easily exceed the 5s probe
+    # timeout; treat it as a failed probe, not a crash.
+    except (subprocess.TimeoutExpired, FileNotFoundError):
         pass
 
     return None

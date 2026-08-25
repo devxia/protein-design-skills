@@ -11,9 +11,8 @@ opt out (e.g. when the input has already been repaired).
 Exit codes:
     0 = Success
     1 = Config file not found
-    2 = RFdiffusion not installed / not found
+    2 = RFdiffusion not installed / not found (argparse usage errors also exit 2)
     3 = Execution error
-    4 = Invalid arguments
     5 = PDBFixer preprocessing failed
 """
 
@@ -120,7 +119,9 @@ def find_rfdiffusion(config):
                 )
                 if result2.returncode == 0 and result2.stdout.strip():
                     return result2.stdout.strip().split("\n")[0]
-                return f"conda run -n {env} python -m rfdiffusion"
+                # Package importable but no runnable entry point next to it;
+                # report "not found" rather than a command that cannot work
+                # (the upstream package has no __main__ entry point).
         except (subprocess.TimeoutExpired, FileNotFoundError):
             continue
 
@@ -175,8 +176,13 @@ def run_rfdiffusion(output_prefix=None, num_designs=50,
         overrides.append(f"contigmap.contigs=[\"{contig}\"]")
 
     if hotspot_res:
-        hotspots = ",".join(hotspot_res) if isinstance(hotspot_res, list) else hotspot_res
-        overrides.append(f"ppi.hotspot_res=[\"{hotspots}\"]")
+        if isinstance(hotspot_res, str):
+            hotspot_res = hotspot_res.split(",")
+        # Each hotspot must be its own quoted list element: upstream
+        # RFdiffusion parses every item as <chain><resnum>, so a merged
+        # "A30,A33" item raises ValueError.
+        hotspots = ",".join(f'"{res}"' for res in hotspot_res)
+        overrides.append(f"ppi.hotspot_res=[{hotspots}]")
 
     if diffuser_t:
         overrides.append(f"diffuser.T={diffuser_t}")
@@ -220,12 +226,13 @@ def run_rfdiffusion(output_prefix=None, num_designs=50,
 
     except subprocess.TimeoutExpired:
         print("ERROR: RFdiffusion timed out (>1 hour)", file=sys.stderr)
-        log_history("rfdiffusion", {"contig": contig}, 3600, False, config["output_dir"])
+        log_history("rfdiffusion", {"contig": contig, "num_designs": num_designs}, 3600,
+                    False, config["output_dir"])
         return 3
     except Exception as e:
         print(f"ERROR: {e}", file=sys.stderr)
-        log_history("rfdiffusion", {"contig": contig}, time.time() - start_time, False,
-                    config["output_dir"])
+        log_history("rfdiffusion", {"contig": contig, "num_designs": num_designs},
+                    time.time() - start_time, False, config["output_dir"])
         return 3
 
 

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import pytest
+
 from protein_design.conda_utils import (
     build_tool_command,
     find_conda_env,
@@ -30,8 +32,22 @@ def test_is_conda_command_rejects_plain_path() -> None:
     assert is_conda_command("/usr/local/bin/tool") is False
 
 
+def test_is_conda_command_rejects_conda_runner() -> None:
+    """Token-level check: "conda runner" must not match "conda run"."""
+    assert is_conda_command("conda runner -n x") is False
+    assert is_conda_command("conda_runner") is False
+
+
 def test_parse_conda_api_extracts_env() -> None:
     assert parse_conda_api("conda_api:myenv") == "myenv"
+
+
+def test_parse_conda_api_strips_env_whitespace() -> None:
+    assert parse_conda_api("conda_api: myenv ") == "myenv"
+
+
+def test_parse_conda_api_empty_env_returns_empty_string() -> None:
+    assert parse_conda_api("conda_api:") == ""
 
 
 def test_parse_conda_api_returns_none_for_non_marker() -> None:
@@ -97,6 +113,48 @@ def test_build_tool_command_bare_executable_runs_directly() -> None:
 def test_build_tool_command_bare_executable_with_wrapper() -> None:
     cmd = build_tool_command("omegafold", wrapper_script="/w.sh", bare_executable=True)
     assert cmd == ["/w.sh", "omegafold"]
+
+
+def test_build_tool_command_strips_surrounding_whitespace() -> None:
+    """Leading/trailing whitespace must not break dispatch."""
+    assert build_tool_command("  conda run -n rfdiff python -m rfdiffusion  ") == [
+        "conda",
+        "run",
+        "-n",
+        "rfdiff",
+        "python",
+        "-m",
+        "rfdiffusion",
+    ]
+
+
+def test_build_tool_command_shlex_splits_quoted_args() -> None:
+    """Quoted arguments containing spaces survive as single tokens."""
+    assert build_tool_command("conda run -n env python 'run script.py' --flag 'a b'") == [
+        "conda",
+        "run",
+        "-n",
+        "env",
+        "python",
+        "run script.py",
+        "--flag",
+        "a b",
+    ]
+
+
+def test_build_tool_command_rejects_empty_conda_api_env() -> None:
+    """A "conda_api:" marker with an empty env name is a malformed command."""
+    with pytest.raises(ValueError):
+        build_tool_command("conda_api:")
+    with pytest.raises(ValueError):
+        build_tool_command("conda_api:  ")
+
+
+def test_build_tool_command_rejects_empty_command() -> None:
+    with pytest.raises(ValueError):
+        build_tool_command("")
+    with pytest.raises(ValueError):
+        build_tool_command("   ")
 
 
 # ---------------------------------------------------------------------------
@@ -177,4 +235,25 @@ def test_probe_conda_envs_returns_none_when_conda_missing(monkeypatch) -> None:
         raise FileNotFoundError("conda")
 
     monkeypatch.setattr(cu.subprocess, "run", raise_file_not_found)
+    assert probe_conda_envs(["boltz"], ["boltz", "--help"]) is None
+
+
+def test_find_conda_env_continues_on_permission_error(monkeypatch) -> None:
+    """Other OSError subclasses (e.g. PermissionError) must not abort probing."""
+    import protein_design.conda_utils as cu
+
+    def raise_permission_error(*args, **kwargs):
+        raise PermissionError("conda")
+
+    monkeypatch.setattr(cu.subprocess, "run", raise_permission_error)
+    assert find_conda_env(["rfdiffusion"], "import rfdiffusion") is None
+
+
+def test_probe_conda_envs_continues_on_permission_error(monkeypatch) -> None:
+    import protein_design.conda_utils as cu
+
+    def raise_permission_error(*args, **kwargs):
+        raise PermissionError("conda")
+
+    monkeypatch.setattr(cu.subprocess, "run", raise_permission_error)
     assert probe_conda_envs(["boltz"], ["boltz", "--help"]) is None

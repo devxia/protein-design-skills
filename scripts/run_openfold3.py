@@ -7,9 +7,8 @@ Usage: python scripts/run_openfold3.py --input input.fasta --output-dir outputs/
 Exit codes:
     0 = Success
     1 = Input file not found
-    2 = OpenFold3 not installed / not found
+    2 = OpenFold3 not installed / not found (argparse usage errors also exit 2)
     3 = Execution error
-    4 = Invalid arguments
 
 Note: OpenFold3 is an open-source reimplementation of AlphaFold3.
 It may require manual model weight downloads and database setup.
@@ -27,9 +26,15 @@ import subprocess
 import time
 
 
-def find_openfold3():
+def find_openfold3(config):
     """Locate OpenFold3 installation."""
-    # 1. Try direct openfold command
+    # 1. Configured path / environment variable
+    if config.get("openfold3_path"):
+        path = Path(config["openfold3_path"])
+        if path.exists():
+            return str(path)
+
+    # 2. Try direct openfold command
     try:
         result = subprocess.run(
             ["which", "openfold3"],
@@ -40,7 +45,7 @@ def find_openfold3():
     except FileNotFoundError:
         pass
 
-    # 2. Try openfold-run (alternative entry point)
+    # 3. Try openfold-run (alternative entry point)
     try:
         result = subprocess.run(
             ["which", "openfold-run"],
@@ -51,7 +56,7 @@ def find_openfold3():
     except FileNotFoundError:
         pass
 
-    # 3. Conda environments
+    # 4. Conda environments
     conda_envs = ["openfold3", "openfold", "protein-design"]
     for env in conda_envs:
         try:
@@ -64,7 +69,7 @@ def find_openfold3():
         except (subprocess.TimeoutExpired, FileNotFoundError):
             continue
 
-    # 4. Check common install paths
+    # 5. Check common install paths
     common_paths = [
         Path.home() / "software" / "openfold3",
         Path.home() / "software" / "openfold",
@@ -83,7 +88,10 @@ def run_openfold3(input_file, out_dir, model_dir=None, db_dir=None,
                   num_recycling=3, verbose=False):
     """Run OpenFold3 prediction."""
     config = get_config("openfold3")
-    openfold_cmd = find_openfold3()
+    # CLI --db-dir wins; fall back to OPENFOLD3_DB_DIR / ALPHAFOLD*_DB_DIR
+    if not db_dir:
+        db_dir = config.get("db_dir")
+    openfold_cmd = find_openfold3(config)
 
     if not openfold_cmd:
         print("ERROR: OpenFold3 not found.", file=sys.stderr)
@@ -98,9 +106,9 @@ def run_openfold3(input_file, out_dir, model_dir=None, db_dir=None,
     out_path = Path(out_dir)
     out_path.mkdir(parents=True, exist_ok=True)
 
-    # Build command based on installation type
+    # Build command based on installation type (wrapper applies to all forms)
+    wrapper = resolve_wrapper_script(config, "openfold3")
     if openfold_cmd.startswith("conda_api:"):
-        wrapper = resolve_wrapper_script(config, "openfold3")
         cmd = build_tool_command(openfold_cmd, wrapper_script=wrapper)
         if Path(input_file).suffix == ".json":
             cmd.extend(["-m", "openfold", "infer", str(input_file)])
@@ -109,7 +117,7 @@ def run_openfold3(input_file, out_dir, model_dir=None, db_dir=None,
         cmd.extend(["--output_dir", str(out_dir)])
 
     elif openfold_cmd.endswith("run_pretrained_openfold.py"):
-        cmd = ["python", openfold_cmd]
+        cmd = build_tool_command(openfold_cmd, wrapper_script=wrapper)
         cmd.extend(["--fasta_paths", str(input_file)])
         cmd.extend(["--output_dir", str(out_dir)])
         if model_dir:
@@ -119,7 +127,7 @@ def run_openfold3(input_file, out_dir, model_dir=None, db_dir=None,
 
     else:
         # Direct CLI
-        cmd = [openfold_cmd]
+        cmd = build_tool_command(openfold_cmd, wrapper_script=wrapper)
         if Path(input_file).suffix == ".json":
             cmd.extend(["infer", str(input_file)])
         else:

@@ -39,7 +39,9 @@ def get_config(tool_name: str | None = None) -> dict[str, Any]:
     Args:
         tool_name: Optional tool identifier (e.g. ``"alphafold3"``). When
             provided, the corresponding ``<TOOL>_PATH`` environment variable is
-            included in the resolution.
+            included in the resolution. For ``"alphafold3"`` the legacy
+            ``ALPHAFOLD_PATH`` variable is honoured as a fallback when
+            ``ALPHAFOLD3_PATH`` is not set (the latter wins when both are set).
 
     Returns:
         A dictionary with at least ``output_dir`` and any tool-specific paths.
@@ -63,6 +65,10 @@ def get_config(tool_name: str | None = None) -> dict[str, Any]:
         tool_key = tool_name.lower().replace("-", "_")
         tool_upper = tool_name.upper().replace("-", "_")
         path_env = f"{tool_upper}_PATH"
+        # Legacy alias: the docs historically documented ALPHAFOLD_PATH for the
+        # alphafold3 tool; the derived ALPHAFOLD3_PATH still takes priority.
+        if tool_key == "alphafold3" and path_env not in os.environ:
+            path_env = "ALPHAFOLD_PATH"
         config[f"{tool_key}_path"] = os.environ.get(path_env, "")
         if path_env in os.environ:
             env_overrides[f"{tool_key}_path"] = os.environ[path_env]
@@ -109,6 +115,11 @@ def log_history(
 ) -> None:
     """Append an execution record to ``~/.protein-design/history.jsonl``.
 
+    This is a side-channel log: any failure (unwritable ``HOME``, full disk,
+    non-JSON-serialisable ``params``, ...) is reported as a short warning on
+    stderr but never propagated, so a logging failure can never crash an
+    otherwise successful pipeline stage.
+
     Args:
         tool_name: Name of the tool that ran.
         params: Dictionary of parameters / inputs.
@@ -116,21 +127,24 @@ def log_history(
         success: Whether the run succeeded.
         output_dir: Optional output directory to record.
     """
-    history_file = Path.home() / ".protein-design" / "history.jsonl"
-    history_file.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        history_file = Path.home() / ".protein-design" / "history.jsonl"
+        history_file.parent.mkdir(parents=True, exist_ok=True)
 
-    record: dict[str, Any] = {
-        "tool": tool_name,
-        "params": params,
-        "runtime": runtime,
-        "success": success,
-        "timestamp": datetime.now().isoformat(),
-    }
-    if output_dir is not None:
-        record["output_dir"] = output_dir
+        record: dict[str, Any] = {
+            "tool": tool_name,
+            "params": params,
+            "runtime": runtime,
+            "success": success,
+            "timestamp": datetime.now().isoformat(),
+        }
+        if output_dir is not None:
+            record["output_dir"] = output_dir
 
-    with open(history_file, "a", encoding="utf-8") as f:
-        f.write(json.dumps(record, ensure_ascii=False) + "\n")
+        with open(history_file, "a", encoding="utf-8") as f:
+            f.write(json.dumps(record, ensure_ascii=False) + "\n")
+    except Exception as exc:
+        print(f"Warning: failed to log run history: {exc}", file=sys.stderr)
 
 
 # ---------------------------------------------------------------------------
@@ -138,7 +152,11 @@ def log_history(
 # ---------------------------------------------------------------------------
 
 def read_fasta(filepath: str | Path) -> list[tuple[str, str]]:
-    """Read a FASTA file and return a list of ``(seq_id, sequence)`` tuples."""
+    """Read a FASTA file and return a list of ``(seq_id, sequence)`` tuples.
+
+    Records with an empty header (a bare ``>`` line) are skipped, as is any
+    sequence text that appears before the first header.
+    """
     sequences: list[tuple[str, str]] = []
     current_id: str | None = None
     current_seq: list[str] = []
@@ -149,9 +167,18 @@ def read_fasta(filepath: str | Path) -> list[tuple[str, str]]:
             if not line:
                 continue
             if line.startswith(">"):
+                header = line[1:].split()
+                if not header:
+                    # Skip records with an empty header (a bare ">");
+                    # flush any pending record first.
+                    if current_id is not None:
+                        sequences.append((current_id, "".join(current_seq)))
+                    current_id = None
+                    current_seq = []
+                    continue
                 if current_id is not None:
                     sequences.append((current_id, "".join(current_seq)))
-                current_id = line[1:].split()[0]
+                current_id = header[0]
                 current_seq = []
             else:
                 current_seq.append(line)
@@ -353,11 +380,12 @@ def send_notification(title: str, message: str) -> None:
 
 
 def _run_notifier(argv: list[str]) -> None:
-    """Run a notifier subprocess, swallowing timeout and other failures.
+    """Run a notifier subprocess, swallowing launch and timeout failures.
 
-    A 10-second timeout prevents hanging on an unresponsive notifier; both
-    ``TimeoutExpired`` and any other exception are silently ignored to honour
-    the best-effort contract of :func:`send_notification`.
+    A 10-second timeout prevents hanging on an unresponsive notifier. Only
+    ``subprocess.TimeoutExpired`` and ``OSError`` subclasses (such as
+    ``FileNotFoundError`` when the notifier binary is missing) are silently
+    ignored; any other exception type still propagates to the caller.
     """
     try:
         subprocess.run(argv, capture_output=True, text=True, check=False, timeout=10)

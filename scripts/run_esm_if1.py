@@ -7,9 +7,7 @@ Usage: python scripts/run_esm_if1.py --pdb-path structure.pdb --output-path outp
 Exit codes:
     0 = Success
     1 = Input file not found
-    2 = ESM-IF1 not installed / not found
-    3 = Execution error
-    4 = Invalid arguments
+    2 = ESM-IF1 not installed / not found (argparse usage errors also exit 2)
 
 Upstream references:
     - https://github.com/facebookresearch/esm
@@ -87,12 +85,12 @@ def find_esm_if1(config):
     # 4. Try pip-installed module CLI in the current interpreter
     try:
         result = subprocess.run(
-            ["python", "-c", "import esm.inverse_folding.cli; print('ok')"],
+            [sys.executable, "-c", "import esm.inverse_folding.cli; print('ok')"],
             capture_output=True, text=True, timeout=5
         )
         if result.returncode == 0:
             return "python -m esm.inverse_folding.cli"
-    except FileNotFoundError:
+    except (subprocess.TimeoutExpired, OSError):
         pass
 
     return None

@@ -50,8 +50,10 @@ def find_colabfold(config):
     except FileNotFoundError:
         pass
 
-    # 3. Common install locations
+    # 3. Common install locations (official layout first, legacy doubled
+    # directory kept as a fallback for older installs)
     common_paths = [
+        Path.home() / "localcolabfold" / "colabfold-conda" / "bin" / "colabfold_batch",
         Path.home() / "localcolabfold" / "localcolabfold" / "colabfold-conda" / "bin" / "colabfold_batch",
         Path.home() / "ColabFold" / "colabfold_batch",
         Path("/opt/ColabFold/colabfold_batch"),

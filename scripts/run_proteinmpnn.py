@@ -7,9 +7,8 @@ Usage: python scripts/run_proteinmpnn.py --pdb-path design.pdb --out-folder outp
 Exit codes:
     0 = Success
     1 = Input file not found
-    2 = ProteinMPNN not installed / not found
+    2 = ProteinMPNN not installed / not found (argparse usage errors also exit 2)
     3 = Execution error
-    4 = Invalid arguments
 """
 
 import sys
