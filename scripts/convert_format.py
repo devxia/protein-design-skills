@@ -14,7 +14,7 @@ Supported conversions:
 Exit codes:
     0 = Success
     1 = Input file not found
-    2 = Unsupported conversion
+    2 = Unsupported conversion or no valid results
     3 = Conversion error
 """
 
@@ -49,10 +49,10 @@ def fasta_to_boltz_yaml(sequences, ligands=None):
 
 
 def fasta_to_chai_fasta(sequences):
-    """Convert to Chai-1 compatible FASTA with entity comments."""
+    """Convert to Chai-1 FASTA (entity type first: ``>protein|name=<id>``)."""
     lines = []
     for seq_id, seq in sequences:
-        lines.append(f">{seq_id}|protein")
+        lines.append(f">protein|name={seq_id}")
         for j in range(0, len(seq), 60):
             lines.append(seq[j:j+60])
     return "\n".join(lines)

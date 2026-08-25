@@ -20,6 +20,13 @@ COST_TABLE: dict[str, dict[str, Any]] = {
         "gpu_memory_gb": 24,
         "setup_time": 30,  # minutes (first run)
     },
+    # ColabDesign/afdesign hallucination runs are single-pipeline (no separate
+    # MPNN stage); cost approximates RFdiffusion per-design until measured.
+    "colabdesign": {
+        "time_per_design": 2,  # minutes (~ rfdiffusion class)
+        "gpu_memory_gb": 24,
+        "setup_time": 20,
+    },
     "rfdiffusion_aa": {
         "time_per_design": 5,
         "gpu_memory_gb": 48,

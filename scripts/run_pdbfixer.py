@@ -11,9 +11,8 @@ inside a conda environment when one is discovered.
 Exit codes:
     0 = Success
     1 = Input file not found
-    2 = PDBFixer not installed / not found
+    2 = PDBFixer not installed / not found (argparse usage errors also exit 2)
     3 = Processing error
-    4 = Invalid arguments
 """
 
 import sys

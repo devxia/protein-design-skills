@@ -12,10 +12,11 @@ Enhancements over base version:
 - Shows progress bars against detected or default expectations
 - Bilingual keyword support (English + Chinese)
 """
+import os
 import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
-from protein_design.utils import parse_confidence_json, read_hook_input
+from protein_design.utils import get_config, parse_confidence_json, read_hook_input
 import traceback
 import json
 from typing import Any
@@ -71,14 +72,21 @@ def _should_respond(prompt: str) -> bool:
 
 def _find_output_dir() -> Path:
     """Determine output directory from env > config > default > cwd."""
-    candidates = [
-        Path("outputs"),
-        Path("/tmp/protein-design"),
-        Path("."),
-    ]
-    for c in candidates:
-        if c.exists() and c.is_dir():
-            return c
+    # 1. Explicit environment variable
+    env_dir = os.environ.get("PROTEIN_DESIGN_OUTPUT_DIR")
+    if env_dir:
+        p = Path(env_dir).expanduser()
+        if p.is_dir():
+            return p
+    # 2. Config file (get_config already resolves env > config > default)
+    config_dir = Path(str(get_config().get("output_dir", ""))).expanduser()
+    if str(config_dir) not in ("", "/tmp/protein-design") and config_dir.is_dir():
+        return config_dir
+    # 3. Built-in default
+    default = Path("/tmp/protein-design")
+    if default.is_dir():
+        return default
+    # 4. Current directory fallback
     return Path(".")
 
 
@@ -272,7 +280,7 @@ def main() -> int:
         traceback.print_exc()
         return 1
 
-    prompt = str(data.get("user_prompt", ""))
+    prompt = str(data.get("prompt", "")) if isinstance(data, dict) else ""
     if not prompt or not _should_respond(prompt):
         return 0
 

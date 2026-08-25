@@ -156,7 +156,7 @@ python scripts/run_pdbfixer.py \
 python scripts/run_rfdiffusion.py \
   --input-pdb target_fixed.pdb \
   --contig "[B1-100/0 100-100]" \
-  --hotspot-res A30 A33 A34 \
+  --hotspot-res A30,A33,A34 \
   --output-prefix outputs/binder \
   --num-designs 50
 ```

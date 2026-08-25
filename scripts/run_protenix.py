@@ -4,12 +4,16 @@ Standalone Protenix runner.
 
 Usage: python scripts/run_protenix.py --input input.json --output-dir outputs/protenix/ [options]
 
+Invokes Protenix as ``protenix predict --input <json> --out_dir <dir> --cycle N``
+(Protenix v0.5.x form). When the installed CLI only accepts the newer ``pred``
+subcommand (``protenix pred -i <json> -o <dir>``), that form is used instead.
+The script's ``--num-recycling`` flag maps to Protenix's ``--cycle`` flag.
+
 Exit codes:
     0 = Success
     1 = Input file not found
-    2 = Protenix not installed / not found
+    2 = Protenix not installed / not found (argparse usage errors also exit 2)
     3 = Execution error
-    4 = Invalid arguments
 """
 
 import sys
@@ -27,6 +31,13 @@ import time
 
 def find_protenix():
     """Locate Protenix installation."""
+    config = get_config("protenix")
+    # 0. Configured path / environment variable
+    if config.get("protenix_path"):
+        path = Path(config["protenix_path"])
+        if path.exists():
+            return str(path)
+
     # 1. Try direct command
     try:
         result = subprocess.run(
@@ -35,7 +46,7 @@ def find_protenix():
         )
         if result.returncode == 0 and result.stdout.strip():
             return "protenix"
-    except FileNotFoundError:
+    except (subprocess.TimeoutExpired, OSError):
         pass
 
     # 2. Conda environments
@@ -46,18 +57,50 @@ def find_protenix():
     # 3. pip-installed in current env
     try:
         result = subprocess.run(
-            ["python", "-m", "protenix", "--help"],
+            [sys.executable, "-m", "protenix", "--help"],
             capture_output=True, text=True, timeout=5
         )
         if result.returncode == 0:
             return "python -m protenix"
-    except FileNotFoundError:
+    except (subprocess.TimeoutExpired, OSError):
         pass
 
     return None
 
 
-def run_protenix(input_file, out_dir, num_recycling=3, verbose=False):
+def _probe_subcommand(base_argv, subcommand):
+    """Return True if ``<base_argv> <subcommand> --help`` exits 0."""
+    try:
+        result = subprocess.run(
+            base_argv + [subcommand, "--help"],
+            capture_output=True, text=True, timeout=30
+        )
+        return result.returncode == 0
+    except (subprocess.TimeoutExpired, OSError):
+        return False
+
+
+def _resolve_predict_form(base_argv, verbose=False):
+    """Decide how to invoke prediction on the installed Protenix CLI.
+
+    Protenix v0.5.x uses ``predict --input <json> --out_dir <dir>``; newer
+    releases renamed the subcommand to ``pred`` with short flags
+    (``pred -i <json> -o <dir>``). Probe ``--help`` to detect which form the
+    installed version accepts. When neither probe succeeds, fall back to the
+    v0.5.x form so the failure surfaces as a normal execution error (exit 3).
+
+    Returns a ``(subcommand, input_flag, out_dir_flag)`` tuple.
+    """
+    if _probe_subcommand(base_argv, "predict"):
+        return ("predict", "--input", "--out_dir")
+    if _probe_subcommand(base_argv, "pred"):
+        if verbose:
+            print("Detected newer Protenix CLI: using 'pred' subcommand")
+        return ("pred", "-i", "-o")
+    return ("predict", "--input", "--out_dir")
+
+
+def run_protenix(input_file, out_dir, num_recycling=3, verbose=False, from_fasta=False):
     """Run Protenix prediction."""
     config = get_config("protenix")
     protenix_cmd = find_protenix()
@@ -73,15 +116,33 @@ def run_protenix(input_file, out_dir, num_recycling=3, verbose=False):
     out_path = Path(out_dir)
     out_path.mkdir(parents=True, exist_ok=True)
 
+    # Convert FASTA to Protenix JSON only after the tool is confirmed present,
+    # so a missing installation leaves no partial output behind.
+    if from_fasta:
+        from protein_design.utils import read_fasta, fasta_to_alphafold3_json
+
+        json_file = out_path / "protenix_input.json"
+        sequences = read_fasta(input_file)
+        af3_input = fasta_to_alphafold3_json(
+            sequences, job_name="protenix_run"
+        )
+        with open(json_file, "w", encoding="utf-8") as f:
+            json.dump(af3_input, f, indent=2)
+        input_file = str(json_file)
+        if verbose:
+            print(f"Converted FASTA to JSON: {input_file}")
+
     # Build command
     wrapper = resolve_wrapper_script(config, "protenix")
     cmd = build_tool_command(
         protenix_cmd, wrapper_script=wrapper, bare_executable=is_bare_executable(protenix_cmd)
     )
-    cmd.extend(["predict", str(input_file), "--out_dir", str(out_dir)])
+    subcommand, input_flag, out_dir_flag = _resolve_predict_form(cmd, verbose=verbose)
+    cmd.extend([subcommand, input_flag, str(input_file), out_dir_flag, str(out_dir)])
 
+    # --num-recycling maps to Protenix's --cycle flag
     if num_recycling != 3:
-        cmd.extend(["--num_recycling", str(num_recycling)])
+        cmd.extend(["--cycle", str(num_recycling)])
 
     if verbose:
         print(f"Running: {' '.join(cmd)}")
@@ -146,7 +207,7 @@ Examples:
     parser.add_argument("--output-dir", "--out-dir", "-o", required=True,
                         help="Output directory")
     parser.add_argument("--num-recycling", type=int, default=3,
-                        help="Number of recycling steps (default: 3)")
+                        help="Number of recycling steps, passed to Protenix as --cycle (default: 3)")
     parser.add_argument("--from-fasta", action="store_true",
                         help="Convert FASTA input to Protenix JSON format")
     parser.add_argument("--verbose", "-v", action="store_true",
@@ -156,28 +217,18 @@ Examples:
 
     input_file = args.input
 
-    # Auto-convert FASTA to JSON if requested
-    if args.from_fasta:
-        from protein_design.utils import read_fasta, fasta_to_alphafold3_json
-
-        out_path = Path(args.output_dir)
-        out_path.mkdir(parents=True, exist_ok=True)
-        json_file = out_path / "protenix_input.json"
-        sequences = read_fasta(args.input)
-        af3_input = fasta_to_alphafold3_json(
-            sequences, job_name="protenix_run"
-        )
-        with open(json_file, "w", encoding="utf-8") as f:
-            json.dump(af3_input, f, indent=2)
-        input_file = str(json_file)
-        if args.verbose:
-            print(f"Converted FASTA to JSON: {input_file}")
+    # Fail fast on a missing input file (exit 1) before tool discovery or any
+    # FASTA-conversion side effects.
+    if not Path(input_file).exists():
+        print(f"ERROR: Input file not found: {input_file}", file=sys.stderr)
+        return 1
 
     return run_protenix(
         input_file=input_file,
         out_dir=args.output_dir,
         num_recycling=args.num_recycling,
         verbose=args.verbose,
+        from_fasta=args.from_fasta,
     )
 
 

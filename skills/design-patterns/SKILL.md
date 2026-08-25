@@ -53,7 +53,7 @@ python scripts/run_pdbfixer.py \
 python scripts/run_rfdiffusion.py \
   --input-pdb outputs/pd-l1_fixed.pdb \
   --contig "[B1-150/0 100-100]" \
-  --hotspot-res A30 A33 A34 A56 \
+  --hotspot-res A30,A33,A34,A56 \
   --output-prefix outputs/pd-l1_binder/design \
   --num-designs 100 \
   --diffuser-t 50
@@ -101,7 +101,7 @@ python scripts/run_rfdiffusion.py \
 python scripts/run_rfdiffusion.py \
   --input-pdb outputs/target_fixed.pdb \
   --contig "[B1-100/0 12-18]" \
-  --hotspot-res A30 A33 \
+  --hotspot-res A30,A33 \
   --cyclic \
   --cyc-chains b \
   --output-prefix outputs/cyclic_binder/design \

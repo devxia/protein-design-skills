@@ -33,6 +33,12 @@ STANDALONE_SCRIPTS = {
     "chai": "run_chai1.py",
     "omegafold": "run_omegafold.py",
     "esmfold": "run_esmfold.py",
+    "esm_if1": "run_esm_if1.py",
+    "esmif1": "run_esm_if1.py",
+    "openfold3": "run_openfold3.py",
+    "protenix": "run_protenix.py",
+    "colabfold": "run_colabfold.py",
+    "ligandmpnn": "run_ligandmpnn.py",
     "filtering": "run_filtering.py",
     "convert_format": "convert_format.py",
 }
@@ -138,12 +144,12 @@ def _build_script_command(tool: str, params: dict[str, Any]) -> str:
         "boltz": {
             "input_path": "--input",
             "output_dir": "--out-dir",
-            "use_msa_server": None,
+            "use_msa_server": "--no-msa",
         },
         "chai1": {
             "input_path": "--input",
             "output_dir": "--output-dir",
-            "use_msa_server": None,
+            "use_msa_server": "--no-msa",
         },
         "omegafold": {
             "fasta_path": "--input",
@@ -152,6 +158,39 @@ def _build_script_command(tool: str, params: dict[str, Any]) -> str:
         "esmfold": {
             "fasta_path": "--input",
             "output_dir": "--output-dir",
+        },
+        "esm_if1": {
+            "pdb_path": "--pdb-path",
+            "output_path": "--output-path",
+            "num_sequences": "--num-sequences",
+        },
+        "openfold3": {
+            "input_path": "--input",
+            "fasta_path": "--input",
+            "output_dir": "--output-dir",
+            "model_dir": "--model-dir",
+            "db_dir": "--db-dir",
+            "num_recycling": "--num-recycling",
+        },
+        "protenix": {
+            "input_path": "--input",
+            "fasta_path": "--input",
+            "output_dir": "--output-dir",
+            "num_recycling": "--num-recycling",
+        },
+        "colabfold": {
+            "input_path": "--input",
+            "fasta_path": "--input",
+            "output_dir": "--output-dir",
+            "num_models": "--num-models",
+        },
+        "ligandmpnn": {
+            "pdb_path": "--pdb-path",
+            "out_folder": "--out-folder",
+            "num_seq_per_target": "--num-seq-per-target",
+            "sampling_temp": "--sampling-temp",
+            "pdb_path_chains": "--chains",
+            "seed": "--seed",
         },
         "filtering": {
             "results_dir": "--results-dir",
@@ -174,15 +213,15 @@ def _build_script_command(tool: str, params: dict[str, Any]) -> str:
         if key in mapping:
             arg_name = mapping[key]
             if arg_name is None:
-                if value:
-                    cmd_parts.append(f"--{key}")
                 continue
 
             if isinstance(value, list):
                 value_str = ",".join(str(v) for v in value)
             elif isinstance(value, bool):
-                if key == "run_data_pipeline" and not value:
-                    cmd_parts.append("--no-msa")
+                # Negative flags (--no-*): only pass when the feature is
+                # disabled; True means "default behaviour", no flag needed.
+                if arg_name.startswith("--no-") and not value:
+                    cmd_parts.append(arg_name)
                 continue
             else:
                 value_str = str(value)
@@ -203,7 +242,14 @@ def _build_direct_command(tool: str, params: dict[str, Any]) -> str:
     for key, value in params.items():
         if key in template["params"] and value is not None:
             fmt = template["params"][key]
-            if isinstance(value, list):
+            if key == "hotspot_res":
+                # Hydra list override: quote each hotspot individually
+                # (matches scripts/run_rfdiffusion.py).
+                items = value if isinstance(value, list) else str(value).split(",")
+                value_str = ",".join(
+                    f'"{str(i).strip()}"' for i in items if str(i).strip()
+                )
+            elif isinstance(value, list):
                 value_str = ",".join(str(v) for v in value)
             else:
                 value_str = str(value)
@@ -224,8 +270,19 @@ def main() -> int:
         traceback.print_exc()
         return 1
 
-    tool = data.get("params", {}).get("tool", "")
-    params = data.get("params", {}).get("params", {})
+    # Only process dict payloads (non-dict JSON is ignored, not an error).
+    # Prefer the flat payload shape; tolerate nested legacy shape.
+    if not isinstance(data, dict):
+        return 0
+    tool = data.get("tool") or data.get("tool_name") or ""
+    params: Any = data.get("tool_input")
+    if not tool and isinstance(data.get("params"), dict) and data["params"].get("tool"):
+        # Legacy nested shape: {"params": {"tool": ..., "params": {...}}}
+        tool = data["params"].get("tool", "")
+        params = data["params"].get("params")
+    if not isinstance(params, dict):
+        params = {}
+    params = {k: v for k, v in params.items() if k != "tool"}
 
     # Check if standalone script is available (preferred)
     script_path = _find_script(tool)

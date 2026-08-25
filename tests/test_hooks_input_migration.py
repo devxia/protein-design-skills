@@ -64,6 +64,53 @@ def test_cost_estimator_ignores_keywords_outside_prompt(monkeypatch, capsys):
     assert "Cost Estimator" not in out
 
 
+def test_user_onboarding_reads_prompt_from_json_payload(monkeypatch, capsys):
+    """Onboarding must trigger on the standard "prompt" payload key."""
+    module = load_hook_module("user-onboarding")
+    monkeypatch.setattr(module, "_check_tools", lambda: {})
+    payload = {"prompt": "Design a protein binder with RFdiffusion"}
+    monkeypatch.setattr("sys.stdin", io.StringIO(json.dumps(payload)))
+    rc = module.main()
+    out = capsys.readouterr().out
+    assert rc == 0
+    assert "Welcome to Protein Design" in out
+
+
+def test_user_onboarding_ignores_keywords_outside_prompt(monkeypatch, capsys):
+    """Keywords in unrelated JSON fields must not trigger onboarding."""
+    module = load_hook_module("user-onboarding")
+    monkeypatch.setattr(module, "_check_tools", lambda: {})
+    payload = {"session_id": "rfdiffusion-proteinmpnn", "prompt": "hello there"}
+    monkeypatch.setattr("sys.stdin", io.StringIO(json.dumps(payload)))
+    rc = module.main()
+    out = capsys.readouterr().out
+    assert rc == 0
+    assert "Welcome to Protein Design" not in out
+
+
+def test_progress_query_helper_reads_prompt_from_json_payload(monkeypatch, capsys, tmp_path):
+    """The progress helper must trigger on the standard "prompt" payload key."""
+    module = load_hook_module("progress-query-helper")
+    monkeypatch.setattr(module, "_find_output_dir", lambda: tmp_path)
+    payload = {"prompt": "How many designs have been generated so far?"}
+    monkeypatch.setattr("sys.stdin", io.StringIO(json.dumps(payload)))
+    rc = module.main()
+    out = capsys.readouterr().out
+    assert rc == 0
+    assert "Progress Helper" in out
+
+
+def test_progress_query_helper_ignores_keywords_outside_prompt(monkeypatch, capsys):
+    """Keywords in unrelated JSON fields must not trigger the progress helper."""
+    module = load_hook_module("progress-query-helper")
+    payload = {"session_id": "progress-summary", "prompt": "hello there"}
+    monkeypatch.setattr("sys.stdin", io.StringIO(json.dumps(payload)))
+    rc = module.main()
+    out = capsys.readouterr().out
+    assert rc == 0
+    assert "Progress Helper" not in out
+
+
 def test_hooks_run_standalone_from_any_cwd(tmp_path):
     """Production fidelity: hooks execute as plain scripts with the repo root
     NOT importable (no PYTHONPATH, foreign cwd) — exactly how agents run them."""

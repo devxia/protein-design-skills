@@ -277,7 +277,7 @@ All agents get the same 22 hooks and 76 skills. Claude Code auto-discovers `hook
 # Set tool paths
 export RFDIFFUSION_PATH="~/RFdiffusion"
 export PROTEINMPNN_PATH="~/ProteinMPNN"
-export ALPHAFOLD_PATH="~/alphafold3"
+export ALPHAFOLD3_PATH="~/alphafold3"  # canonical; legacy ALPHAFOLD_PATH still honoured
 
 # Or use config file
 cat ~/.protein-design/config.yaml

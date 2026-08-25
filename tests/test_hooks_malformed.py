@@ -10,7 +10,10 @@ import pytest
 from tests.helpers import load_hook_module
 
 HOOKS = [
+    load_hook_module("background-notify"),
     load_hook_module("design-complete-notify"),
+    load_hook_module("design-comparator"),
+    load_hook_module("design-report"),
     load_hook_module("pipeline-orchestrator"),
     load_hook_module("format-converter"),
     load_hook_module("quality-gate"),
@@ -28,9 +31,29 @@ MALFORMED_PAYLOADS = [
     {"result": {"isError": True, "content": [None]}},
 ]
 
+# Valid JSON that is not an object must also never crash a hook (# batch 2).
+NON_DICT_PAYLOADS = [
+    [],
+    ["run_boltz", {"result": {}}],
+    "just-a-string",
+    42,
+    None,
+    True,
+]
+
 
 @pytest.mark.parametrize("payload", MALFORMED_PAYLOADS)
 def test_hooks_survive_malformed_payloads(monkeypatch, capsys, payload):
+    for module in HOOKS:
+        monkeypatch.setattr("sys.stdin", io.StringIO(json.dumps(payload)))
+        rc = module.main()
+        captured = capsys.readouterr()
+        assert rc == 0, f"{module.__name__} returned {rc}"
+        assert "Traceback" not in captured.err, f"{module.__name__} crashed: {captured.err}"
+
+
+@pytest.mark.parametrize("payload", NON_DICT_PAYLOADS)
+def test_hooks_survive_non_dict_json(monkeypatch, capsys, payload):
     for module in HOOKS:
         monkeypatch.setattr("sys.stdin", io.StringIO(json.dumps(payload)))
         rc = module.main()

@@ -7,9 +7,8 @@ Usage: python scripts/run_alphafold3.py --json input.json --output-dir outputs/a
 Exit codes:
     0 = Success
     1 = Input file not found
-    2 = AlphaFold3 not installed / not found
+    2 = AlphaFold3 not installed / not found (argparse usage errors also exit 2)
     3 = Execution error
-    4 = Invalid arguments
 """
 
 import sys
@@ -27,9 +26,10 @@ import time
 
 def find_alphafold3(config):
     """Locate AlphaFold3 installation."""
-    # 1. Configured path
-    if config.get("alphafold_path"):
-        path = Path(config["alphafold_path"])
+    # 1. Configured path (alphafold3_path key, with legacy alphafold_path fallback)
+    tool_path = config.get("alphafold3_path") or config.get("alphafold_path")
+    if tool_path:
+        path = Path(tool_path)
         if path.exists():
             return str(path)
 
@@ -116,6 +116,9 @@ def run_alphafold3(json_path, output_dir, db_dir=None, run_data_pipeline=True,
 
     # AlphaFold3 controls seeds via the input JSON's modelSeeds field.
     # Expand into a copy inside the output directory; never mutate the input.
+    if num_seeds is not None and num_seeds < 1:
+        print(f"NOTE: --num-seeds {num_seeds} is ignored; using the modelSeeds "
+              "already defined in the input JSON.")
     if num_seeds and num_seeds > 1:
         seeds_json = Path(output_dir) / f"{Path(json_path).stem}.seeds{num_seeds}.json"
         json_path = str(_set_model_seeds(json_path, num_seeds, seeds_json))
@@ -146,6 +149,9 @@ def run_alphafold3(json_path, output_dir, db_dir=None, run_data_pipeline=True,
     if db_dir and run_data_pipeline:
         cmd.extend(["--db_dir", db_dir])
     else:
+        if db_dir:
+            print(f"NOTE: --db-dir '{db_dir}' is ignored because --no-msa "
+                  "disables the data pipeline; running without MSA.")
         cmd.append("--run_data_pipeline=false")
 
     if verbose:

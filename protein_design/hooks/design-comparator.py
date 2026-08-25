@@ -25,6 +25,9 @@ def main() -> int:
         traceback.print_exc()
         return 1
 
+    if not isinstance(data, dict):
+        return 0
+
     # Only activate for validation tool completions
     tool_name = str(data.get("tool", "")).lower()
     if not any(t in tool_name for t in ["alphafold", "boltz", "chai", "omegafold", "esmfold", "protenix"]):

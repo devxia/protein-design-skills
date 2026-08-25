@@ -215,7 +215,7 @@ If you don't have 2.6TB for databases, use these alternatives:
 ```bash
 export RFDIFFUSION_PATH="$HOME/software/RFdiffusion"
 export PROTEINMPNN_PATH="$HOME/software/ProteinMPNN"
-export ALPHAFOLD_PATH="$HOME/software/alphafold3"
+export ALPHAFOLD3_PATH="$HOME/software/alphafold3"  # canonical; legacy ALPHAFOLD_PATH still honoured
 export PROTEIN_DESIGN_OUTPUT_DIR="/tmp/protein-design"
 ```
 

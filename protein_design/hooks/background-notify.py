@@ -23,6 +23,9 @@ def main() -> int:
         traceback.print_exc()
         return 1
 
+    if not isinstance(data, dict):
+        return 0
+
     event = data.get("event", "")
     task_id = data.get("task_id", "unknown")
 
@@ -32,6 +35,9 @@ def main() -> int:
     elif "failed" in event:
         title = "❌ Background Task Failed"
         message = f"Task {task_id} failed. Check logs for details."
+    elif "timeout" in event:
+        title = "⏱️ Background Task Timed Out"
+        message = f"Task {task_id} timed out. Check logs for details."
     elif "killed" in event:
         title = "⚠️ Background Task Killed"
         message = f"Task {task_id} was terminated."

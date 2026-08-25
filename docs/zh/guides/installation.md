@@ -215,7 +215,7 @@ pip install -r requirements.txt
 ```bash
 export RFDIFFUSION_PATH="$HOME/software/RFdiffusion"
 export PROTEINMPNN_PATH="$HOME/software/ProteinMPNN"
-export ALPHAFOLD_PATH="$HOME/software/alphafold3"
+export ALPHAFOLD3_PATH="$HOME/software/alphafold3"  # 规范名；旧名 ALPHAFOLD_PATH 仍兼容
 export PROTEIN_DESIGN_OUTPUT_DIR="/tmp/protein-design"
 ```
 

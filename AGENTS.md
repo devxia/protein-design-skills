@@ -220,12 +220,12 @@ Common environment variables:
 
 - `PROTEIN_DESIGN_OUTPUT_DIR` — default output directory (`/tmp/protein-design`).
 - `PROTEIN_DESIGN_MAX_JOBS` — controls batch parallelism (default 4, used by `batch-orchestrator`).
-- `RFDIFFUSION_PATH`, `PROTEINMPNN_PATH`, `ALPHAFOLD_PATH` — tool installation paths.
+- `RFDIFFUSION_PATH`, `PROTEINMPNN_PATH`, `ALPHAFOLD3_PATH` — tool installation paths (`ALPHAFOLD3_PATH` is canonical for AlphaFold3; the legacy `ALPHAFOLD_PATH` is still honoured).
 - `ALPHAFOLD_DB_DIR` / `ALPHAFOLD3_DB_DIR` — database directories for structure predictors.
 
 ### How scripts locate and execute external tools
 
-Scripts follow a consistent discovery order (see `scripts/run_rfdiffusion.py` as the canonical example):
+Scripts probe tools through the following levels; most scripts implement all of them, a few (e.g. pip-first CLIs like `run_boltz.py`) check PATH before conda (see each script's `find_*` function):
 
 1. Configured path from `get_config(tool_name)`.
 2. Common filesystem locations (`~/ToolName/`, `/opt/ToolName/`, etc.).

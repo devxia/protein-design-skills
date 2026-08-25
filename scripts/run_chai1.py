@@ -7,9 +7,8 @@ Usage: python scripts/run_chai1.py --input input.fasta --output-dir outputs/chai
 Exit codes:
     0 = Success
     1 = Input file not found
-    2 = Chai-1 not installed / not found
+    2 = Chai-1 not installed / not found (argparse usage errors also exit 2)
     3 = Execution error
-    4 = Invalid arguments
 """
 
 import sys
@@ -43,20 +42,22 @@ def find_chai1(config):
     except FileNotFoundError:
         pass
 
-    # 2. Conda environments
+    # 3. Conda environments
     env = probe_conda_envs(["chai1", "chai-1", "protein-design"], ["chai-lab", "--help"])
     if env is not None:
         return f"conda run -n {env} chai-lab"
 
-    # 3. pip-installed in current env
+    # 4. pip-installed in current env
     try:
         result = subprocess.run(
-            ["python", "-m", "chai_lab", "--help"],
+            [sys.executable, "-m", "chai_lab", "--help"],
             capture_output=True, text=True, timeout=5
         )
         if result.returncode == 0:
             return "python -m chai_lab"
-    except FileNotFoundError:
+    # Importing chai_lab pulls in torch and can easily exceed the 5s probe
+    # timeout; treat it as a failed probe, not a crash.
+    except (subprocess.TimeoutExpired, FileNotFoundError):
         pass
 
     return None

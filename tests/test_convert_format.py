@@ -42,8 +42,19 @@ def test_fasta_to_chai_fasta_basic():
     sequences = [("seq1", "ACDEFGHIJKLMNOPQRSTUVWXYZACDEFG")]
     fasta = fasta_to_chai_fasta(sequences)
     lines = fasta.splitlines()
-    assert lines[0] == ">seq1|protein"
+    assert lines[0] == ">protein|name=seq1"
     assert lines[1] == "ACDEFGHIJKLMNOPQRSTUVWXYZACDEFG"
+
+
+def test_fasta_to_chai_fasta_entity_type_first():
+    """Chai-1 requires the entity type before the name: >protein|name=<id>."""
+    sequences = [("target", "ACDEFG"), ("binder", "GHIKLM")]
+    fasta = fasta_to_chai_fasta(sequences)
+    lines = fasta.splitlines()
+    assert lines[0] == ">protein|name=target"
+    assert lines[1] == "ACDEFG"
+    assert lines[2] == ">protein|name=binder"
+    assert lines[3] == "GHIKLM"
 
 
 def test_csv_to_fasta(tmp_path):

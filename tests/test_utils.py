@@ -118,6 +118,85 @@ def test_write_fasta_empty(tmp_path: Path) -> None:
     assert out.read_text() == ""
 
 
+def test_read_fasta_skips_empty_header(tmp_path: Path) -> None:
+    """A bare ">" header line is skipped rather than crashing."""
+    fa = tmp_path / "seqs.fa"
+    fa.write_text(
+        ">seq1 description\n"
+        "ACDEF\n"
+        ">\n"
+        "GHIKLM\n"
+        ">seq2\n"
+        "NPQRSTVWY\n"
+    )
+    seqs = read_fasta(fa)
+    assert seqs == [
+        ("seq1", "ACDEF"),
+        ("seq2", "NPQRSTVWY"),
+    ]
+
+
+def test_read_fasta_leading_empty_header(tmp_path: Path) -> None:
+    """An empty header before any real header yields no entries."""
+    fa = tmp_path / "seqs.fa"
+    fa.write_text(">\nACDEF\n")
+    assert read_fasta(fa) == []
+
+
+# ---------------------------------------------------------------------------
+# log_history — side-channel log that never raises
+# ---------------------------------------------------------------------------
+
+
+def test_log_history_appends_record(monkeypatch, tmp_path: Path) -> None:
+    """Success path: record structure, output_dir field, dir auto-creation."""
+    monkeypatch.setenv("HOME", str(tmp_path))
+    assert not (tmp_path / ".protein-design").exists()
+
+    from protein_design.utils import log_history
+
+    log_history(
+        "rfdiffusion",
+        {"contig": "150-150", "num_designs": 5},
+        runtime=12.5,
+        success=True,
+        output_dir="/out",
+    )
+
+    history_file = tmp_path / ".protein-design" / "history.jsonl"
+    record = json.loads(history_file.read_text().strip())
+    assert record["tool"] == "rfdiffusion"
+    assert record["params"] == {"contig": "150-150", "num_designs": 5}
+    assert record["runtime"] == 12.5
+    assert record["success"] is True
+    assert record["output_dir"] == "/out"
+    assert "timestamp" in record
+
+
+def test_log_history_open_failure_does_not_raise(monkeypatch, tmp_path: Path, capsys) -> None:
+    """A failing open() (unwritable HOME, full disk) is warned, not raised."""
+    import protein_design.utils as utils
+
+    def raise_os_error(*args, **kwargs):
+        raise OSError("disk full")
+
+    monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.setattr(utils, "open", raise_os_error, raising=False)
+    # Should not raise; warns on stderr instead.
+    utils.log_history("tool", {}, runtime=1.0, success=True)
+    assert "Warning: failed to log run history" in capsys.readouterr().err
+
+
+def test_log_history_unserialisable_params_does_not_raise(monkeypatch, tmp_path: Path, capsys) -> None:
+    """Params containing non-JSON-serialisable values are warned, not raised."""
+    monkeypatch.setenv("HOME", str(tmp_path))
+
+    from protein_design.utils import log_history
+
+    log_history("tool", {"pdb": Path("/some/structure.pdb")}, runtime=1.0, success=True)
+    assert "Warning: failed to log run history" in capsys.readouterr().err
+
+
 # ---------------------------------------------------------------------------
 # get_config — configuration resolution priority (env > file > defaults)
 # ---------------------------------------------------------------------------
@@ -169,6 +248,40 @@ def test_get_config_tool_path_env_overrides_file(monkeypatch, tmp_path: Path) ->
 
     config = get_config("rfdiffusion")
     assert config["rfdiffusion_path"] == "/env/rfd"
+
+
+def test_get_config_alphafold3_path_env_wins_over_legacy_and_file(monkeypatch, tmp_path: Path) -> None:
+    """ALPHAFOLD3_PATH beats the legacy ALPHAFOLD_PATH and any config-file value."""
+    monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.setenv("ALPHAFOLD3_PATH", "/env/af3")
+    monkeypatch.setenv("ALPHAFOLD_PATH", "/env/legacy")
+    cfg_dir = _make_config_dir(tmp_path)
+    (cfg_dir / "config.yaml").write_text("alphafold3_path: /file/af3\n")
+
+    config = get_config("alphafold3")
+    assert config["alphafold3_path"] == "/env/af3"
+
+
+def test_get_config_alphafold3_falls_back_to_legacy_env(monkeypatch, tmp_path: Path) -> None:
+    """With ALPHAFOLD3_PATH unset, the documented legacy ALPHAFOLD_PATH is honoured."""
+    monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.delenv("ALPHAFOLD3_PATH", raising=False)
+    monkeypatch.setenv("ALPHAFOLD_PATH", "/env/legacy")
+
+    config = get_config("alphafold3")
+    assert config["alphafold3_path"] == "/env/legacy"
+
+
+def test_get_config_alphafold3_legacy_env_overrides_file(monkeypatch, tmp_path: Path) -> None:
+    """The legacy ALPHAFOLD_PATH env var also takes precedence over the file."""
+    monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.delenv("ALPHAFOLD3_PATH", raising=False)
+    monkeypatch.setenv("ALPHAFOLD_PATH", "/env/legacy")
+    cfg_dir = _make_config_dir(tmp_path)
+    (cfg_dir / "config.yaml").write_text("alphafold3_path: /file/af3\n")
+
+    config = get_config("alphafold3")
+    assert config["alphafold3_path"] == "/env/legacy"
 
 
 def test_get_config_db_dir_empty_env_overrides_file(monkeypatch, tmp_path: Path) -> None:

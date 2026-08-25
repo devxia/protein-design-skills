@@ -26,6 +26,14 @@ def extract_metrics(result_text: str) -> dict:
         return {}
 
 
+def _format_metric(label: str, value: object, fmt: str) -> str:
+    """Format a metric value, falling back to the raw value if non-numeric."""
+    try:
+        return f"{label}: {float(value):{fmt}}"  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        return f"{label}: {value}"
+
+
 def main() -> int:
     """Main entry point."""
     try:
@@ -37,6 +45,9 @@ def main() -> int:
     except Exception:
         traceback.print_exc()
         return 1
+
+    if not isinstance(data, dict):
+        return 0
 
     # Check if this is a query_job response with completed status
     result_text = extract_content_text(data.get("result"))
@@ -61,11 +72,11 @@ def main() -> int:
     msg_parts = [f"Job {result_json.get('task_id', 'unknown')} finished."]
 
     if metrics.get("plddt") is not None:
-        msg_parts.append(f"pLDDT: {metrics['plddt']:.1f}")
+        msg_parts.append(_format_metric("pLDDT", metrics["plddt"], ".1f"))
     if metrics.get("iptm") is not None:
-        msg_parts.append(f"ipTM: {metrics['iptm']:.3f}")
+        msg_parts.append(_format_metric("ipTM", metrics["iptm"], ".3f"))
     if metrics.get("ptm") is not None:
-        msg_parts.append(f"pTM: {metrics['ptm']:.3f}")
+        msg_parts.append(_format_metric("pTM", metrics["ptm"], ".3f"))
 
     if result_json.get("output_path"):
         msg_parts.append(f"Output: {result_json['output_path']}")

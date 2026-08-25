@@ -36,14 +36,20 @@ def main() -> int:
         traceback.print_exc()
         return 1
 
-    # Only intercept query_job calls
-    if data.get("tool") != "query_job":
+    # Only trigger on job queries. The current standalone entry point is
+    # scripts/job_manager.py (the PostToolUse matcher also matches
+    # "job_manager"); legacy MCP-era "query_job" kept for compatibility.
+    if not isinstance(data, dict):
+        return 0
+    tool = str(data.get("tool") or data.get("tool_name") or "")
+    if not tool and isinstance(data.get("params"), dict):
+        tool = str(data["params"].get("tool", ""))
+    if tool.lower() not in {"query_job", "job_manager"}:
         return 0
 
     job_manager = _find_job_manager()
 
-    output_parts = ["""[Job Monitor] query_job detected
-"""]
+    output_parts = [f"""[Job Monitor] Job query detected ('{tool}')"""]
 
     # Option 1: Use standalone job manager (preferred)
     if job_manager:

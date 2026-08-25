@@ -5,9 +5,10 @@ When the filtering stage completes, this hook scans output directories and
 produces a real summary of designs with counts, rankings, and recommendations.
 """
 import sys
+import os
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
-from protein_design.utils import parse_confidence_json, read_hook_input
+from protein_design.utils import get_config, parse_confidence_json, read_hook_input
 import traceback
 import json
 from typing import Any
@@ -16,25 +17,50 @@ from typing import Any
 def _find_output_dir(data: dict[str, Any]) -> Path | None:
     """Infer output directory from hook payload or common defaults."""
     # Try payload fields
-    for key in ("output_dir", "output_dir", "results_dir", "output_prefix", "out_folder"):
+    for key in ("output_dir", "results_dir", "output_prefix", "out_folder"):
         val = data.get("tool_input", {}).get(key) or data.get(key)
         if val:
             p = Path(str(val)).expanduser()
             if p.is_dir() or p.parent.is_dir():
                 return p if p.is_dir() else p.parent
-    # Common defaults
-    for candidate in (Path("outputs"), Path("/tmp/protein-design")):
+    # Common defaults: an explicitly-set PROTEIN_DESIGN_OUTPUT_DIR outranks
+    # a cwd-relative "outputs/" fallback; otherwise try outputs/ first and
+    # fall back to the configured/built-in output dir (get_config resolves
+    # env var > config file > built-in default).
+    config_dir = Path(str(get_config().get("output_dir", "/tmp/protein-design"))).expanduser()
+    candidates = [Path("outputs"), config_dir]
+    if os.environ.get("PROTEIN_DESIGN_OUTPUT_DIR"):
+        candidates.insert(0, Path(os.environ["PROTEIN_DESIGN_OUTPUT_DIR"]).expanduser())
+    for candidate in candidates:
         if candidate.exists():
             return candidate
     return None
 
 
+def _is_scannable(path: Path) -> bool:
+    """True when recursively scanning *path* fits within the hook time budget.
+
+    Refuses the filesystem root and the current working directory (a bare
+    filename in tool_input resolves its parent to the CWD, which would
+    escalate to a whole-tree rglob), as well as non-existent directories.
+    """
+    if not path.is_dir():
+        return False
+    resolved = path.resolve()
+    if resolved == resolved.parent:  # filesystem root
+        return False
+    return resolved != Path.cwd().resolve()
+
+
 def _count_files(root: Path, suffixes: tuple[str, ...]) -> int:
     """Count files with any of the given suffixes."""
     count = 0
-    for path in root.rglob("*"):
-        if path.is_file() and path.suffix.lower() in suffixes:
-            count += 1
+    try:
+        for path in root.rglob("*"):
+            if path.is_file() and path.suffix.lower() in suffixes:
+                count += 1
+    except OSError:
+        pass
     return count
 
 
@@ -43,7 +69,12 @@ def _collect_designs(root: Path) -> list[dict[str, Any]]:
     designs: list[dict[str, Any]] = []
     seen: set[str] = set()
 
-    for conf_path in root.rglob("confidence.json"):
+    try:
+        conf_paths = list(root.rglob("confidence.json"))
+    except OSError:
+        conf_paths = []
+
+    for conf_path in conf_paths:
         try:
             metrics = parse_confidence_json(conf_path)
         except Exception:
@@ -179,10 +210,16 @@ def _generate_report_from_filtered(
 
 
 def _generate_report(data: dict[str, Any]) -> str:
-    """Generate a markdown design report."""
+    """Generate a markdown design report. Returns "" when nothing safe to scan."""
     out_dir = _find_output_dir(data)
     if out_dir is None:
         out_dir = Path("outputs")
+
+    # Skip the heavy scan when the output dir resolves to the CWD or the
+    # filesystem root (e.g. a bare filename in tool_input) — rglob there
+    # would blow the hook's time budget.
+    if not _is_scannable(out_dir):
+        return ""
 
     lines: list[str] = []
     lines.append("📝 [Design Report] Pipeline Complete")
@@ -270,6 +307,9 @@ def main() -> int:
         traceback.print_exc()
         return 1
 
+    if not isinstance(data, dict):
+        return 0
+
     # Activate after filtering or when explicitly requested
     tool_name = str(data.get("tool", "")).lower()
     tool_input = data.get("tool_input", {})
@@ -278,10 +318,12 @@ def main() -> int:
     else:
         tool_name_alt = ""
 
-    if "filter" not in tool_name and "filtering" not in tool_name_alt:
+    if "filter" not in tool_name and "filter" not in tool_name_alt:
         return 0
 
-    print(_generate_report(data))
+    report = _generate_report(data)
+    if report:
+        print(report)
     return 0
 
 

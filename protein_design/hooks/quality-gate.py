@@ -116,6 +116,9 @@ def main() -> int:
         traceback.print_exc()
         return 1
 
+    if not isinstance(data, dict):
+        return 0
+
     # Only process validation tool completions
     result = data.get("result") or {}
     if isinstance(result, dict) and result.get("isError"):
@@ -128,9 +131,19 @@ def main() -> int:
     except json.JSONDecodeError:
         return 0
 
-    # Only process validation tools
+    # Only process validation tools. Prefer explicit payload keys; the
+    # full-payload text match is a last-resort fallback for agents that do
+    # not populate a tool name (an arbitrary field mentioning "boltz" must
+    # not trigger the gate).
     tool_indicators = ["alphafold", "boltz", "chai", "omegafold", "esmfold", "protenix"]
-    if not any(ind in str(data).lower() for ind in tool_indicators):
+    tool_name = str(data.get("tool") or data.get("tool_name") or "").lower()
+    if not tool_name and isinstance(data.get("tool_input"), dict):
+        tool_input = data["tool_input"]
+        tool_name = str(tool_input.get("tool") or tool_input.get("tool_name") or "").lower()
+    if tool_name:
+        if not any(ind in tool_name for ind in tool_indicators):
+            return 0
+    elif not any(ind in str(data).lower() for ind in tool_indicators):
         return 0
 
     metrics = _extract_metrics(tool_result)

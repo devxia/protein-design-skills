@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""PreToolUse hook: auto-batch protein design jobs for efficiency.
+"""UserPromptSubmit hook: auto-batch protein design jobs for efficiency.
 
 When multiple designs need validation, this hook suggests batching strategies
 and provides ready-to-use batch submission patterns.

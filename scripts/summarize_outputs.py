@@ -82,8 +82,13 @@ def _count_validation_jobs(root: Path) -> int:
     return len(_find_metrics_files(root))
 
 
-def _collect_top_designs(root: Path, top_n: int = 5) -> list[dict[str, Any]]:
-    """Collect top designs sorted by average pLDDT."""
+def _collect_top_designs(root: Path, top_n: int | None = 5) -> list[dict[str, Any]]:
+    """Collect designs sorted by average pLDDT (descending).
+
+    Args:
+        root: Output directory to scan.
+        top_n: Keep only the best N designs; ``None`` returns all.
+    """
     designs: list[dict[str, Any]] = []
     seen: set[str] = set()
 
@@ -115,7 +120,7 @@ def _collect_top_designs(root: Path, top_n: int = 5) -> list[dict[str, Any]]:
         )
 
     designs.sort(key=lambda d: d["plddt"], reverse=True)
-    return designs[:top_n]
+    return designs if top_n is None else designs[:top_n]
 
 
 def _quality_distribution(designs: list[dict[str, Any]]) -> dict[str, int]:
@@ -144,9 +149,11 @@ def summarize(root: Path, expected: dict[str, int] | None = None) -> dict[str, A
     summary["validation_count"] = _count_validation_jobs(root)
     summary["mmcif_count"] = _count_mmcif(root)
 
-    top_designs = _collect_top_designs(root)
-    summary["top_designs"] = top_designs
-    summary["quality_distribution"] = _quality_distribution(top_designs)
+    # The distribution must cover every validated design, not just the top 5
+    # shown in the table — otherwise it is permanently biased to "excellent".
+    all_designs = _collect_top_designs(root, top_n=None)
+    summary["top_designs"] = all_designs[:5]
+    summary["quality_distribution"] = _quality_distribution(all_designs)
 
     # Progress against expectations
     summary["progress"] = {}

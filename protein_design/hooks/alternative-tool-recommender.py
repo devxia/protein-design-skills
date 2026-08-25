@@ -393,7 +393,7 @@ def _analyze_request(request_text: str) -> dict[str, Any]:
         "boltz2": ["boltz2", "boltz 2", "boltz-2", "binding affinity prediction",
                    "affinity prediction", "structure and affinity", "fep accuracy",
                    "fep speed", "boltz predict affinity", "jwohlwend boltz",
-                   "mit recursion boltz", "boltz bio", "affinityProbability",
+                   "mit recursion boltz", "boltz bio", "affinityprobability",
                    "affinity_pred_value", "boltz affinity"],
         "boltzdesign1": ["boltzdesign1", "boltzdesign", "boltz design", "invert boltz",
                          "invert boltz-1", "invert alphafold3", "all atom binder design",
@@ -714,7 +714,7 @@ def _recommend_pipelines(detected: dict[str, float], text_lower: str = "") -> li
     ranked = sorted(scores.items(), key=lambda x: x[1], reverse=True)
     recommendations = []
     for idx, score in ranked:
-        if score >= 0:
+        if score > 0:
             pipeline = PIPELINE_OPTIONS[idx].copy()
             pipeline["match_score"] = score
             recommendations.append(pipeline)
@@ -734,15 +734,25 @@ def main() -> int:
         traceback.print_exc()
         return 1
 
-    # Only process tool use requests for protein design tools
-    tool_name = data.get("tool", "")
+    # Only process dict payloads (non-dict JSON is ignored, not an error)
+    if not isinstance(data, dict):
+        return 0
+
+    # Only process tool use requests for protein design tools. Prefer the
+    # flat payload shape; tolerate the nested legacy shape and "tool_name".
+    tool_name = data.get("tool") or data.get("tool_name") or ""
+    if not tool_name and isinstance(data.get("params"), dict):
+        tool_name = data["params"].get("tool", "")
     if tool_name not in {"run_rfdiffusion", "run_proteinmpnn", "run_alphafold3",
-                         "run_pdbfixer", "submit_job", "get_tool_info"}:
+                         "run_pdbfixer", "run_filtering", "run_boltz",
+                         "run_chai1", "run_esmfold", "run_omegafold",
+                         "run_openfold3", "run_protenix", "run_colabfold",
+                         "run_esm_if1", "run_ligandmpnn"}:
         return 0
 
     # Get the user's original query from context (if available)
     context = data.get("context", "")
-    if not context and "params" in data:
+    if not context and isinstance(data.get("params"), dict):
         # Use params as fallback context
         context = json.dumps(data.get("params", {}))
 

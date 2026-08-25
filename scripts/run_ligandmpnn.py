@@ -7,9 +7,7 @@ Usage: python scripts/run_ligandmpnn.py --pdb_path structure.pdb --out_folder ou
 Exit codes:
     0 = Success
     1 = Input file not found
-    2 = LigandMPNN not installed / not found
-    3 = Execution error
-    4 = Invalid arguments
+    2 = LigandMPNN not installed / not found (argparse usage errors also exit 2)
 
 Upstream references:
     - https://github.com/dauparas/LigandMPNN

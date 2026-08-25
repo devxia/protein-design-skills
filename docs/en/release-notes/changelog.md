@@ -2,6 +2,32 @@
 
 This page documents the changes in each release of the Protein Design Skills plugin.
 
+## 2026-08-25
+
+### Bug Fixes
+
+- Fix RFdiffusion runner crashing on multi-hotspot binder designs (hotspot overrides are now emitted as individually quoted list items)
+- Fix Protenix runner CLI mismatch: probe `predict`/`pred` subcommands and map `--num-recycling` to the native `--cycle` flag
+- Fix Chai-1 FASTA headers produced by `convert_format` (entity type must come first: `>protein|name=<id>`)
+- Fix AlphaFold3 configuration keys: `ALPHAFOLD3_PATH` / `alphafold3_path` are canonical, legacy `ALPHAFOLD_PATH` / `alphafold_path` still honoured
+- Fix job manager reporting cancelled jobs as completed with exit code 0 (`wait` now returns 143 for cancelled jobs)
+- Fix job ID collisions under concurrent submits; job metadata writes are atomic and cancel no longer signals recycled process groups
+- Fix install-hooks writing an invalid Claude settings.json hook schema (installed hooks never fired); `--force` no longer duplicates entries
+- Fix user-onboarding and progress-query-helper reading the wrong payload key, which kept them from ever triggering
+- Align kimi.plugin.json trigger keywords with the canonical keyword set so prompts fire consistently across agents
+- Fix gpu-check-hook blocking CPU-capable tools whenever GPUs were busy; no-GPU machines now warn instead of blocking
+- Fix tool-recommender suggesting flags that do not exist (`--run-data-pipeline`, space-separated `--hotspot-res`)
+- Fix validation quality distribution in summarize_outputs being computed over only the top 5 designs
+- Fix batch_runner failing when `python` is absent from PATH and silently skipping pipeline stages with missing commands
+- Fix double-counting of designs in run_filtering when confidence.json and PDB fallback both match
+- Harden hooks against non-dict JSON payloads; `log_history` failures no longer crash successful runs; conda probing tolerates OSError and timeouts
+
+### Docs
+
+- Document `ALPHAFOLD3_PATH` as the canonical environment variable in READMEs, installation guides and AGENTS.md (en/zh)
+- Explain the Protenix `--cycle` mapping and subcommand probing in the API reference (en/zh)
+- Correct `--hotspot-res` examples across skills to comma-separated single-argument form
+
 ## 2026-06-11
 
 ### Breaking Changes

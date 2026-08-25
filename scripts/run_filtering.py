@@ -78,6 +78,7 @@ def filter_designs(results_dir, min_plddt=70, min_iptm=0.6, min_ptm=0.7,
         weights = {"plddt": 0.5, "iptm": 0.3, "ptm": 0.1, "pae": 0.1}
 
     designs = []
+    json_dirs = set()
 
     # Search for confidence.json files
     for conf_file in results_path.rglob("confidence.json"):
@@ -85,12 +86,17 @@ def filter_designs(results_dir, min_plddt=70, min_iptm=0.6, min_ptm=0.7,
             design = {"path": str(conf_file), "name": conf_file.parent.name if conf_file.parent != Path(".") else conf_file.stem}
             design.update(parse_confidence_json(conf_file))
             designs.append(design)
+            json_dirs.add(conf_file.parent.resolve())
         except Exception as e:
             if verbose:
                 print(f"Warning: Could not parse {conf_file}: {e}")
 
     # Search for PDB files (ESMFold/OmegaFold direct output)
     for pdb_file in results_path.rglob("*.pdb"):
+        # A directory that already contributed a confidence.json entry is
+        # covered; the PDB fallback must not count the same design twice.
+        if pdb_file.parent.resolve() in json_dirs:
+            continue
         if any(x in pdb_file.name.lower() for x in ["design", "pred", "fold"]):
             plddt = parse_pdb_bfactor(pdb_file)
             if plddt is not None:
@@ -136,7 +142,7 @@ def filter_designs(results_dir, min_plddt=70, min_iptm=0.6, min_ptm=0.7,
     print(f"Filtering Results: {len(passing)}/{len(designs)} designs passed")
     if missing_plddt:
         print(f"Excluded as unmeasured: {len(missing_plddt)} design(s) missing pLDDT "
-              f"(missing metrics never pass the gate)")
+              f"(only pLDDT is fail-closed; missing ipTM/pTM/PAE do not block a design)")
     print(f"Criteria: pLDDT ≥ {min_plddt}, ipTM ≥ {min_iptm}, pTM ≥ {min_ptm}, PAE ≤ {max_pae}")
     print(f"{'=' * 70}")
 
