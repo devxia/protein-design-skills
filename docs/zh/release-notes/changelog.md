@@ -2,6 +2,32 @@
 
 本页记录 Protein Design Skills 插件每个版本的变更内容。
 
+## 2026-08-25
+
+### 修复
+
+- 修复 RFdiffusion 运行器在多 hotspot binder 设计中必然崩溃的问题（hotspot override 现在逐项引号输出）
+- 修复 Protenix 运行器与上游 CLI 不匹配的问题：自动探测 `predict`/`pred` 子命令并将 `--num-recycling` 映射到原生 `--cycle` 参数
+- 修复 `convert_format` 生成的 Chai-1 FASTA 头格式（实体类型必须在前：`>protein|name=<id>`）
+- 修复 AlphaFold3 配置键错位：以 `ALPHAFOLD3_PATH` / `alphafold3_path` 为规范名，旧名 `ALPHAFOLD_PATH` / `alphafold_path` 仍兼容
+- 修复 job manager 把已取消任务误报为 completed 且退出码为 0 的问题（`wait` 对取消任务返回 143）
+- 修复并发提交时的 job ID 冲突；任务元数据改为原子写入，cancel 不再误杀 PID 复用后的无关进程组
+- 修复 install-hooks 写入无效的 Claude settings.json hook 结构（装上的 hook 从不触发）；`--force` 重装不再产生重复条目
+- 修复 user-onboarding 与 progress-query-helper 读取错误的 payload 键导致永不触发的问题
+- 将 kimi.plugin.json 触发关键词对齐到规范关键词集，同一 prompt 在各 agent 下行为一致
+- 修复 gpu-check-hook 在 GPU 繁忙时阻塞 CPU 可运行工具的问题；无 GPU 机器改为警告放行
+- 修复 tool-recommender 推荐不存在的参数（`--run-data-pipeline`、空格分隔的 `--hotspot-res`）
+- 修复 summarize_outputs 的验证质量分布只基于 top 5 设计的问题
+- 修复 batch_runner 在 PATH 无 `python` 时失败、以及对缺 command 的阶段静默跳过仍报成功的问题
+- 修复 run_filtering 在 confidence.json 与 PDB fallback 同时命中时重复计数同一设计的问题
+- 增强各 hook 对非 dict JSON payload 的容错；`log_history` 写入失败不再让成功任务崩溃；conda 探测容忍 OSError 与超时
+
+### 文档
+
+- 在 README、安装指南与 AGENTS.md 中将 `ALPHAFOLD3_PATH` 文档化为规范环境变量（英文/中文）
+- 在 API 参考中说明 Protenix `--cycle` 映射与子命令探测逻辑（英文/中文）
+- 将各 skill 中 `--hotspot-res` 示例修正为逗号分隔的单参数形式
+
 ## 2026-06-11
 
 ### 重大变更
