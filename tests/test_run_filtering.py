@@ -67,3 +67,81 @@ def test_filter_designs_missing_dir(tmp_path):
     missing = tmp_path / "no_results"
     rc = filter_designs(str(missing))
     assert rc == 1
+
+
+def test_filter_designs_dedupes_json_and_pdb_sources(tmp_path):
+    """A directory with confidence.json AND a keyword PDB counts once."""
+    import json
+
+    conf_dir = tmp_path / "design1"
+    conf_dir.mkdir()
+    (conf_dir / "confidence.json").write_text(
+        json.dumps({"plddt": 90.0}), encoding="utf-8"
+    )
+    (conf_dir / "pred_design1.pdb").write_text(
+        "HEADER    test\n"
+        "ATOM      1  N   ALA A   1      0.000   0.000   0.000  1.00 90.00           N\n"
+        "ATOM      2  CA  ALA A   1      1.000   0.000   0.000  1.00 90.00           C\n"
+        "END\n"
+    )
+
+    rc = filter_designs(str(tmp_path), min_plddt=70)
+    assert rc == 0
+    assert json.loads((tmp_path / "filtered_results.json").read_text(encoding="utf-8"))["total_designs"] == 1
+
+
+def test_filter_designs_pdb_dedup_only_skips_json_dirs(tmp_path):
+    """A keyword PDB in a directory WITHOUT confidence.json still counts."""
+    import json
+
+    conf_dir = tmp_path / "design1"
+    conf_dir.mkdir()
+    (conf_dir / "confidence.json").write_text(
+        json.dumps({"plddt": 90.0}), encoding="utf-8"
+    )
+    pdb_dir = tmp_path / "orf_only"
+    pdb_dir.mkdir()
+    (pdb_dir / "pred_orf.pdb").write_text(
+        "HEADER    test\n"
+        "ATOM      1  N   ALA A   1      0.000   0.000   0.000  1.00 80.00           N\n"
+        "ATOM      2  CA  ALA A   1      1.000   0.000   0.000  1.00 80.00           C\n"
+        "END\n"
+    )
+
+    rc = filter_designs(str(tmp_path), min_plddt=70)
+    assert rc == 0
+    results = json.loads((tmp_path / "filtered_results.json").read_text(encoding="utf-8"))
+    assert results["total_designs"] == 2
+    assert results["passing_designs"] == 2
+
+
+def test_filter_designs_missing_metrics_wording_matches_behavior(tmp_path, capsys):
+    """Only pLDDT is fail-closed; the printed note must say exactly that."""
+    import json
+
+    conf_dir = tmp_path / "design1"
+    conf_dir.mkdir()
+    (conf_dir / "confidence.json").write_text(
+        json.dumps({"iptm": 0.9}), encoding="utf-8"
+    )
+
+    rc = filter_designs(str(tmp_path), min_plddt=70)
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert "only pLDDT is fail-closed" in out
+    assert "missing metrics never pass the gate" not in out
+
+
+def test_filter_designs_missing_iptm_passes_with_plddt(tmp_path):
+    """Documents the behavior: missing ipTM/pTM/PAE do not block a design."""
+    import json
+
+    conf_dir = tmp_path / "design1"
+    conf_dir.mkdir()
+    (conf_dir / "confidence.json").write_text(
+        json.dumps({"plddt": 80.0}), encoding="utf-8"
+    )
+
+    rc = filter_designs(str(tmp_path), min_plddt=70, min_iptm=0.6)
+    assert rc == 0
+    assert json.loads((tmp_path / "filtered_results.json").read_text(encoding="utf-8"))["passing_designs"] == 1

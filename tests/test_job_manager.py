@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import subprocess
 import sys
 import time
 from pathlib import Path
@@ -95,3 +96,77 @@ def test_wait_job_returns_real_exit_code(tmp_path, monkeypatch):
     _patch_jobs_dir(tmp_path, monkeypatch)
     job_id = jm.submit_job([sys.executable, "-c", "import sys; sys.exit(7)"])
     assert jm.wait_job(job_id, timeout=30) == 7
+
+
+def _dead_pid() -> int:
+    """A PID that is guaranteed dead: spawned, waited on (reaped), not recycled."""
+    proc = subprocess.Popen([sys.executable, "-c", "pass"])
+    proc.wait()
+    return proc.pid
+
+
+def _write_job_files(jobs_dir: Path, job_id: str, pid: int, status: str) -> None:
+    """Create tracking files for a job that is not a live child process."""
+    meta = {
+        "job_id": job_id,
+        "job_name": "t",
+        "command": ["true"],
+        "pid": pid,
+        "status": status,
+        "start_time": "2025-01-01T00:00:00",
+        "log_file": str(jobs_dir / "logs" / f"{job_id}.log"),
+    }
+    (jobs_dir / f"{job_id}.json").write_text(json.dumps(meta), encoding="utf-8")
+    (jobs_dir / f"{job_id}.pid").write_text(str(pid), encoding="utf-8")
+
+
+def test_cancelled_job_keeps_status_when_pid_dead(tmp_path, monkeypatch):
+    """A cancelled job must keep its terminal status; a dead PID must not
+    rewrite it to "completed" (which wait would then report as success)."""
+    jobs_dir = _patch_jobs_dir(tmp_path, monkeypatch)
+    _write_job_files(jobs_dir, "job1", _dead_pid(), status="cancelled")
+
+    status = jm.get_job_status("job1")
+    assert status["status"] == "cancelled"
+    assert "exit_code" not in status
+
+
+def test_wait_job_cancelled_returns_143(tmp_path, monkeypatch):
+    """Waiting on a cancelled job must fail with 143 (128 + SIGTERM), not 0."""
+    jobs_dir = _patch_jobs_dir(tmp_path, monkeypatch)
+    _write_job_files(jobs_dir, "job1", _dead_pid(), status="cancelled")
+
+    assert jm.wait_job("job1", timeout=5) == 143
+
+
+def test_dead_job_without_exit_marker_is_failed(tmp_path, monkeypatch):
+    """A process that died without writing its exit marker must not be
+    reported as a successful completion."""
+    jobs_dir = _patch_jobs_dir(tmp_path, monkeypatch)
+    _write_job_files(jobs_dir, "job1", _dead_pid(), status="running")
+
+    status = jm.get_job_status("job1")
+    assert status["status"] == "failed"
+
+
+def test_wait_job_dead_without_marker_returns_nonzero(tmp_path, monkeypatch):
+    jobs_dir = _patch_jobs_dir(tmp_path, monkeypatch)
+    _write_job_files(jobs_dir, "job1", _dead_pid(), status="running")
+
+    assert jm.wait_job("job1", timeout=5) != 0
+
+
+def test_list_jobs_reports_cancelled_not_completed(tmp_path, monkeypatch):
+    jobs_dir = _patch_jobs_dir(tmp_path, monkeypatch)
+    _write_job_files(jobs_dir, "job1", _dead_pid(), status="cancelled")
+
+    jobs = jm.list_jobs()
+    assert jobs[0]["current_status"] == "cancelled"
+
+
+def test_cancelled_running_job_waits_nonzero(tmp_path, monkeypatch):
+    """End to end: cancel a live job, then wait must not report success."""
+    _patch_jobs_dir(tmp_path, monkeypatch)
+    job_id = jm.submit_job([sys.executable, "-c", "import time; time.sleep(60)"])
+    assert jm.cancel_job(job_id) is True
+    assert jm.wait_job(job_id, timeout=10) == 143

@@ -19,6 +19,10 @@ Exit codes:
     1 = Job not found
     2 = Invalid command
     3 = Wait timed out (job still running)
+
+`wait` returns the tracked job's exit code instead of the codes above:
+143 for a cancelled job (128 + SIGTERM; see `cancel`), and 1 for a job
+whose process died without recording an exit code.
 """
 from __future__ import annotations
 
@@ -40,20 +44,62 @@ def get_jobs_dir() -> Path:
     return jobs_dir
 
 
-def generate_job_id() -> str:
-    """Generate unique job ID."""
+def _read_metadata(meta_file: Path) -> dict | None:
+    """Read job metadata; return None for a missing or corrupt file.
+
+    A submit that crashes midway can leave a half-written or placeholder
+    file behind, so readers tolerate that the way ``list_jobs`` already
+    does instead of tracebacking.
+    """
+    try:
+        with open(meta_file, encoding="utf-8") as f:
+            return json.load(f)
+    except (OSError, ValueError):  # ValueError covers JSONDecodeError
+        return None
+
+
+def _write_metadata(meta_file: Path, metadata: dict) -> None:
+    """Write job metadata atomically so readers never see a half-written file."""
+    tmp_file = meta_file.with_name(meta_file.name + ".tmp")  # stays out of *.json globs
+    with open(tmp_file, "w", encoding="utf-8") as f:
+        json.dump(metadata, f, indent=2)
+    os.replace(tmp_file, meta_file)
+
+
+def generate_job_id(jobs_dir: Path | None = None) -> str:
+    """Generate and atomically claim a unique job ID.
+
+    Keeps the ``<timestamp>_<counter>`` format (the timestamp prefix
+    preserves chronological ordering), but instead of relying on a racy
+    ``len(glob(...))`` counter, the candidate's metadata file is created
+    with ``O_CREAT | O_EXCL`` to claim it — two concurrent submits in the
+    same second can no longer receive the same ID and overwrite each
+    other's files. The placeholder is replaced with real metadata when
+    ``submit_job`` finishes writing.
+    """
+    jobs_dir = jobs_dir or get_jobs_dir()
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    # Add counter for same-second jobs
-    jobs_dir = get_jobs_dir()
-    existing = list(jobs_dir.glob(f"{timestamp}_*.json"))
-    counter = len(existing)
-    return f"{timestamp}_{counter:03d}"
+    # Start past the counters already used this second, then let the
+    # exclusive-create claim arbitrate; retry on collision.
+    counter = len(list(jobs_dir.glob(f"{timestamp}_*.json")))
+    for attempt in range(counter, counter + 1000):
+        job_id = f"{timestamp}_{attempt:03d}"
+        try:
+            fd = os.open(
+                jobs_dir / f"{job_id}.json",
+                os.O_CREAT | os.O_EXCL | os.O_WRONLY,
+            )
+        except FileExistsError:
+            continue
+        os.close(fd)
+        return job_id
+    raise RuntimeError("could not claim a unique job ID")
 
 
 def submit_job(command: list[str], job_name: str = "", verbose: bool = False) -> str:
     """Submit a background job and return job ID."""
-    job_id = generate_job_id()
     jobs_dir = get_jobs_dir()
+    job_id = generate_job_id(jobs_dir)
     log_dir = jobs_dir / "logs"
     log_dir.mkdir(exist_ok=True)
 
@@ -111,8 +157,7 @@ def submit_job(command: list[str], job_name: str = "", verbose: bool = False) ->
         "start_time": datetime.now().isoformat(),
         "log_file": str(log_file),
     }
-    with open(meta_file, "w", encoding="utf-8") as f:
-        json.dump(metadata, f, indent=2)
+    _write_metadata(meta_file, metadata)
 
     if verbose:
         print(f"Job {job_id} started (PID {process.pid})")
@@ -131,8 +176,17 @@ def get_job_status(job_id: str) -> dict:
     if not meta_file.exists():
         return {"error": f"Job {job_id} not found"}
 
-    with open(meta_file, encoding="utf-8") as f:
-        metadata = json.load(f)
+    metadata = _read_metadata(meta_file)
+    if metadata is None:
+        # Corrupt or half-written metadata (e.g. from a crashed submit):
+        # treat like a missing job instead of tracebacking.
+        return {"error": f"Job {job_id} not found"}
+
+    # A terminal status recorded in the metadata (a job cancelled via
+    # `cancel`) stays authoritative: a dead PID must not resurrect it as
+    # "completed", which `wait` would then report as success.
+    if metadata.get("status") == "cancelled":
+        return metadata
 
     # The launcher writes a completion-marker file with the exit code as its
     # final act, so its presence (not process liveness, which can't detect
@@ -151,8 +205,14 @@ def get_job_status(job_id: str) -> dict:
         try:
             os.kill(pid, 0)  # Signal 0 checks if process exists
             metadata["status"] = "running"
+        except PermissionError:
+            # Process exists but is owned by another user — it is alive.
+            metadata["status"] = "running"
         except ProcessLookupError:
-            metadata["status"] = "completed"
+            # The launcher always writes its exit marker before exiting, so
+            # a dead PID without one means the process was killed — never
+            # report that as a successful completion.
+            metadata["status"] = "failed"
     else:
         metadata["status"] = "unknown"
 
@@ -176,7 +236,11 @@ def list_jobs(status_filter: str = "all", verbose: bool = False) -> list[dict]:
             # fall back to best-effort PID liveness only while a job runs.
             exit_file = jobs_dir / f"{meta_file.stem}.exit"
             pid = metadata.get("pid")
-            if exit_file.exists():
+            if metadata.get("status") == "cancelled":
+                # Terminal status recorded by `cancel` stays authoritative;
+                # a dead PID must not rewrite it to "completed".
+                metadata["current_status"] = "cancelled"
+            elif exit_file.exists():
                 metadata["current_status"] = "completed"
                 try:
                     metadata["exit_code"] = int(exit_file.read_text(encoding="utf-8").strip())
@@ -186,8 +250,12 @@ def list_jobs(status_filter: str = "all", verbose: bool = False) -> list[dict]:
                 try:
                     os.kill(pid, 0)
                     metadata["current_status"] = "running"
+                except PermissionError:
+                    # Process exists but is owned by another user — alive.
+                    metadata["current_status"] = "running"
                 except ProcessLookupError:
-                    metadata["current_status"] = "completed"
+                    # Dead PID without an exit marker: killed, not completed.
+                    metadata["current_status"] = "failed"
 
             if status_filter == "all" or metadata.get("current_status") == status_filter:
                 jobs.append(metadata)
@@ -201,14 +269,19 @@ def cancel_job(job_id: str, verbose: bool = False) -> bool:
     """Cancel a running job."""
     jobs_dir = get_jobs_dir()
     meta_file = jobs_dir / f"{job_id}.json"
-    pid_file = jobs_dir / f"{job_id}.pid"
 
-    if not meta_file.exists():
+    metadata = _read_metadata(meta_file)
+    if metadata is None:
         print(f"ERROR: Job {job_id} not found", file=sys.stderr)
         return False
 
-    with open(meta_file, encoding="utf-8") as f:
-        metadata = json.load(f)
+    # Never signal a job that already reached a terminal state: its PID may
+    # have been recycled by an unrelated process. get_job_status resolves
+    # the authoritative state (recorded terminal status / exit marker).
+    current = get_job_status(job_id).get("status")
+    if current in ("completed", "cancelled", "failed"):
+        print(f"Job {job_id} is already {current}; nothing to cancel", file=sys.stderr)
+        return True
 
     pid = metadata.get("pid")
     if not pid:
@@ -222,14 +295,13 @@ def cancel_job(job_id: str, verbose: bool = False) -> bool:
         # Force kill if still running
         try:
             os.killpg(os.getpgid(pid), signal.SIGKILL)
-        except ProcessLookupError:
+        except (ProcessLookupError, PermissionError):
             pass
 
         # Update metadata
         metadata["status"] = "cancelled"
         metadata["end_time"] = datetime.now().isoformat()
-        with open(meta_file, "w", encoding="utf-8") as f:
-            json.dump(metadata, f, indent=2)
+        _write_metadata(meta_file, metadata)
 
         if verbose:
             print(f"Job {job_id} cancelled")
@@ -247,8 +319,10 @@ def cancel_job(job_id: str, verbose: bool = False) -> bool:
 def wait_job(job_id: str, timeout: int | None = None, verbose: bool = False) -> int:
     """Wait for a job to complete.
 
-    Returns the job's exit code on completion; 1 if the job does not exist;
-    3 if the wait timed out with the job still running.
+    Returns the job's exit code on completion; 143 for a cancelled job
+    (128 + SIGTERM, matching how ``cancel`` terminates it); 1 for a job
+    that died without recording an exit code, or if the job does not
+    exist; 3 if the wait timed out with the job still running.
     """
     start = time.time()
     while True:
@@ -256,8 +330,13 @@ def wait_job(job_id: str, timeout: int | None = None, verbose: bool = False) -> 
         if "error" in status:
             print(f"ERROR: {status['error']}", file=sys.stderr)
             return 1
-        if status.get("status") in ("completed", "cancelled"):
-            exit_code = status.get("exit_code", 0)
+        if status.get("status") in ("completed", "cancelled", "failed"):
+            exit_code = status.get("exit_code")
+            if exit_code is None:
+                # A cancelled job (killed with SIGTERM -> 128 + 15) or one
+                # that died without recording an exit code must never be
+                # reported as success.
+                exit_code = 143 if status["status"] == "cancelled" else 1
             if verbose:
                 print(f"Job {job_id} finished with exit code {exit_code}")
             return exit_code
@@ -281,9 +360,19 @@ def tail_log(job_id: str, lines: int = 20) -> str:
         return f"No log file for job {job_id}"
 
     try:
-        with open(log_file, encoding="utf-8") as f:
-            all_lines = f.readlines()
-            return "".join(all_lines[-lines:])
+        # Read backwards from EOF in blocks instead of slurping the whole
+        # file, so tailing a huge log stays memory-friendly.
+        data = b""
+        with open(log_file, "rb") as f:
+            f.seek(0, os.SEEK_END)
+            remaining = f.tell()
+            while remaining > 0 and data.count(b"\n") <= lines:
+                step = min(4096, remaining)
+                remaining -= step
+                f.seek(remaining)
+                data = f.read(step) + data
+        tail = data.decode("utf-8", errors="replace").splitlines(keepends=True)[-lines:]
+        return "".join(tail)
     except Exception as e:
         return f"Error reading log: {e}"
 
@@ -362,7 +451,9 @@ Examples:
     cancel_parser.add_argument("--verbose", "-v", action="store_true")
 
     # Wait
-    wait_parser = subparsers.add_parser("wait", help="Wait for job completion")
+    wait_parser = subparsers.add_parser(
+        "wait", help="Wait for job completion (cancelled jobs return exit code 143)"
+    )
     wait_parser.add_argument("job_id", help="Job ID")
     wait_parser.add_argument("--timeout", "-t", type=int, help="Timeout in seconds")
     wait_parser.add_argument("--verbose", "-v", action="store_true")

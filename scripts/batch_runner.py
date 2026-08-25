@@ -64,8 +64,12 @@ def run_pipeline_stages(stages: list[dict], verbose: bool = False) -> bool:
         command = stage.get("command", [])
 
         if not command:
-            print(f"WARNING: No command for {stage_name}", file=sys.stderr)
-            continue
+            # A stage without a command is a misconfiguration (e.g. a
+            # misspelled ``command:`` key). Treat it as a stage failure
+            # (exit 1) instead of silently skipping and exiting 0.
+            print(f"ERROR: No command for {stage_name}", file=sys.stderr)
+            print(f"\n⏹️ Pipeline stopped at {stage_name}", file=sys.stderr)
+            return False
 
         success = run_stage(stage_name, command, verbose)
         if not success:
@@ -81,10 +85,16 @@ def run_pipeline_stages(stages: list[dict], verbose: bool = False) -> bool:
 
 
 def _concat_fasta_command(seq_dir: Path, out_fasta: Path) -> list[str]:
-    """Build a command that concatenates all FASTA files in ``seq_dir``."""
+    """Build a command that concatenates all FASTA files in ``seq_dir``.
+
+    The output file itself matches ``*.fa`` and, on pipeline re-runs, would
+    otherwise be concatenated back into its own inputs (duplicate sequences),
+    so it is explicitly excluded.
+    """
     script = (
         "import glob, sys\n"
         "files = sorted(glob.glob(sys.argv[1] + '/*.fa')) + sorted(glob.glob(sys.argv[1] + '/*.fasta'))\n"
+        "files = [p for p in files if p != sys.argv[2]]\n"
         "with open(sys.argv[2], 'w') as out:\n"
         "    for p in files:\n"
         "        with open(p) as f:\n"
@@ -103,7 +113,7 @@ def build_standard_pipeline(args) -> list[dict]:
         stages.append({
             "name": "Stage 0: PDBFixer",
             "command": [
-                "python", str(scripts_dir / "run_pdbfixer.py"),
+                sys.executable, str(scripts_dir / "run_pdbfixer.py"),
                 "--input", args.input_pdb,
                 "--output", args.output_dir / "fixed.pdb",
                 "--verbose",
@@ -114,7 +124,7 @@ def build_standard_pipeline(args) -> list[dict]:
     if args.contig and args.stage <= 1:
         input_pdb = args.output_dir / "fixed.pdb" if args.input_pdb else None
         cmd = [
-            "python", str(scripts_dir / "run_rfdiffusion.py"),
+            sys.executable, str(scripts_dir / "run_rfdiffusion.py"),
             "--contig", args.contig,
             "--num-designs", str(args.num_designs),
             "--output-prefix", str(args.output_dir / "design"),
@@ -135,7 +145,7 @@ def build_standard_pipeline(args) -> list[dict]:
         stages.append({
             "name": "Stage 2: ProteinMPNN",
             "command": [
-                "python", str(scripts_dir / "run_proteinmpnn.py"),
+                sys.executable, str(scripts_dir / "run_proteinmpnn.py"),
                 "--pdb-path", str(args.output_dir / "design_*.pdb"),
                 "--out-folder", str(args.output_dir / "sequences"),
                 "--num-seq", str(args.num_seq),
@@ -167,7 +177,7 @@ def build_standard_pipeline(args) -> list[dict]:
                 stages.append({
                     "name": "Stage 3a: Format Conversion",
                     "command": [
-                        "python", str(scripts_dir / "convert_format.py"),
+                        sys.executable, str(scripts_dir / "convert_format.py"),
                         "--from", "fasta",
                         "--to", "alphafold3_json",
                         "--input", str(all_seqs),
@@ -178,7 +188,7 @@ def build_standard_pipeline(args) -> list[dict]:
                 stages.append({
                     "name": "Stage 3b: AlphaFold3",
                     "command": [
-                        "python", str(scripts_dir / script_name),
+                        sys.executable, str(scripts_dir / script_name),
                         "--json", str(args.output_dir / "af3_input.json"),
                         "--output-dir", str(args.output_dir / "validation"),
                         "--verbose",
@@ -188,7 +198,7 @@ def build_standard_pipeline(args) -> list[dict]:
                 stages.append({
                     "name": f"Stage 3: {args.validator}",
                     "command": [
-                        "python", str(scripts_dir / script_name),
+                        sys.executable, str(scripts_dir / script_name),
                         "--input", str(all_seqs),
                         "--output-dir", str(args.output_dir / "validation"),
                         "--verbose",
@@ -200,7 +210,7 @@ def build_standard_pipeline(args) -> list[dict]:
         stages.append({
             "name": "Stage 4: Filtering",
             "command": [
-                "python", str(scripts_dir / "run_filtering.py"),
+                sys.executable, str(scripts_dir / "run_filtering.py"),
                 "--results-dir", str(args.output_dir / "validation"),
                 "--min-plddt", str(args.min_plddt),
                 "--top-n", str(args.top_n),
@@ -247,6 +257,10 @@ def load_pipeline_config(config_path: Path) -> list[dict]:
                 resolved.append(str(scripts_dir / token[len("scripts/"):]))
             else:
                 resolved.append(token)
+        # A bare "python" launcher runs with the interpreter executing this
+        # script, so PATH-less setups (e.g. python3-only macOS) still work.
+        if resolved and resolved[0] == "python":
+            resolved[0] = sys.executable
         stage["command"] = resolved
 
     return stages
