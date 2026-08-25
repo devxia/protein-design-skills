@@ -311,6 +311,8 @@ Run ProteinMPNN — standalone execution
 
 Run Protenix — standalone execution
 
+`--num-recycling` maps to Protenix's native `--cycle` flag. The runner probes the installed CLI: Protenix v0.5.x is invoked as `protenix predict --input <json> --out_dir <dir>`, newer releases as `protenix pred -i <json> -o <dir>`.
+
 ### Parameters
 
 | Parameter | Flag | Required | Default | Type | Description |

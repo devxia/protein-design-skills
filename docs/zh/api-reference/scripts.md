@@ -309,6 +309,8 @@ Run ProteinMPNN — standalone execution
 
 Run Protenix — standalone execution
 
+`--num-recycling` 映射到 Protenix 原生的 `--cycle` 参数。运行器会探测已安装的 CLI：Protenix v0.5.x 以 `protenix predict --input <json> --out_dir <dir>` 调用，新版本以 `protenix pred -i <json> -o <dir>` 调用。
+
 ### 参数
 
 | 参数 | 标志 | 必需 | 默认值 | 类型 | 说明 |

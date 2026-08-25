@@ -278,7 +278,7 @@ python scripts/run_rfdiffusion.py --help
 # 设置工具路径
 export RFDIFFUSION_PATH="~/RFdiffusion"
 export PROTEINMPNN_PATH="~/ProteinMPNN"
-export ALPHAFOLD_PATH="~/alphafold3"
+export ALPHAFOLD3_PATH="~/alphafold3"  # 规范名；旧名 ALPHAFOLD_PATH 仍兼容
 
 # 或使用配置文件
 cat ~/.protein-design/config.yaml

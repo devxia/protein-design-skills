@@ -67,7 +67,7 @@ python scripts/run_rfdiffusion.py \
   --output-prefix outputs/binder \
   --contig "[B1-100/0 100-100]" \
   --num-designs 50 \
-  --hotspot-res A30 A33 A34 \
+  --hotspot-res A30,A33,A34 \
   --diffuser-t 50
 ```
 
@@ -129,7 +129,7 @@ python scripts/run_rfdiffusion.py \
 python scripts/run_rfdiffusion.py \
   --input-pdb inputs/target.pdb \
   --contig "[B1-100/0 100-100]" \
-  --hotspot-res A30 A33 A34 \
+  --hotspot-res A30,A33,A34 \
   --output-prefix outputs/binder \
   --num-designs 50
 ```
@@ -220,7 +220,7 @@ python scripts/run_rfdiffusion.py \
 python scripts/run_rfdiffusion.py \
   --input-pdb inputs/target.pdb \
   --contig "[B1-50/0 12-18]" \
-  --hotspot-res A30 A33 \
+  --hotspot-res A30,A33 \
   --cyclic \
   --cyc-chains b \
   --output-prefix outputs/cyclic_binder \
