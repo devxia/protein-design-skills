@@ -62,7 +62,8 @@ def test_execution_adapter_hotspot_quoting(monkeypatch, capsys):
     rc = module.main()
     out = capsys.readouterr().out
     assert rc == 0
-    assert 'ppi.hotspot_res=["A30","A33"]' in out
+    context = json.loads(out)["hookSpecificOutput"]["additionalContext"]
+    assert 'ppi.hotspot_res=["A30","A33"]' in context
 
 
 def test_execution_adapter_survives_non_dict_json(monkeypatch, capsys):
@@ -145,6 +146,7 @@ def test_onboarding_probes_run_concurrently(monkeypatch):
     module = _load_hook_module("user-onboarding")
 
     def slow_run(cmd, **kwargs):
+        assert kwargs.get("text") is True
         time.sleep(2)
 
         class R:

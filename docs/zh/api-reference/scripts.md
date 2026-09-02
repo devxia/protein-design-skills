@@ -91,10 +91,11 @@ Lightweight job manager — process tracking
 python scripts/job_manager.py submit --name rfdiff -- python scripts/run_rfdiffusion.py --contig "150-150"
 python scripts/job_manager.py list
 python scripts/job_manager.py status <job_id>
+python scripts/job_manager.py wait <job_id> --timeout 3600
+python scripts/job_manager.py cancel <job_id>
 ```
 
-作业完成情况由启动器写入的每个作业专属的 `.exit` 标记文件跟踪，因此即使
-PID 被回收复用，`list` 与 `status` 对已结束的作业也能给出一致的状态。
+作业完成情况由原子发布的作业专属 `.exit` 标记文件跟踪，因此即使 PID 被回收复用，`list` 与 `status` 对已结束的作业也能给出一致状态。损坏的标记不会被视为完成。`cancel` 会在发送信号前核对记录的进程身份，并仅在进程组退出后记录 `cancelled`；`wait` 对已取消作业返回 143，等待超时则返回 3。
 
 ## `project_dashboard.py`
 
@@ -119,8 +120,9 @@ Run AlphaFold3 — standalone execution
 
 | 参数 | 标志 | 必需 | 默认值 | 类型 | 说明 |
 |------|------|------|--------|------|------|
-| `json` | `--json / -j` | Yes | — | string | AlphaFold3 JSON input file |
-| `output_dir` | `--output-dir / --out-dir / -o` | Yes | — | string | Output directory |
+| `json` | `--json / -j` | `--json` / `--input-dir` 二选一 | — | string | AlphaFold3 JSON 输入文件 |
+| `input_dir` | `--input-dir` | `--json` / `--input-dir` 二选一 | — | string | 包含 AlphaFold3 JSON 输入的目录 |
+| `output_dir` | `--output-dir / --out-dir / -o` | Yes | — | string | 输出目录 |
 | `db_dir` | `--db-dir / -d` | No | — | string | Path to AlphaFold3 databases (~2.6TB) |
 | `no_msa` | `--no-msa` | No | false | flag | Skip MSA search (faster, less accurate) |
 | `num_seeds` | `--num-seeds` | No | 1 | int | 随机种子数量；将扩展种子后的输入 JSON 副本写入输出目录，原始文件保持不变（默认：1） |

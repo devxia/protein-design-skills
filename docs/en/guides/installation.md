@@ -12,7 +12,7 @@ source: README.md
 This plugin uses a **skills + hooks + scripts** architecture:
 
 - **Skills** (`skills/`) — 76 Markdown workflow guides that tell the agent how to use each tool
-- **Hooks** (`protein_design/hooks/`) — 22 automation scripts for context injection, GPU checks, progress tracking, and notifications
+- **Hooks** (host manifests) — 20 cross-host automation registrations for context injection, GPU checks, recommendations, pipeline orchestration, and recovery
 - **Standalone Scripts** (`scripts/`) — 19 direct CLI scripts for tool execution
 
 The plugin works with any coding agent that reads skills and runs Python scripts.
@@ -228,13 +228,12 @@ max_jobs: 4
 timeout: 3600
 rfdiffusion_path: /Users/YOURNAME/software/RFdiffusion
 proteinmpnn_path: /Users/YOURNAME/software/ProteinMPNN
-alphafold_path: /Users/YOURNAME/software/alphafold3
+alphafold3_path: /Users/YOURNAME/software/alphafold3
 rfdiffusion_conda_env: SE3nv
 proteinmpnn_conda_env: null
-alphafold_conda_env: null
 ```
 
-> **Legacy path**: `~/.kimi-protein-design/config.yaml` is also supported for backward compatibility.
+`alphafold3_path` is the canonical config key. The legacy `alphafold_path` key is still honoured for backward compatibility. The legacy config location `~/.kimi-protein-design/config.yaml` is also supported.
 
 **Method C: Symlinks**
 

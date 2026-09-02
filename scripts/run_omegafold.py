@@ -16,32 +16,30 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from protein_design.utils import get_config, log_history
-from protein_design.conda_utils import probe_conda_envs, build_tool_command, resolve_wrapper_script, is_bare_executable
+from protein_design.conda_utils import probe_conda_envs, build_tool_command, resolve_wrapper_script, is_bare_executable, resolve_configured_path
+from protein_design.process_utils import run_process
 
 import argparse
 import os
+import shlex
+import shutil
 import subprocess
 import time
 
 
 def find_omegafold(config):
     """Locate OmegaFold installation."""
-    # 1. Configured path / environment variable
-    if config.get("omegafold_path"):
-        path = Path(config["omegafold_path"])
-        if path.exists():
-            return str(path)
+    # 1. Configured path / environment variable.  Resolve the known console
+    # entry point when a project or bin directory is configured.
+    configured = resolve_configured_path(
+        config.get("omegafold_path"), ["omegafold", "bin/omegafold"]
+    )
+    if configured:
+        return configured
 
-    # 2. Try direct command
-    try:
-        result = subprocess.run(
-            ["which", "omegafold"],
-            capture_output=True, text=True, timeout=5
-        )
-        if result.returncode == 0 and result.stdout.strip():
-            return "omegafold"
-    except FileNotFoundError:
-        pass
+    # 2. Try direct command on PATH.
+    if shutil.which("omegafold"):
+        return "omegafold"
 
     # 3. Conda environments
     env = probe_conda_envs(["omegafold", "protein-design"], ["omegafold", "--help"])
@@ -55,7 +53,7 @@ def find_omegafold(config):
             capture_output=True, text=True, timeout=5
         )
         if result.returncode == 0:
-            return "python -m omegafold"
+            return shlex.join([sys.executable, "-m", "omegafold"])
     except (subprocess.TimeoutExpired, OSError):
         pass
 
@@ -96,7 +94,7 @@ def run_omegafold(input_file, output_dir, subbatch_size=None, verbose=False):
 
     start_time = time.time()
     try:
-        result = subprocess.run(
+        result = run_process(
             cmd,
             capture_output=True,
             text=True,

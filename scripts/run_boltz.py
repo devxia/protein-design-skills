@@ -16,31 +16,29 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from protein_design.utils import get_config, log_history
-from protein_design.conda_utils import probe_conda_envs, build_tool_command, resolve_wrapper_script, is_bare_executable
+from protein_design.conda_utils import probe_conda_envs, build_tool_command, resolve_wrapper_script, is_bare_executable, resolve_configured_path
+from protein_design.process_utils import run_process
 
 import argparse
+import shlex
+import shutil
 import subprocess
 import time
 
 
 def find_boltz(config):
     """Locate Boltz-1 installation."""
-    # 1. Configured path / environment variable
-    if config.get("boltz_path"):
-        path = Path(config["boltz_path"])
-        if path.exists():
-            return str(path)
+    # 1. Configured path / environment variable.  A directory may be a
+    # project root or a bin directory; resolve only Boltz's known entry point.
+    configured = resolve_configured_path(
+        config.get("boltz_path"), ["boltz", "bin/boltz"]
+    )
+    if configured:
+        return configured
 
-    # 2. Try direct command
-    try:
-        result = subprocess.run(
-            ["which", "boltz"],
-            capture_output=True, text=True, timeout=5
-        )
-        if result.returncode == 0 and result.stdout.strip():
-            return "boltz"
-    except FileNotFoundError:
-        pass
+    # 2. Try direct command on PATH.
+    if shutil.which("boltz"):
+        return "boltz"
 
     # 3. Conda environments
     env = probe_conda_envs(["boltz", "boltz-1", "protein-design"], ["boltz", "--help"])
@@ -54,7 +52,7 @@ def find_boltz(config):
             capture_output=True, text=True, timeout=5
         )
         if result.returncode == 0:
-            return "python -m boltz"
+            return shlex.join([sys.executable, "-m", "boltz"])
     # Importing boltz pulls in torch and can easily exceed the 5s probe
     # timeout; treat it as a failed probe, not a crash.
     except (subprocess.TimeoutExpired, FileNotFoundError):
@@ -104,7 +102,7 @@ def run_boltz(input_file, out_dir, use_msa_server=True, recycling_steps=3,
 
     start_time = time.time()
     try:
-        result = subprocess.run(
+        result = run_process(
             cmd,
             capture_output=True,
             text=True,

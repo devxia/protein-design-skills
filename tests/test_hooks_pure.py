@@ -56,11 +56,12 @@ def test_quality_gate_passes_above_threshold():
     assert evaluation["is_passing"] is True
 
 
-def test_quality_gate_ignores_absent_metrics():
-    # A binder missing ipTM should still be evaluated on the metrics present.
+def test_quality_gate_requires_all_design_metrics():
     metrics = {"plddt": 90.0}
     evaluation = _quality_gate._evaluate_quality(metrics, "binder")
-    assert evaluation["is_passing"] is True
+    assert evaluation["is_passing"] is False
+    assert any("min_iptm: missing" in item for item in evaluation["failed"])
+    assert any("min_ptm: missing" in item for item in evaluation["failed"])
 
 
 def test_quality_gate_fails_closed_with_no_evaluable_metrics():

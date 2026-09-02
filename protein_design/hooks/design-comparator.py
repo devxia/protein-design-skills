@@ -10,7 +10,7 @@ from typing import Any
 import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
-from protein_design.utils import read_hook_input
+from protein_design.utils import get_hook_invoked_runner, hook_advisory_output, read_hook_input
 
 
 def main() -> int:
@@ -28,9 +28,11 @@ def main() -> int:
     if not isinstance(data, dict):
         return 0
 
-    # Only activate for validation tool completions
-    tool_name = str(data.get("tool", "")).lower()
-    if not any(t in tool_name for t in ["alphafold", "boltz", "chai", "omegafold", "esmfold", "protenix"]):
+    validation_runners = {
+        "run_alphafold3", "run_boltz", "run_chai1", "run_esmfold",
+        "run_omegafold", "run_openfold3", "run_protenix",
+    }
+    if get_hook_invoked_runner(data) not in validation_runners:
         return 0
 
     # This is a template — the actual comparison would require
@@ -94,7 +96,7 @@ def ensemble_score(results):
 - **Protenix (multi-sample)**: Use 100-1000 samples for highest confidence
 """
 
-    print(output)
+    print(hook_advisory_output(output))
     return 0
 
 

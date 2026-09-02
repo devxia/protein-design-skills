@@ -16,7 +16,7 @@ import os
 import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
-from protein_design.utils import get_config, parse_confidence_json, read_hook_input
+from protein_design.utils import discover_confidence_files, get_config, get_hook_prompt, parse_confidence_json, read_hook_input
 import traceback
 import json
 from typing import Any
@@ -105,17 +105,13 @@ def _count_outputs(root: Path) -> dict[str, int]:
             counts["fasta"] += 1
         elif suffix == ".cif":
             counts["cif"] += 1
-        elif path.name == "confidence.json":
-            counts["confidence"] += 1
+    counts["confidence"] = len(discover_confidence_files(root))
     return counts
 
 
 def _find_confidence_files(root: Path) -> list[Path]:
-    """Find all confidence.json files under root."""
-    try:
-        return list(root.rglob("confidence.json"))
-    except Exception:
-        return []
+    """Find supported confidence files under root without double counting."""
+    return discover_confidence_files(root)
 
 
 def _quality_distribution(plddts: list[float]) -> dict[str, int]:
@@ -194,7 +190,7 @@ def _build_response(output_dir: Path, counts: dict[str, int]) -> str:
         lines.append("")
 
         # Quality metrics
-        conf_files = _find_confidence_files(output_dir)
+        conf_files = discover_confidence_files(output_dir)
         if conf_files:
             plddts: list[float] = []
             iptms: list[float] = []
@@ -280,7 +276,7 @@ def main() -> int:
         traceback.print_exc()
         return 1
 
-    prompt = str(data.get("prompt", "")) if isinstance(data, dict) else ""
+    prompt = get_hook_prompt(data)
     if not prompt or not _should_respond(prompt):
         return 0
 

@@ -14,7 +14,7 @@ from typing import Any
 import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
-from protein_design.utils import PROTEIN_DESIGN_PATTERN, read_hook_input
+from protein_design.utils import PROTEIN_DESIGN_PATTERN, get_hook_prompt, read_hook_input
 
 
 def _extract_keywords(text: str) -> set[str]:
@@ -307,7 +307,7 @@ def main() -> int:
         traceback.print_exc()
         return 1
 
-    user_prompt = data.get("prompt", "") if isinstance(data, dict) else ""
+    user_prompt = get_hook_prompt(data)
 
     if not user_prompt.strip():
         return 0

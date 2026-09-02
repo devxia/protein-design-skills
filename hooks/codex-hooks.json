@@ -1,0 +1,44 @@
+{
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {"type": "command", "command": "python \"${PLUGIN_ROOT}/protein_design/hooks/user-onboarding.py\"", "commandWindows": "python \"${PLUGIN_ROOT}\\protein_design\\hooks\\user-onboarding.py\"", "timeout": 5},
+          {"type": "command", "command": "python \"${PLUGIN_ROOT}/protein_design/hooks/session-health-check.py\"", "commandWindows": "python \"${PLUGIN_ROOT}\\protein_design\\hooks\\session-health-check.py\"", "timeout": 5},
+          {"type": "command", "command": "python \"${PLUGIN_ROOT}/protein_design/hooks/protein-context-inject.py\"", "commandWindows": "python \"${PLUGIN_ROOT}\\protein_design\\hooks\\protein-context-inject.py\"", "timeout": 5},
+          {"type": "command", "command": "python \"${PLUGIN_ROOT}/protein_design/hooks/tool-recommender.py\"", "commandWindows": "python \"${PLUGIN_ROOT}\\protein_design\\hooks\\tool-recommender.py\"", "timeout": 5},
+          {"type": "command", "command": "python \"${PLUGIN_ROOT}/protein_design/hooks/auto-parameter-tuner.py\"", "commandWindows": "python \"${PLUGIN_ROOT}\\protein_design\\hooks\\auto-parameter-tuner.py\"", "timeout": 5},
+          {"type": "command", "command": "python \"${PLUGIN_ROOT}/protein_design/hooks/batch-orchestrator.py\"", "commandWindows": "python \"${PLUGIN_ROOT}\\protein_design\\hooks\\batch-orchestrator.py\"", "timeout": 5},
+          {"type": "command", "command": "python \"${PLUGIN_ROOT}/protein_design/hooks/progress-query-helper.py\"", "commandWindows": "python \"${PLUGIN_ROOT}\\protein_design\\hooks\\progress-query-helper.py\"", "timeout": 5},
+          {"type": "command", "command": "python \"${PLUGIN_ROOT}/protein_design/hooks/cost-estimator.py\"", "commandWindows": "python \"${PLUGIN_ROOT}\\protein_design\\hooks\\cost-estimator.py\"", "timeout": 5},
+          {"type": "command", "command": "python \"${PLUGIN_ROOT}/protein_design/hooks/parameter-generator.py\"", "commandWindows": "python \"${PLUGIN_ROOT}\\protein_design\\hooks\\parameter-generator.py\"", "timeout": 5}
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash|PowerShell",
+        "hooks": [
+          {"type": "command", "command": "python \"${PLUGIN_ROOT}/protein_design/hooks/alternative-tool-recommender.py\"", "commandWindows": "python \"${PLUGIN_ROOT}\\protein_design\\hooks\\alternative-tool-recommender.py\"", "timeout": 5},
+          {"type": "command", "command": "python \"${PLUGIN_ROOT}/protein_design/hooks/execution-adapter.py\"", "commandWindows": "python \"${PLUGIN_ROOT}\\protein_design\\hooks\\execution-adapter.py\"", "timeout": 5},
+          {"type": "command", "command": "python \"${PLUGIN_ROOT}/protein_design/hooks/gpu-check-hook.py\"", "commandWindows": "python \"${PLUGIN_ROOT}\\protein_design\\hooks\\gpu-check-hook.py\"", "timeout": 5}
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Bash|PowerShell",
+        "hooks": [
+          {"type": "command", "command": "python \"${PLUGIN_ROOT}/protein_design/hooks/design-complete-notify.py\"", "commandWindows": "python \"${PLUGIN_ROOT}\\protein_design\\hooks\\design-complete-notify.py\"", "timeout": 5},
+          {"type": "command", "command": "python \"${PLUGIN_ROOT}/protein_design/hooks/design-comparator.py\"", "commandWindows": "python \"${PLUGIN_ROOT}\\protein_design\\hooks\\design-comparator.py\"", "timeout": 5},
+          {"type": "command", "command": "python \"${PLUGIN_ROOT}/protein_design/hooks/design-report.py\"", "commandWindows": "python \"${PLUGIN_ROOT}\\protein_design\\hooks\\design-report.py\"", "timeout": 5},
+          {"type": "command", "command": "python \"${PLUGIN_ROOT}/protein_design/hooks/error-recovery.py\"", "commandWindows": "python \"${PLUGIN_ROOT}\\protein_design\\hooks\\error-recovery.py\"", "timeout": 5},
+          {"type": "command", "command": "python \"${PLUGIN_ROOT}/protein_design/hooks/format-converter.py\"", "commandWindows": "python \"${PLUGIN_ROOT}\\protein_design\\hooks\\format-converter.py\"", "timeout": 5},
+          {"type": "command", "command": "python \"${PLUGIN_ROOT}/protein_design/hooks/job-monitor.py\"", "commandWindows": "python \"${PLUGIN_ROOT}\\protein_design\\hooks\\job-monitor.py\"", "timeout": 5},
+          {"type": "command", "command": "python \"${PLUGIN_ROOT}/protein_design/hooks/pipeline-orchestrator.py\"", "commandWindows": "python \"${PLUGIN_ROOT}\\protein_design\\hooks\\pipeline-orchestrator.py\"", "timeout": 5},
+          {"type": "command", "command": "python \"${PLUGIN_ROOT}/protein_design/hooks/quality-gate.py\"", "commandWindows": "python \"${PLUGIN_ROOT}\\protein_design\\hooks\\quality-gate.py\"", "timeout": 5}
+        ]
+      }
+    ]
+  }
+}

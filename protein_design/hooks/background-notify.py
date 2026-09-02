@@ -28,6 +28,8 @@ def main() -> int:
 
     event = data.get("event", "")
     task_id = data.get("task_id", "unknown")
+    if not isinstance(event, str):
+        return 0
 
     if "completed" in event:
         title = "✅ Background Task Complete"

@@ -12,7 +12,7 @@ source: README.zh.md
 本插件采用 **skills + hooks + scripts** 架构：
 
 - **Skills** (`skills/`) —— 76 个 Markdown 格式的工作流指南，告诉智能体如何使用每个工具
-- **Hooks** (`protein_design/hooks/`) —— 22 个自动化脚本，用于上下文注入、GPU 检查、进度跟踪和通知
+- **Hooks**（宿主 manifest）——20 个跨宿主自动化注册，用于上下文注入、GPU 检查、推荐、流水线编排和恢复
 - **Standalone Scripts** (`scripts/`) —— 19 个直接 CLI 脚本，用于工具执行
 
 本插件适用于任何能读取 skills 并运行 Python 脚本的编程智能体。
@@ -228,13 +228,12 @@ max_jobs: 4
 timeout: 3600
 rfdiffusion_path: /Users/YOURNAME/software/RFdiffusion
 proteinmpnn_path: /Users/YOURNAME/software/ProteinMPNN
-alphafold_path: /Users/YOURNAME/software/alphafold3
+alphafold3_path: /Users/YOURNAME/software/alphafold3
 rfdiffusion_conda_env: SE3nv
 proteinmpnn_conda_env: null
-alphafold_conda_env: null
 ```
 
-> **旧路径兼容**：`~/.kimi-protein-design/config.yaml` 也受支持。
+`alphafold3_path` 是规范配置键。为保持向后兼容，旧的 `alphafold_path` 键仍受支持；旧配置路径 `~/.kimi-protein-design/config.yaml` 也仍受支持。
 
 **方法 C：符号链接**
 

@@ -11,7 +11,7 @@
 | 层 | 说明 | 数量 | 位置 |
 |----|------|------|------|
 | **Skills** | 面向 LLM 的 Markdown 知识 | 76 | `skills/` |
-| **Hooks** | 自动化脚本 | 22 | `protein_design/hooks/` |
+| **Hooks** | 跨宿主自动化注册 | 20 | 宿主 manifest |
 | **Scripts** | 独立执行脚本 | 19 | `scripts/` |
 
 **工作原理：** Skills 教导智能体 → Hooks 自动触发 → Scripts 直接运行工具。
@@ -24,7 +24,7 @@
 - **Stage 3 — 结构验证**：AlphaFold3、Boltz-1、Chai-1、OmegaFold、ESMFold、Protenix、OpenFold3
 - **Stage 4 — 过滤与排序**：质量指标、交叉验证共识、评分优先筛选
 - **76 个技能**：覆盖 15+ 设计流水线，从快速筛选到完整验证
-- **22 个钩子**：上下文注入、GPU 安全检查、工具推荐、流水线编排、错误恢复
+- **20 个跨宿主钩子**：上下文注入、GPU 安全检查、工具推荐、流水线编排、错误恢复
 - **19 个独立脚本**：所有流水线阶段的直接命令行执行
 
 ## 15+ 设计流水线
@@ -241,7 +241,7 @@ python scripts/run_rfdiffusion.py --help
 | **session-health-check** | 蛋白质相关提示 | 检查已安装工具，为缺失工具推荐替代方案 |
 | **tool-recommender** | 设计请求 | 根据场景推荐脚本和参数 |
 | **error-recovery** | 工具执行失败 | 建议修复方案、替代工具、安装命令 |
-| **progress-reporter** | 长时间任务 | ETA 估计、文件计数、进度更新 |
+| **progress-reporter** | 直接辅助脚本（未注册） | 按需进行 ETA 估计、文件计数和进度更新 |
 | **pipeline-orchestrator** | 阶段完成 | 自动检测下一步，建议后续操作 |
 | **quality-gate** | 验证结果 | 基于阈值的通过/失败判定 |
 | **design-report** | 过滤完成 | 自动生成汇总报告和排名 |
@@ -253,11 +253,11 @@ python scripts/run_rfdiffusion.py --help
 
 | 智能体 | 钩子来源 | 钩子格式 | 状态 |
 |--------|---------|---------|------|
-| **Claude Code** | `~/.claude/settings.json`（或使用 `--local` 时 `.claude/settings.json`） | JSON | ✅ 完全支持 |
-| **Codex CLI** | `~/.codex/hooks.json`（或使用 `--local` 时 `.codex/hooks.json`） | JSON | ✅ 完全支持 |
+| **Claude Code** | `hooks/hooks.json`；安装器备用方案写入 `~/.claude/settings.json`（或使用 `--local` 时 `.claude/settings.json`） | 嵌套 JSON | ✅ 完全支持 |
+| **Codex CLI** | `hooks/codex-hooks.json`；安装器备用方案写入 `~/.codex/hooks.json`（或使用 `--local` 时 `.codex/hooks.json`） | 嵌套 JSON | ✅ 完全支持 |
 | **Kimi Code** | `kimi.plugin.json`（原生插件钩子） | Manifest | ✅ 完全支持 |
 
-所有智能体都获得相同的 22 个钩子和 76 个技能。Claude Code 自动发现 `hooks/hooks.json`；Codex CLI 从 `.codex-plugin/plugin.json` 加载钩子（需要信任审核）；Kimi Code 直接从 `kimi.plugin.json` 读取钩子。如需用户级/全局钩子注册，可将 `install-hooks.py` 作为 Claude Code 和 Codex CLI 的备用方案。
+所有智能体都获得相同的 20 个跨宿主钩子和 76 个技能。Claude Code 自动发现 `hooks/hooks.json`；Codex CLI 通过 `.codex-plugin/plugin.json` 加载宿主专用的 `hooks/codex-hooks.json`（需要信任审核）；Kimi Code 直接从 `kimi.plugin.json` 读取钩子。如需用户级或全局钩子注册，可将 `install-hooks.py` 作为 Claude Code 和 Codex CLI 的备用方案。
 
 ## 系统要求
 
@@ -377,11 +377,12 @@ cat kimi.plugin.json        # Kimi Code（钩子在插件清单中声明）
 |------|------|--------|
 | `.claude-plugin/plugin.json` | Claude Code 插件 manifest。只允许包含插件元数据和 `skills` 路径，**不要**放 `category`、`source` 或默认的 `hooks` 路径；Claude 会自动发现 `hooks/hooks.json`。 | Claude Code |
 | `.claude-plugin/marketplace.json` | Claude 市场注册。`category` 和 `source` 属于此文件；`source` 应设为 `"./"`。 | `claude plugin marketplace add` |
-| `.codex-plugin/plugin.json` | Codex CLI 插件 manifest。可以声明 `hooks` 指向 `hooks/hooks.json`。 | Codex CLI |
+| `.codex-plugin/plugin.json` | Codex CLI 插件 manifest，声明 `hooks/codex-hooks.json`。 | Codex CLI |
 | `plugin.json` | 根目录元数据 | npm、GitHub、通用工具 |
-| `kimi.plugin.json` | Kimi Code 插件 manifest | Kimi Code |
+| `kimi.plugin.json` | Kimi Code 插件 manifest 和原生 hook 来源 | Kimi Code |
 | `.agents/plugins/marketplace.json` | 多智能体市场索引 | `.agents` 插件加载器 |
-| `hooks/hooks.json` | 权威钩子定义。使用 `${CLAUDE_PLUGIN_ROOT}` 作为可移植路径。 | `install-hooks.py`、Claude Code 自动发现、Codex manifest hooks |
+| `hooks/hooks.json` | 使用 `${CLAUDE_PLUGIN_ROOT}` 的 Claude hook 定义。 | Claude Code 自动发现、`install-hooks.py` |
+| `hooks/codex-hooks.json` | 使用 `${PLUGIN_ROOT}` 和受支持 Codex 事件 matcher 的 Codex hook 定义。 | Codex manifest、`install-hooks.py` |
 
 `.claude-plugin/plugin.json` 遵循 [Claude Code plugin-structure 规范](https://docs.anthropic.com/en/docs/claude-code/plugins)。钩子也可通过 `protein_design/hooks/install-hooks.py` 安装，适用于不使用标准钩子加载器的智能体。
 

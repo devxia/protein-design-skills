@@ -3,8 +3,12 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
+
+import pytest
 
 import scripts.run_alphafold3 as af3
+from protein_design.conda_utils import build_tool_command
 from scripts.run_alphafold3 import _set_model_seeds
 
 
@@ -125,3 +129,124 @@ def test_num_seeds_below_one_prints_notice(tmp_path, monkeypatch, capsys):
     assert not list((tmp_path / "out").glob("*.seeds*.json"))
     out = capsys.readouterr().out
     assert "--num-seeds 0" in out
+
+
+def test_find_alphafold3_resolves_configured_directory(tmp_path):
+    """A configured AlphaFold3 checkout resolves to its standard runner."""
+    script = _write_script(tmp_path / "alphafold3" / "run_alphafold.py")
+    assert af3.find_alphafold3({"alphafold3_path": str(Path(script).parent)}) == script
+
+
+def test_find_alphafold3_conda_returns_real_script(monkeypatch):
+    """Conda discovery must return run_alphafold.py, never a module command."""
+    monkeypatch.setattr(af3.Path, "exists", lambda self: False)
+
+    def fake_run(cmd, **kwargs):
+        assert cmd[:5] == ["conda", "run", "-n", "alphafold3", "python"]
+        assert cmd[5] == "-c"
+        assert "pathlib" in cmd[6]
+        return _FakeResult()
+
+    result = _FakeResult()
+    result.stdout = "/env/alphafold3/run_alphafold.py\n"
+    monkeypatch.setattr(af3.subprocess, "run", lambda *args, **kwargs: result)
+
+    found = af3.find_alphafold3({})
+
+    assert found == "conda run -n alphafold3 python /env/alphafold3/run_alphafold.py"
+    assert "-m alphafold3" not in found
+
+
+def test_find_alphafold3_conda_round_trips_windows_script_path(monkeypatch):
+    """Conda discovery must preserve spaced Windows paths as one argv item."""
+    script = r"C:\\Program Files\\AlphaFold 3\\run_alphafold.py"
+    result = _FakeResult()
+    result.stdout = f"{script}\n"
+    monkeypatch.setattr(af3.Path, "exists", lambda self: False)
+    monkeypatch.setattr(af3.subprocess, "run", lambda *args, **kwargs: result)
+
+    found = af3.find_alphafold3({})
+
+    assert build_tool_command(found) == [
+        "conda", "run", "-n", "alphafold3", "python", script,
+    ]
+
+
+def test_run_alphafold3_batch_calls_each_input_in_stable_isolated_directory(
+    tmp_path, monkeypatch
+):
+    input_dir = tmp_path / "inputs"
+    input_dir.mkdir()
+    for name in ("z.json", "a b.json", "a_b.json"):
+        (input_dir / name).write_text("{}")
+
+    calls = []
+
+    def fake_run(json_path, output_dir, **kwargs):
+        calls.append((Path(json_path).name, Path(output_dir), kwargs))
+        return 0
+
+    monkeypatch.setattr(af3, "run_alphafold3", fake_run)
+    output_dir = tmp_path / "outputs"
+
+    rc = af3.run_alphafold3_batch(
+        input_dir,
+        output_dir,
+        db_dir="/db",
+        run_data_pipeline=False,
+        num_seeds=4,
+        verbose=True,
+    )
+
+    assert rc == 0
+    assert [name for name, _, _ in calls] == ["a b.json", "a_b.json", "z.json"]
+    task_dirs = [task_dir for _, task_dir, _ in calls]
+    assert len(task_dirs) == len(set(task_dirs))
+    assert all(task_dir.parent == output_dir for task_dir in task_dirs)
+    assert all(task_dir.exists() for task_dir in task_dirs)
+    assert all(call_kwargs == {
+        "db_dir": "/db",
+        "run_data_pipeline": False,
+        "num_seeds": 4,
+        "verbose": True,
+    } for _, _, call_kwargs in calls)
+
+
+def test_run_alphafold3_batch_returns_failure_and_attempts_remaining_inputs(
+    tmp_path, monkeypatch
+):
+    input_dir = tmp_path / "inputs"
+    input_dir.mkdir()
+    (input_dir / "a.json").write_text("{}")
+    (input_dir / "b.json").write_text("{}")
+    calls = []
+
+    def fake_run(json_path, output_dir, **kwargs):
+        calls.append(Path(json_path).name)
+        return 3 if Path(json_path).name == "a.json" else 0
+
+    monkeypatch.setattr(af3, "run_alphafold3", fake_run)
+    assert af3.run_alphafold3_batch(input_dir, tmp_path / "outputs") == 3
+    assert calls == ["a.json", "b.json"]
+
+
+def test_run_alphafold3_batch_empty_directory_returns_one(tmp_path, capsys):
+    input_dir = tmp_path / "empty"
+    input_dir.mkdir()
+    assert af3.run_alphafold3_batch(input_dir, tmp_path / "outputs") == 1
+    assert "No JSON input files" in capsys.readouterr().err
+
+
+def test_alphafold3_parser_supports_single_or_batch_input():
+    parser = af3.build_parser()
+    single = parser.parse_args(["--json", "input.json", "--output-dir", "out"])
+    batch = parser.parse_args(["--input-dir", "inputs", "--output-dir", "out", "--no-msa"])
+    assert single.json == "input.json"
+    assert single.input_dir is None
+    assert batch.input_dir == "inputs"
+    assert batch.json is None
+    assert batch.no_msa is True
+    with pytest.raises(SystemExit):
+        parser.parse_args([
+            "--json", "input.json", "--input-dir", "inputs", "--output-dir", "out"
+        ])

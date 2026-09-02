@@ -21,10 +21,13 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from protein_design.utils import get_config, log_history
-from protein_design.conda_utils import probe_conda_envs, build_tool_command, resolve_wrapper_script, is_bare_executable
+from protein_design.conda_utils import probe_conda_envs, build_tool_command, resolve_wrapper_script, is_bare_executable, resolve_configured_path
+from protein_design.process_utils import run_process
 
 import argparse
 import json
+import shlex
+import shutil
 import subprocess
 import time
 
@@ -32,22 +35,17 @@ import time
 def find_protenix():
     """Locate Protenix installation."""
     config = get_config("protenix")
-    # 0. Configured path / environment variable
-    if config.get("protenix_path"):
-        path = Path(config["protenix_path"])
-        if path.exists():
-            return str(path)
+    # 0. Configured path / environment variable.  Resolve the known console
+    # entry point when a project or bin directory is configured.
+    configured = resolve_configured_path(
+        config.get("protenix_path"), ["protenix", "bin/protenix"]
+    )
+    if configured:
+        return configured
 
-    # 1. Try direct command
-    try:
-        result = subprocess.run(
-            ["which", "protenix"],
-            capture_output=True, text=True, timeout=5
-        )
-        if result.returncode == 0 and result.stdout.strip():
-            return "protenix"
-    except (subprocess.TimeoutExpired, OSError):
-        pass
+    # 1. Try direct command on PATH.
+    if shutil.which("protenix"):
+        return "protenix"
 
     # 2. Conda environments
     env = probe_conda_envs(["protenix", "protein-design"], ["protenix", "--help"])
@@ -61,7 +59,7 @@ def find_protenix():
             capture_output=True, text=True, timeout=5
         )
         if result.returncode == 0:
-            return "python -m protenix"
+            return shlex.join([sys.executable, "-m", "protenix"])
     except (subprocess.TimeoutExpired, OSError):
         pass
 
@@ -149,7 +147,7 @@ def run_protenix(input_file, out_dir, num_recycling=3, verbose=False, from_fasta
 
     start_time = time.time()
     try:
-        result = subprocess.run(
+        result = run_process(
             cmd,
             capture_output=True,
             text=True,

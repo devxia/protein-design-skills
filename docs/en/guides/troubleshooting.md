@@ -10,44 +10,28 @@ source: README.md
 | Issue | Solution |
 |-------|----------|
 | Plugin not loading | Run `/new` after installation |
-| `run_pdbfixer` not found | `conda install -c conda-forge pdbfixer openmm`, or use `conda_env` param to run in another env |
-| RFdiffusion not found | Set `RFDIFFUSION_PATH` env var |
+| `run_pdbfixer` not found | `conda install -c conda-forge pdbfixer openmm`, then re-run the script |
+| RFdiffusion not found | Set `RFDIFFUSION_PATH` or configure `rfdiffusion_path` |
 | GPU out of memory | Reduce `num_designs` or `diffuser_T` |
-| AlphaFold3 MSA timeout | Default runs full MSA. Set `run_data_pipeline=false` to skip (faster, less accurate) |
-| Tool not found in other env | `check_all_tools` now auto-scans common conda envs + editable installs |
-| Binder validation needs receptor | Use `convert_format` with `receptor_pdb` to generate multi-chain AF3 JSON |
+| AlphaFold3 MSA timeout | Re-run with `--no-msa` for faster, less accurate validation |
+| Tool not found in another conda env | Runners automatically probe common conda envs; configure `<tool>_path` or `<tool>_wrapper_script` if discovery cannot find it |
+| Binder validation needs receptor | Create an AlphaFold3 JSON input containing every required chain, then run `scripts/run_alphafold3.py --json input.json --output-dir outputs/af3/` |
 | Hooks not working | Verify agent hook config syntax, then restart the session |
 
-## Cross-Conda environment execution
+## Cross-conda environment execution
 
-If your tools are installed in different conda environments, you don't need to install them all in one env:
-
-- **`run_pdbfixer`**: Use `conda_env="BindCraft"` to run PDBFixer in the target environment
-- **`run_rfdiffusion` / `run_proteinmpnn` / `run_alphafold3`**: Use `conda_env` or `wrapper_script` to specify the target environment
-
-The plugin auto-detects tools across common conda environments and editable installs.
+Tools may live in separate conda environments; runners automatically probe common environments and use `conda run` when a supported install is found. If a tool needs custom activation, set its configured path or `<tool>_wrapper_script` in `~/.protein-design/config.yaml`. Do not pass a `conda_env` CLI parameter: standalone runners do not expose one.
 
 ## Multi-chain complex validation
 
-For binder/peptide design validation, AlphaFold3 needs both the receptor and the designed peptide in one JSON:
+For binder or peptide validation, create an AlphaFold3 JSON input containing the receptor and designed peptide chains. Then run:
 
-```python
-convert_format(
-    from_format="fasta",
-    to_format="alphafold3_json",
-    input_path="/path/to/proteinmpnn_out.fasta",
-    receptor_pdb="/path/to/receptor_fixed.pdb",
-    receptor_chain="A",
-    job_name="binder_validation"
-)
+```bash
+python scripts/run_alphafold3.py --json binder_input.json --output-dir outputs/af3/
 ```
 
-After AlphaFold3 finishes, analyze results without re-running:
+Inspect the generated confidence JSON files with the filtering stage:
 
-```python
-analyze_alphafold3_results(
-    output_dir="/path/to/af3_output",
-    job_name="binder_validation"
-)
-# Returns: per-chain pLDDT, ipTM, pTM, ranking scores, clash status, best structure
+```bash
+python scripts/run_filtering.py --results-dir outputs/af3/ --min-plddt 75
 ```

@@ -8,6 +8,7 @@ Exit codes:
     0 = Success
     1 = Input file not found
     2 = LigandMPNN not installed / not found (argparse usage errors also exit 2)
+    3 = Execution error
 
 Upstream references:
     - https://github.com/dauparas/LigandMPNN
@@ -23,20 +24,26 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from protein_design.utils import get_config, log_history
-from protein_design.conda_utils import build_tool_command, resolve_wrapper_script
+from protein_design.conda_utils import build_tool_command, resolve_wrapper_script, resolve_configured_path
+from protein_design.process_utils import run_process
 
 import argparse
+import shutil
 import subprocess
 import time
 
 
 def find_ligandmpnn(config):
     """Locate LigandMPNN installation."""
-    # 1. Configured path / environment variable
-    if config.get("ligandmpnn_path"):
-        path = Path(config["ligandmpnn_path"])
-        if path.exists():
-            return str(path)
+    # 1. Configured path / environment variable.  A directory must look like
+    # a LigandMPNN checkout before its generic run.py is accepted.
+    configured = resolve_configured_path(config.get("ligandmpnn_path"), ["run.py"])
+    if configured:
+        configured_path = Path(configured)
+        if configured_path.name != "run.py" or (
+            configured_path.parent / "get_model_params.sh"
+        ).exists():
+            return configured
 
     # 2. Common install locations
     common_paths = [
@@ -46,7 +53,7 @@ def find_ligandmpnn(config):
         Path("/usr/local/LigandMPNN/run.py"),
     ]
     for path in common_paths:
-        if path.exists():
+        if path.exists() and (path.parent / "get_model_params.sh").exists():
             return str(path)
 
     # 3. Conda environments
@@ -80,19 +87,12 @@ def find_ligandmpnn(config):
         except (subprocess.TimeoutExpired, FileNotFoundError):
             continue
 
-    # 4. Try which
-    try:
-        result = subprocess.run(
-            ["which", "run.py"],
-            capture_output=True, text=True, timeout=5
-        )
-        if result.returncode == 0 and result.stdout.strip():
-            # Be cautious: run.py is a generic name, verify it is LigandMPNN
-            run_path = Path(result.stdout.strip())
-            if (run_path.parent / "get_model_params.sh").exists():
-                return str(run_path)
-    except FileNotFoundError:
-        pass
+    # 4. Try the generic run.py only when its LigandMPNN marker is present.
+    run_path = shutil.which("run.py")
+    if run_path:
+        run_path = Path(run_path)
+        if (run_path.parent / "get_model_params.sh").exists():
+            return str(run_path)
 
     return None
 
@@ -153,7 +153,7 @@ def run_ligandmpnn(pdb_path, out_folder, num_seq_per_target=8,
 
     start_time = time.time()
     try:
-        result = subprocess.run(
+        result = run_process(
             cmd,
             capture_output=True,
             text=True,

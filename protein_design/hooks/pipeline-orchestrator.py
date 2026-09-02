@@ -10,12 +10,15 @@ context and provides standalone script commands for each stage transition.
 """
 import traceback
 import json
-from typing import Any
+from typing import Any, Optional
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
-from protein_design.utils import extract_content_text, read_hook_input
+from protein_design.utils import (
+    extract_content_text, get_hook_invoked_runner, get_hook_tool_response,
+    hook_advisory_output, read_hook_input,
+)
 
 
 def _get_scripts_dir() -> Path:
@@ -32,13 +35,27 @@ def _build_script_cmd(script_name: str, args: list[str]) -> str:
     return ""
 
 
+def _as_float(value: Any) -> Optional[float]:
+    """Coerce a numeric response field without raising on malformed content."""
+    if isinstance(value, bool) or value is None:
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
 def _detect_next_stage(tool_name: str, result: dict[str, Any]) -> dict[str, Any]:
     """Detect the next pipeline stage based on completed tool and result."""
+    if not isinstance(result, dict):
+        result = {}
     scripts_dir = _get_scripts_dir()
     has_scripts = scripts_dir.exists()
 
     if tool_name == "pdbfixer":
         output_path = result.get("output_path", "")
+        if not isinstance(output_path, (str, int, float)):
+            output_path = ""
         cmd = ""
         if has_scripts:
             cmd = _build_script_cmd("run_rfdiffusion.py", [
@@ -63,6 +80,8 @@ def _detect_next_stage(tool_name: str, result: dict[str, Any]) -> dict[str, Any]
 
     if tool_name == "rfdiffusion":
         structures = result.get("structures", [])
+        if not isinstance(structures, list):
+            structures = []
         num_designs = len(structures)
         cmd = ""
         if has_scripts:
@@ -88,6 +107,8 @@ def _detect_next_stage(tool_name: str, result: dict[str, Any]) -> dict[str, Any]
 
     if tool_name == "proteinmpnn":
         sequences = result.get("sequences", [])
+        if not isinstance(sequences, list):
+            sequences = []
         num_seqs = len(sequences)
 
         # Build format conversion + validation commands
@@ -115,16 +136,18 @@ def _detect_next_stage(tool_name: str, result: dict[str, Any]) -> dict[str, Any]
             "tip": "Use convert_format to convert FASTA to AlphaFold3 JSON first, then run AlphaFold3.",
             "examples": [
                 "For quick screening: use ESMFold or OmegaFold (no DBs needed)",
-                "For accuracy: run_data_pipeline=true (requires ~2.6TB DBs)",
+                "For accuracy: omit --no-msa and provide AlphaFold3 databases (~2.6TB)",
                 "For commercial use: Boltz-1 (MIT) or Chai-1 (Apache 2.0)",
             ],
         }
 
     if tool_name == "alphafold3":
         metrics = result.get("metrics", {})
-        plddt = metrics.get("mean_plddt")
-        iptm = metrics.get("iptm")
-        ptm = metrics.get("ptm")
+        if not isinstance(metrics, dict):
+            metrics = {}
+        plddt = _as_float(metrics.get("mean_plddt"))
+        iptm = _as_float(metrics.get("iptm"))
+        ptm = _as_float(metrics.get("ptm"))
 
         filter_cmd = ""
         if has_scripts:
@@ -196,26 +219,75 @@ def _detect_next_stage(tool_name: str, result: dict[str, Any]) -> dict[str, Any]
     }
 
 
-def _extract_tool_info(data: dict[str, Any]) -> tuple[str, dict[str, Any]]:
-    """Extract tool name and result from hook input data."""
-    text = extract_content_text(data.get("result"))
-    if text:
+def _decode_response(value: Any) -> Optional[dict[str, Any]]:
+    """Decode direct, wrapped, or JSON-string responses safely."""
+    if isinstance(value, str):
         try:
-            result_json = json.loads(text)
-            # Try to find tool name from result
-            tool_name = result_json.get("tool_name", "")
-            if not tool_name and "structures" in result_json:
-                tool_name = "rfdiffusion"
-            elif not tool_name and "sequences" in result_json:
-                tool_name = "proteinmpnn"
-            elif not tool_name and "metrics" in result_json:
-                tool_name = "alphafold3"
-            elif not tool_name and "output_path" in result_json:
-                tool_name = "pdbfixer"
-            return tool_name, result_json
-        except json.JSONDecodeError:
-            pass
-    return "", {}
+            decoded = json.loads(value)
+        except (TypeError, ValueError):
+            return None
+        return _decode_response(decoded) if isinstance(decoded, (dict, list)) else None
+
+    if isinstance(value, dict):
+        if value.get("isError"):
+            return value
+        recognized = {"status", "structures", "sequences", "metrics", "output_path", "tool_name", "tool"}
+        if any(key in value for key in recognized):
+            return value
+
+        # Prefer actual response containers over generic text extraction, so
+        # an outer wrapper containing JSON text is unwrapped before fallback.
+        for key in ("tool_response", "result", "response", "output", "content"):
+            if key not in value:
+                continue
+            nested = value[key]
+            if nested is value:
+                continue
+            decoded = _decode_response(nested)
+            if decoded is not None:
+                return decoded
+
+        text = extract_content_text(value)
+        if text:
+            try:
+                decoded = json.loads(text)
+            except (TypeError, ValueError):
+                decoded = None
+            if isinstance(decoded, (dict, list)):
+                return _decode_response(decoded)
+    elif isinstance(value, list):
+        for nested in value:
+            decoded = _decode_response(nested)
+            if decoded is not None:
+                return decoded
+    return None
+
+
+def _infer_tool_name(result: dict[str, Any]) -> str:
+    """Infer a runner name from recognized result fields."""
+    if isinstance(result.get("tool_name"), str) and result["tool_name"].strip():
+        return result["tool_name"].strip()
+    if isinstance(result.get("tool"), str) and result["tool"].strip():
+        return result["tool"].strip()
+    if isinstance(result.get("structures"), list):
+        return "rfdiffusion"
+    if isinstance(result.get("sequences"), list):
+        return "proteinmpnn"
+    if isinstance(result.get("metrics"), dict):
+        return "alphafold3"
+    if result.get("output_path"):
+        return "pdbfixer"
+    return ""
+
+
+def _extract_tool_info(data: dict[str, Any]) -> tuple[str, dict[str, Any]]:
+    """Extract an allowlisted runner and safely decoded response."""
+    result = _decode_response(get_hook_tool_response(data))
+    runner = get_hook_invoked_runner(data) or ""
+    tool_name = runner.removeprefix("run_")
+    if not isinstance(result, dict):
+        return tool_name, {}
+    return tool_name, result
 
 
 def main() -> int:
@@ -234,9 +306,11 @@ def main() -> int:
     if not isinstance(data, dict):
         return 0
 
-    # Only process successful tool completions
-    result = data.get("result", {})
-    if isinstance(result, dict) and result.get("isError"):
+    # Only process successful tool completions. Prefer the standard response
+    # field while retaining legacy result compatibility.
+    response = get_hook_tool_response(data)
+    decoded_response = _decode_response(response)
+    if isinstance(decoded_response, dict) and decoded_response.get("isError"):
         return 0
 
     tool_name, tool_result = _extract_tool_info(data)
@@ -282,7 +356,7 @@ Tip: {next_stage['tip']}
         for ex in next_stage["examples"]:
             output += f"  • {ex}\n"
 
-    print(output)
+    print(hook_advisory_output(output))
     return 0
 
 

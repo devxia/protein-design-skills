@@ -35,8 +35,8 @@ def _collect_hook_commands() -> list[str]:
             for value in node:
                 _walk(value)
 
-    hooks_json = json.loads((PROJECT_ROOT / "hooks" / "hooks.json").read_text(encoding="utf-8"))
-    _walk(hooks_json)
+    for source in ("hooks/hooks.json", "hooks/codex-hooks.json"):
+        _walk(json.loads((PROJECT_ROOT / source).read_text(encoding="utf-8")))
     manifest = json.loads((PROJECT_ROOT / "kimi.plugin.json").read_text(encoding="utf-8"))
     _walk(manifest)
     return commands
@@ -45,12 +45,18 @@ def _collect_hook_commands() -> list[str]:
 def test_every_declared_hook_script_exists():
     """Renaming/removing a hook .py without updating manifests must fail CI."""
     commands = _collect_hook_commands()
-    assert len(commands) >= 22, "expected at least the 22 canonical hooks"
+    assert len(commands) >= 20, "expected at least the 20 cross-host hooks"
     for cmd in commands:
-        match = re.search(r'(\S+\.py)', cmd)
+        match = re.search(r'[^\s\"]+\.py', cmd)
         assert match, f"no .py target in command: {cmd!r}"
-        rel = match.group(1)
-        rel = rel.replace("${CLAUDE_PLUGIN_ROOT}", "").replace("${PLUGIN_ROOT}", "")
+        rel = match.group(0)
+        for placeholder in (
+            "${PLUGIN_ROOT}",
+            "${CLAUDE_PLUGIN_ROOT}",
+            "${CODEX_PLUGIN_ROOT}",
+            "${KIMI_PLUGIN_ROOT}",
+        ):
+            rel = rel.replace(placeholder, "")
         rel = rel.lstrip("./")
         assert (PROJECT_ROOT / rel).exists(), f"missing hook script {rel!r} (command: {cmd!r})"
 

@@ -24,31 +24,33 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from protein_design.utils import get_config, log_history
-from protein_design.conda_utils import probe_conda_envs, build_tool_command, resolve_wrapper_script
+from protein_design.conda_utils import probe_conda_envs, build_tool_command, resolve_wrapper_script, resolve_configured_path
+from protein_design.process_utils import run_process
 
 import argparse
+import shutil
 import subprocess
 import time
 
 
 def find_colabfold(config):
     """Locate ColabFold installation."""
-    # 1. Configured path / environment variable
-    if config.get("colabfold_path"):
-        path = Path(config["colabfold_path"])
-        if path.exists():
-            return str(path)
+    # 1. Configured path / environment variable.  Resolve ColabFold's known
+    # console entry point instead of treating the directory as an executable.
+    configured = resolve_configured_path(
+        config.get("colabfold_path"),
+        [
+            "colabfold_batch",
+            "bin/colabfold_batch",
+            "colabfold-conda/bin/colabfold_batch",
+        ],
+    )
+    if configured:
+        return configured
 
-    # 2. Direct command on PATH
-    try:
-        result = subprocess.run(
-            ["which", "colabfold_batch"],
-            capture_output=True, text=True, timeout=5
-        )
-        if result.returncode == 0 and result.stdout.strip():
-            return "colabfold_batch"
-    except FileNotFoundError:
-        pass
+    # 2. Direct command on PATH.
+    if shutil.which("colabfold_batch"):
+        return "colabfold_batch"
 
     # 3. Common install locations (official layout first, legacy doubled
     # directory kept as a fallback for older installs)
@@ -66,8 +68,7 @@ def find_colabfold(config):
     # 4. Conda environments
     env = probe_conda_envs(
         ["colabfold", "cf", "protein-design"],
-        ["which", "colabfold_batch"],
-        require_stdout=True,
+        ["colabfold_batch", "--help"],
     )
     if env is not None:
         return f"conda run -n {env} colabfold_batch"
@@ -128,7 +129,7 @@ def run_colabfold(input_file, output_dir, num_models=None, msa_mode=None,
 
     start_time = time.time()
     try:
-        result = subprocess.run(
+        result = run_process(
             cmd,
             capture_output=True,
             text=True,

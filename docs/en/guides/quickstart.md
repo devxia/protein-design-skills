@@ -11,9 +11,9 @@ source: README.md
 |-------|------|---------------|-----------|
 | 1 — Backbone | RFdiffusion | **10** backbones | `num_designs` |
 | 2 — Sequence | ProteinMPNN | **8** sequences per backbone | `num_seq_per_target` |
-| 3 — Validation | AlphaFold3 | **5** predictions (5 seeds) | `num_seeds` |
+| 3 — Validation | AlphaFold3 | **1** prediction (1 seed) | `num_seeds` |
 
-**Full pipeline default**: 10 backbones × 8 sequences × 5 predictions = up to **400** AlphaFold3 results.
+**Full pipeline default**: 10 backbones × 8 sequences × 1 prediction = up to **80** AlphaFold3 results. Use `--num-seeds 5` when you need five predictions per design.
 
 You can adjust these through natural language:
 

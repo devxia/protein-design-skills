@@ -20,11 +20,41 @@ Usage::
 from __future__ import annotations
 
 import shlex
+import shutil
 import subprocess
-from typing import Any
+from pathlib import Path
+from typing import Any, Optional
 
 
-def find_conda_env(envs: list[str], import_check: str, timeout: int = 10) -> str | None:
+def resolve_configured_path(value: Any, entrypoints: list[str]) -> Optional[str]:
+    """Resolve a configured tool file or a directory's known entry point.
+
+    A configured file is returned as-is, while a configured directory is only
+    accepted when one of the caller-provided, tool-specific ``entrypoints``
+    exists below it.  This keeps generic names such as ``run.py`` from being
+    guessed for an unrelated checkout.
+    """
+    if not isinstance(value, (str, Path)):
+        return None
+    raw_value = str(value).strip()
+    if not raw_value:
+        return None
+
+    path = Path(raw_value).expanduser()
+    if not path.exists():
+        return None
+    if path.is_dir():
+        for entrypoint in entrypoints:
+            candidate = path / entrypoint
+            if candidate.is_file():
+                return str(candidate)
+        return None
+    if path.is_file():
+        return str(path)
+    return None
+
+
+def find_conda_env(envs: list[str], import_check: str, timeout: int = 10) -> Optional[str]:
     """Return the first conda env name where ``import_check`` succeeds.
 
     Probes each candidate environment by running
@@ -61,17 +91,16 @@ def probe_conda_envs(
     probe_args: list[str],
     require_stdout: bool = False,
     timeout: int = 10,
-) -> str | None:
+) -> Optional[str]:
     """Return the first conda env where a probe command succeeds.
 
     Runs ``conda run -n <env> <probe_args...>`` for each candidate.  The first
     environment whose probe exits 0 (and, when ``require_stdout`` is set, also
     produces non-empty stdout) is returned.
 
-    Use this for tools that are invoked as CLI binaries rather than Python
-    modules (e.g. ``probe_args=["boltz", "--help"]``) or that need a
-    ``which``-style lookup (e.g. ``probe_args=["which", "colabfold_batch"]``
-    with ``require_stdout=True``).
+    A probe expressed as ``["which", <name>]`` is converted to a Python
+    ``shutil.which`` probe.  This avoids relying on a POSIX ``which`` command
+    inside conda environments and keeps discovery portable on Windows.
 
     Args:
         envs: Candidate conda environment names, tried in order.
@@ -82,6 +111,17 @@ def probe_conda_envs(
     Returns:
         The name of the first matching environment, or ``None``.
     """
+    if len(probe_args) == 2 and probe_args[0] == "which":
+        probe_args = [
+            "python",
+            "-c",
+            "import shutil, sys; "
+            "path = shutil.which(sys.argv[1]); "
+            "print(path or ''); "
+            "sys.exit(0 if path else 1)",
+            probe_args[1],
+        ]
+
     for env in envs:
         try:
             result = subprocess.run(
@@ -107,13 +147,11 @@ def is_conda_command(command: str) -> bool:
 
 
 def is_bare_executable(command: str) -> bool:
-    """Return True if ``command`` looks like a bare CLI executable name.
+    """Return True if ``command`` is a bare CLI executable name.
 
-    A bare executable is a single token with no path separators and no spaces,
-    not starting with ``python`` or ``conda`` — e.g. ``"boltz"``,
-    ``"omegafold"``.  Such commands should be run directly so the OS resolves
-    them via ``PATH``, rather than being prefixed with ``python`` (which would
-    wrongly treat the executable name as a script path).
+    A bare executable is a single token with no path separators, not starting
+    with ``python`` or ``conda``.  This helper is retained for callers that
+    explicitly know a command is a PATH-resolved console executable.
     """
     if not command:
         return False
@@ -124,7 +162,7 @@ def is_bare_executable(command: str) -> bool:
     return True
 
 
-def parse_conda_api(command: str) -> str | None:
+def parse_conda_api(command: str) -> Optional[str]:
     """Extract the env name from a ``conda_api:<env>`` marker string.
 
     Returns ``None`` if ``command`` is not a ``conda_api:`` marker. The env
@@ -139,7 +177,7 @@ def parse_conda_api(command: str) -> str | None:
 
 def build_tool_command(
     command: str,
-    wrapper_script: str | None = None,
+    wrapper_script: Optional[str] = None,
     bare_executable: bool = False,
 ) -> list[str]:
     """Convert a tool command string into an argv list for ``subprocess.run``.
@@ -150,13 +188,13 @@ def build_tool_command(
     * ``"conda_api:<env>"`` — a marker indicating the tool should be run via
       ``conda run -n <env> python``; expanded to ``["conda", "run", "-n",
       <env>, "python"]``.
-    * ``"python -m <module>"`` (or any multi-token string starting with
-      ``python``) — split on whitespace into an argv list.
-    * A bare executable name (``bare_executable=True``) — used as-is as
-      ``[<command>]`` so the OS resolves it via ``PATH``.  This is for CLI
-      binaries found via ``which`` (e.g. ``"boltz"``, ``"omegafold"``).
-    * Any other string — treated as a script path, run as
-      ``["python", <command>]``.
+    * A Python invocation such as ``"python -m <module>"`` or one beginning
+      with an absolute interpreter path — split into an argv list. Quoted
+      interpreter paths containing spaces remain a single token.
+    * A ``.py`` script path — run as ``["python", <command>]``.
+    * A console executable (a bare name or an explicit path, including paths
+      containing spaces) — used directly as ``[<command>]``.  This is for CLI
+      binaries such as ``"boltz"`` and ``"/opt/bin/boltz"``.
 
     When ``wrapper_script`` is provided, it is prepended to the argv list as an
     escape hatch for complex environment setup that ``conda run`` cannot handle
@@ -166,10 +204,9 @@ def build_tool_command(
     Args:
         command: Tool command string produced by a runner's ``find_*`` helper.
         wrapper_script: Optional path to a shell script that wraps the command.
-        bare_executable: When True, ``command`` is a bare CLI executable name
-            found via ``which`` and is used directly without a ``python``
-            prefix.  Use this only for non-Python executables resolved on
-            ``PATH``.
+        bare_executable: Deprecated compatibility hint.  Console executables
+            are now detected automatically; when set, ``command`` is still
+            used directly.
 
     Returns:
         An argv list suitable for ``subprocess.run(..., shell=False)``.
@@ -188,19 +225,43 @@ def build_tool_command(
         argv = ["conda", "run", "-n", api_env, "python"]
     elif is_conda_command(command):
         argv = shlex.split(command)
-    elif bare_executable:
-        argv = [command]
-    elif command.startswith("python "):
-        argv = shlex.split(command)
     else:
-        argv = ["python", command]
+        split_tokens = shlex.split(command)
+        if not split_tokens:
+            raise ValueError(f"Empty tool command: {command!r}")
+
+        # An unquoted executable or script path may itself contain spaces. Keep
+        # that path intact, while still tokenising module invocations built with
+        # ``shlex.join([sys.executable, "-m", module])``. The latter can begin
+        # with any absolute Python executable, not only a binary named exactly
+        # ``python`` or ``python3``.
+        is_python_module_invocation = (
+            len(split_tokens) >= 3 and split_tokens[1] == "-m"
+        )
+        is_unquoted_path = (
+            ("/" in command or "\\" in command)
+            and not command.startswith(("'", '"'))
+        )
+        if bare_executable or (is_unquoted_path and not is_python_module_invocation):
+            tokens = [command]
+        else:
+            tokens = split_tokens
+
+        first_token = tokens[0]
+        is_script_path = len(tokens) == 1 and first_token.lower().endswith(".py")
+        if is_script_path:
+            argv = ["python", first_token]
+        else:
+            # Console executables, including explicit paths, must not be
+            # handed to Python.
+            argv = tokens
 
     if wrapper_script:
         return [wrapper_script] + argv
     return argv
 
 
-def resolve_wrapper_script(config: dict[str, Any], tool_key: str) -> str | None:
+def resolve_wrapper_script(config: dict[str, Any], tool_key: str) -> Optional[str]:
     """Look up a per-tool ``wrapper_script`` from config, if set.
 
     The config key is ``<tool_key>_wrapper_script`` (e.g.

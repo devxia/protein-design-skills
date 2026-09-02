@@ -21,6 +21,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from protein_design.utils import get_config, log_history
 from protein_design.conda_utils import find_conda_env, resolve_wrapper_script
+from protein_design.process_utils import run_process
 
 import argparse
 import subprocess
@@ -126,7 +127,7 @@ def run_pdbfixer(input_pdb, output_pdb, keep_chains=None, add_atoms="heavy",
 
     start_time = time.time()
     try:
-        result = subprocess.run(
+        result = run_process(
             cmd,
             capture_output=True,
             text=True,

@@ -18,11 +18,11 @@
     "bioinformatics"
   ],
   "skills": "./skills/",
-  "hooks": "./hooks/hooks.json",
+  "hooks": "./hooks/codex-hooks.json",
   "interface": {
     "displayName": "Protein Design",
     "shortDescription": "Protein design pipeline — skills + hooks + scripts",
-    "longDescription": "Use Protein Design Skills to run end-to-end protein design workflows: structure preprocessing, backbone generation, sequence design, structure validation, and quality filtering. Includes 76 workflow skills, 22 automation hooks, and 19 standalone scripts for tools such as RFdiffusion, ProteinMPNN, AlphaFold3, Boltz-1, and Chai-1.",
+    "longDescription": "Use Protein Design Skills to run end-to-end protein design workflows: structure preprocessing, backbone generation, sequence design, structure validation, and quality filtering. Includes 76 workflow skills, 20 cross-host automation hooks, and 19 standalone scripts for tools such as RFdiffusion, ProteinMPNN, AlphaFold3, Boltz-1, and Chai-1.",
     "developerName": "DevXia",
     "category": "Science",
     "capabilities": [

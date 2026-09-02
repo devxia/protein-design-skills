@@ -22,7 +22,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from protein_design.utils import get_config, log_history
-from protein_design.conda_utils import build_tool_command, resolve_wrapper_script
+from protein_design.conda_utils import build_tool_command, resolve_wrapper_script, resolve_configured_path
+from protein_design.process_utils import run_process
 
 import argparse
 import subprocess
@@ -78,11 +79,14 @@ def preprocess_for_design(input_pdb, output_dir=None, verbose=False):
 
 def find_rfdiffusion(config):
     """Locate RFdiffusion installation."""
-    # 1. Configured path
-    if config.get("rfdiffusion_path"):
-        path = Path(config["rfdiffusion_path"])
-        if path.exists():
-            return str(path)
+    # 1. Configured path.  Resolve a directory only through RFdiffusion's
+    # known inference entry points.
+    configured = resolve_configured_path(
+        config.get("rfdiffusion_path"),
+        ["scripts/run_inference.py", "run_inference.py"],
+    )
+    if configured:
+        return configured
 
     # 2. Common locations
     common_paths = [
@@ -197,7 +201,7 @@ def run_rfdiffusion(output_prefix=None, num_designs=50,
 
     start_time = time.time()
     try:
-        result = subprocess.run(
+        result = run_process(
             cmd,
             capture_output=True,
             text=True,

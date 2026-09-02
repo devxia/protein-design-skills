@@ -8,6 +8,7 @@ Exit codes:
     0 = Success
     1 = Input file not found
     2 = ESM-IF1 not installed / not found (argparse usage errors also exit 2)
+    3 = Execution error
 
 Upstream references:
     - https://github.com/facebookresearch/esm
@@ -23,20 +24,24 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from protein_design.utils import get_config, log_history
-from protein_design.conda_utils import build_tool_command, resolve_wrapper_script
+from protein_design.conda_utils import build_tool_command, resolve_wrapper_script, resolve_configured_path
+from protein_design.process_utils import run_process
 
 import argparse
+import shlex
 import subprocess
 import time
 
 
 def find_esm_if1(config):
     """Locate ESM-IF1 installation."""
-    # 1. Configured path / environment variable
-    if config.get("esm_if1_path"):
-        path = Path(config["esm_if1_path"])
-        if path.exists():
-            return str(path)
+    # 1. Configured path / environment variable.  Resolve ESM's canonical
+    # inverse-folding script when a repository directory is configured.
+    configured = resolve_configured_path(
+        config.get("esm_if1_path"), ["examples/inverse_folding/sample_sequences.py"]
+    )
+    if configured:
+        return configured
 
     # 2. Common ESM repo locations (sample_sequences.py is the canonical CLI)
     common_paths = [
@@ -89,7 +94,9 @@ def find_esm_if1(config):
             capture_output=True, text=True, timeout=5
         )
         if result.returncode == 0:
-            return "python -m esm.inverse_folding.cli"
+            return shlex.join(
+                [sys.executable, "-m", "esm.inverse_folding.cli"]
+            )
     except (subprocess.TimeoutExpired, OSError):
         pass
 
@@ -146,7 +153,7 @@ def run_esm_if1(pdb_path, output_path, chain=None, temperature=None,
 
     start_time = time.time()
     try:
-        result = subprocess.run(
+        result = run_process(
             cmd,
             capture_output=True,
             text=True,

@@ -211,7 +211,7 @@ If still failing → adjust parameters → retry
 **Solutions**:
 1. Default timeout is 3600s (1 hour). Increase if needed via CONFIG
 2. For AlphaFold3 with MSA: expect 30-90 min for 200-500 aa
-3. Skip MSA for faster runs: `run_data_pipeline=false`
+3. Skip MSA for faster runs: pass `--no-msa` to `scripts/run_alphafold3.py`
 4. Use ESMFold for quick screening instead
 
 ---
@@ -229,7 +229,7 @@ If still failing → adjust parameters → retry
 - Use JSONL batch mode for multiple PDBs
 
 ### Slow AlphaFold3
-- Skip MSA: `run_data_pipeline=false` (10x faster)
+- Skip MSA: `--no-msa` (faster, with reduced validation accuracy)
 - Reduce `num_samples`: 5 → 3 → 1
 - Pre-compute MSA once, reuse for multiple predictions
 - Use ESMFold for initial screening

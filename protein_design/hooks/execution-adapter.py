@@ -10,11 +10,16 @@ Priority order:
 """
 import traceback
 import json
-from typing import Any
+from typing import Any, Optional
 import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
-from protein_design.utils import read_hook_input
+from protein_design.utils import (
+    get_hook_invoked_runner,
+    get_hook_tool_input,
+    hook_advisory_output,
+    read_hook_input,
+)
 
 
 PROJECT_ROOT = Path(__file__).parent.parent.parent
@@ -93,7 +98,7 @@ EXECUTION_TEMPLATES: dict[str, dict[str, Any]] = {
 }
 
 
-def _find_script(tool: str) -> Path | None:
+def _find_script(tool: str) -> Optional[Path]:
     """Find standalone script for a tool."""
     script_name = STANDALONE_SCRIPTS.get(tool)
     if not script_name:
@@ -271,15 +276,20 @@ def main() -> int:
         return 1
 
     # Only process dict payloads (non-dict JSON is ignored, not an error).
-    # Prefer the flat payload shape; tolerate nested legacy shape.
+    # Shared helpers prefer standard top-level fields and fall back to the
+    # legacy tool/params shape without allowing it to override tool_input.
     if not isinstance(data, dict):
         return 0
-    tool = data.get("tool") or data.get("tool_name") or ""
-    params: Any = data.get("tool_input")
-    if not tool and isinstance(data.get("params"), dict) and data["params"].get("tool"):
+    runner = get_hook_invoked_runner(data)
+    if runner is None:
+        return 0
+    tool = runner.removeprefix("run_")
+    params: Any = get_hook_tool_input(data)
+    if "tool_input" not in data and "params" in data and isinstance(params, dict):
         # Legacy nested shape: {"params": {"tool": ..., "params": {...}}}
-        tool = data["params"].get("tool", "")
-        params = data["params"].get("params")
+        nested_params = params.get("params")
+        if isinstance(nested_params, dict):
+            params = nested_params
     if not isinstance(params, dict):
         params = {}
     params = {k: v for k, v in params.items() if k != "tool"}
@@ -356,7 +366,7 @@ kill $(cat logs/{tool}.pid)
 Tip: All standalone scripts are in the `scripts/` directory. Run with `--help` for full options.
 """)
 
-    print("\n".join(output_parts))
+    print(hook_advisory_output("\n".join(output_parts)))
     return 0
 
 

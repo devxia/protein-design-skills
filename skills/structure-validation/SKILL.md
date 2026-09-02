@@ -364,7 +364,7 @@ Stop the loop when the batch is complete.
 
 ## Tips
 
-- Skip MSA (`run_data_pipeline=false`) if re-running with precomputed data
+- Skip MSA with `--no-msa` if re-running with precomputed data
 - For binder validation, ipTM is the most important metric
 - pLDDT > 80 and ipTM > 0.8 is a good initial filter
 - Always check `has_clash` — clashes indicate physically impossible structures

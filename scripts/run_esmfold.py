@@ -11,16 +11,18 @@ Exit codes:
     3 = Execution error
 """
 
+import argparse
+import re
+import subprocess
 import sys
+import time
 from pathlib import Path
+
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from protein_design.utils import get_config, log_history, read_fasta
 from protein_design.conda_utils import probe_conda_envs
-
-import argparse
-import subprocess
-import time
+from protein_design.process_utils import run_process
+from protein_design.utils import get_config, log_history, read_fasta
 
 
 def _check_esm_installed() -> bool:
@@ -36,6 +38,26 @@ def _check_esm_installed() -> bool:
         return False
 
 
+def _safe_output_stems(sequences):
+    """Return readable, unique, filesystem-safe stems for FASTA records."""
+    stems = []
+    used = set()
+    for index, (seq_id, _sequence) in enumerate(sequences, 1):
+        stem = re.sub(r"[^A-Za-z0-9._-]+", "_", str(seq_id).strip())
+        stem = re.sub(r"_+", "_", stem).strip("._-")
+        if not stem or stem in {".", ".."}:
+            stem = f"sequence_{index}"
+
+        candidate = stem
+        suffix = 2
+        while candidate.casefold() in used:
+            candidate = f"{stem}_{suffix}"
+            suffix += 1
+        used.add(candidate.casefold())
+        stems.append(candidate)
+    return stems
+
+
 def find_esmfold_python(config):
     """Return the Python interpreter prefix that can import torch and esm.
 
@@ -43,11 +65,17 @@ def find_esmfold_python(config):
     ``[sys.executable]``, or ``None`` if ESMFold is not importable anywhere.
     """
     # 1. Configured path / environment variable: a Python interpreter with
-    #    the esm dependencies importable.
-    if config.get("esmfold_path"):
-        path = Path(config["esmfold_path"])
-        if path.exists():
+    #    the esm dependencies importable.  A configured directory may be a
+    #    conda-style prefix, so resolve its Python executable explicitly.
+    configured = config.get("esmfold_path")
+    if configured:
+        path = Path(str(configured)).expanduser()
+        if path.is_file():
             return [str(path)]
+        if path.is_dir():
+            for candidate in (path / "bin" / "python", path / "python", path / "Scripts" / "python.exe"):
+                if candidate.is_file():
+                    return [str(candidate)]
 
     # 2. Conda environment with the dependencies importable.
     env = probe_conda_envs(
@@ -100,12 +128,23 @@ def run_esmfold_api(input_file, output_dir, verbose=False):
     if verbose:
         print(f"Loaded {len(sequences)} sequence(s)")
 
-    # Run ESMFold via Python script
+    # Keep the original FASTA identifier for logging, but never use it as a
+    # path component.  IDs may contain slashes, dots, or collide after
+    # sanitisation, all of which must remain inside the requested output dir.
+    output_stems = _safe_output_stems(sequences)
+    prepared_sequences = [
+        (seq_id, seq, stem)
+        for (seq_id, seq), stem in zip(sequences, output_stems)
+    ]
+
+    # Run ESMFold via a short generated driver.  Sequence data is represented
+    # with repr() (not executable user text), while runtime paths travel via
+    # argv.  The selected interpreter prefix is used here, so a conda env found
+    # during discovery actually supplies torch and esm.
     script_content = f'''
 import sys
 from pathlib import Path
 
-sys.path.insert(0, ".")
 import torch
 import esm
 
@@ -114,10 +153,10 @@ model = esm.pretrained.esmfold_v1()
 device = "cuda" if torch.cuda.is_available() else "cpu"
 model = model.eval().to(device)
 
-sequences = {sequences!r}
-output_dir = Path(sys.argv[1])
+sequences = {prepared_sequences!r}
+output_dir = Path(sys.argv[1]).resolve()
 
-for seq_id, seq in sequences:
+for seq_id, seq, output_stem in sequences:
     if len(seq) > 2000:
         print(f"Warning: Sequence {{seq_id}} too long ({{len(seq)}} aa), truncating to 2000")
         seq = seq[:2000]
@@ -126,7 +165,7 @@ for seq_id, seq in sequences:
     with torch.no_grad():
         output = model.infer_pdb(seq)
 
-    out_file = output_dir / f"{{seq_id}}.pdb"
+    out_file = output_dir / f"{{output_stem}}.pdb"
     with open(out_file, "w", encoding="utf-8") as f:
         f.write(output)
     print(f"  Saved: {{out_file}}")
@@ -140,11 +179,11 @@ print("Done!")
 
     start_time = time.time()
     try:
-        result = subprocess.run(
-            [sys.executable, str(script_path), str(out_path)],
+        result = run_process(
+            python_prefix + [str(script_path), str(out_path)],
             capture_output=True,
             text=True,
-            timeout=3600
+            timeout=3600,
         )
         runtime = time.time() - start_time
 

@@ -21,7 +21,7 @@ protein-design-skills/
 │   ├── pipeline-selection/       # 从 30+ 设计流程中选择
 │   └── ...                       # 更多专项 skills
 ├── protein_design/
-│   └── hooks/                    # 自动化脚本（22 hooks + install-hooks.py）
+│   └── hooks/                    # Hook 脚本（20 个跨宿主注册 + installer）
 │       ├── install-hooks.py      # 一键安装器
 │       ├── protein-context-inject.py
 │       ├── gpu-check-hook.py
@@ -54,7 +54,7 @@ protein-design-skills/
 | 0 | 预处理 | PDBFixer | 修复后的 PDB |
 | 1 | 骨架生成 | RFdiffusion | 10 个骨架 |
 | 2 | 序列设计 | ProteinMPNN | 每个骨架 8 条序列 |
-| 3 | 结构验证 | AlphaFold3 | 每个设计 5 个预测 |
+| 3 | 结构验证 | AlphaFold3 | 每个设计 1 个预测（使用 `--num-seeds` 增加） |
 | 4 | 过滤与排序 | Filtering | 按质量分数排序 |
 
 ## 执行流程
@@ -75,13 +75,10 @@ Hook: gpu-check-hook.py（验证 GPU 可用性）
 Standalone Script 执行（scripts/run_*.py）
     |
     v
-Hook: progress-reporter.py（跟踪进度，估算 ETA）
+Hook: job-monitor.py / pipeline-orchestrator.py（已注册的执行后指导）
     |
     v
-Hook: design-complete-notify.py（完成时桌面通知）
-    |
-    v
-结果 + 下一步 Skill 推荐
+结果 + 下一步 Skill 推荐（直接运行 progress-reporter.py 获取进度汇总）
 ```
 
 ## 选择流程
@@ -115,11 +112,11 @@ Hook: design-complete-notify.py（完成时桌面通知）
 | `gpu-check-hook.py` | GPU 密集型任务前 | 验证 GPU 可用性和显存 |
 | `session-health-check.py` | 手动 / 会话启动 | 检查工具安装状态 |
 | `job-monitor.py` | 任务提交后 | 监控后台任务 |
-| `progress-reporter.py` | 长时间任务中 | 解析日志，估算 ETA |
+| `progress-reporter.py` | 直接辅助脚本（未注册） | 按需解析日志并估算 ETA |
 | `execution-adapter.py` | 脚本执行时 | 路由到正确的脚本和参数 |
 | `pipeline-orchestrator.py` | 多阶段请求 | 自动链接各阶段 |
 | `design-complete-notify.py` | 任务完成 | 桌面通知 |
-| `background-notify.py` | 后台任务完成 | 异步任务通知 |
+| `background-notify.py` | 直接辅助脚本（未注册） | 显式调用时发送通知 |
 | `auto-parameter-tuner.py` | 参数调优 | 建议最优参数 |
 | `design-comparator.py` | 结果比较 | 比较多个设计 |
 | `cost-estimator.py` | 执行前 | 估算 GPU 时间和成本 |

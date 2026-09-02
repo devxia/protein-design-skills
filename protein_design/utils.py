@@ -8,6 +8,7 @@ contains no heavy ML dependencies (torch, fair-esm, boltz, etc.).
 from __future__ import annotations
 
 import json
+import math
 import os
 import platform
 import subprocess
@@ -15,14 +16,14 @@ import sys
 import traceback
 from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional, Union
 
 
 # ---------------------------------------------------------------------------
 # Configuration and execution history
 # ---------------------------------------------------------------------------
 
-def get_config(tool_name: str | None = None) -> dict[str, Any]:
+def get_config(tool_name: Optional[str] = None) -> dict[str, Any]:
     """Read protein-design config from YAML or return defaults.
 
     Looks for ``~/.protein-design/config.yaml`` first, then falls back to the
@@ -111,7 +112,7 @@ def log_history(
     params: dict[str, Any],
     runtime: float,
     success: bool,
-    output_dir: str | None = None,
+    output_dir: Optional[str] = None,
 ) -> None:
     """Append an execution record to ``~/.protein-design/history.jsonl``.
 
@@ -151,14 +152,14 @@ def log_history(
 # FASTA / format helpers
 # ---------------------------------------------------------------------------
 
-def read_fasta(filepath: str | Path) -> list[tuple[str, str]]:
+def read_fasta(filepath: Union[str, Path]) -> list[tuple[str, str]]:
     """Read a FASTA file and return a list of ``(seq_id, sequence)`` tuples.
 
     Records with an empty header (a bare ``>`` line) are skipped, as is any
     sequence text that appears before the first header.
     """
     sequences: list[tuple[str, str]] = []
-    current_id: str | None = None
+    current_id: Optional[str] = None
     current_seq: list[str] = []
 
     with open(filepath, "r", encoding="utf-8") as f:
@@ -189,7 +190,7 @@ def read_fasta(filepath: str | Path) -> list[tuple[str, str]]:
     return sequences
 
 
-def write_fasta(sequences: list[tuple[str, str]], filepath: str | Path) -> None:
+def write_fasta(sequences: list[tuple[str, str]], filepath: Union[str, Path]) -> None:
     """Write ``(seq_id, sequence)`` tuples to a FASTA file (60-char wrapping)."""
     with open(filepath, "w", encoding="utf-8") as f:
         for seq_id, seq in sequences:
@@ -198,24 +199,43 @@ def write_fasta(sequences: list[tuple[str, str]], filepath: str | Path) -> None:
                 f.write(seq[i : i + 60] + "\n")
 
 
+def _alphafold3_chain_id(index: int) -> str:
+    """Return a stable, uppercase-only AlphaFold3 chain ID for ``index``.
+
+    IDs use bijective base-26 notation: ``A`` through ``Z``, then ``AA``
+    through ``ZZ``, followed by ``AAA``.  Unlike a numeric fallback, this
+    remains valid for AlphaFold3 inputs with hundreds of chains.
+    """
+    if index < 0:
+        raise ValueError("chain index must be non-negative")
+
+    letters: list[str] = []
+    value = index + 1
+    while value:
+        value, remainder = divmod(value - 1, 26)
+        letters.append(chr(65 + remainder))
+    return "".join(reversed(letters))
+
+
 def fasta_to_alphafold3_json(
     sequences: list[tuple[str, str]],
     job_name: str = "design",
     verbose: bool = False,
 ) -> dict[str, Any]:
-    """Convert FASTA sequences to an AlphaFold3-style JSON input dict."""
+    """Convert FASTA sequences to an official AlphaFold3 JSON input dict."""
     af3_input: dict[str, Any] = {
+        "dialect": "alphafold3",
+        "version": 1,
         "name": job_name,
-        "sequences": [],
         "modelSeeds": [1],
+        "sequences": [],
     }
 
-    for i, (seq_id, seq) in enumerate(sequences):
-        chain_id = chr(65 + i) if i < 26 else f"X{i}"
+    for i, (_seq_id, seq) in enumerate(sequences):
         af3_input["sequences"].append(
             {
                 "protein": {
-                    "id": chain_id,
+                    "id": _alphafold3_chain_id(i),
                     "sequence": seq,
                 }
             }
@@ -228,7 +248,7 @@ def fasta_to_alphafold3_json(
 
 
 # ---------------------------------------------------------------------------
-# Confidence JSON parsing
+# Confidence JSON parsing and discovery
 # ---------------------------------------------------------------------------
 
 # Confidence-metric keys probed in both nested and flat confidence JSON layouts.
@@ -244,75 +264,274 @@ _CONFIDENCE_METRIC_KEYS = (
 )
 
 
-def parse_confidence_json(json_path: str | Path) -> dict[str, Any]:
-    """Parse a ``confidence.json`` file from AlphaFold3, Boltz-1, Chai-1, etc.
+def _confidence_file_info(path: Path) -> tuple[tuple[str, str], int]:
+    """Return a deduplication key and preference for a confidence file.
 
-    Understands several schema variants:
-
-    * ``confidence.plddt``, ``confidence.iptm``, ``confidence.ptm``
-    * Top-level ``plddt``, ``iptm``, ``ptm``, ``pae``
-    * ``mean_plddt`` (Protenix style)
-    * Per-residue ``plddt`` lists (averaged)
-    * ``ranking_score``, ``confidence_score``, ``has_clash``
-
-    Args:
-        json_path: Path to the confidence JSON file.
-
-    Returns:
-        Dictionary of extracted metrics. Missing metrics are omitted.
+    AlphaFold3 writes a detailed ``*_confidences.json`` file next to a
+    ``*_summary_confidences.json`` file.  They describe one prediction, so the
+    detailed file is preferred when both exist.  Boltz commonly writes
+    ``confidence_<name>_model_<n>.json`` files; those remain distinct models.
     """
-    path = Path(json_path)
-    with open(path, "r", encoding="utf-8") as f:
-        data = json.load(f)
+    name = path.name.lower()
+    parent = str(path.parent.resolve())
+    if name == "confidence.json":
+        return (parent, "confidence.json"), 0
 
-    if not isinstance(data, dict):
-        return {}
+    if name.endswith("_summary_confidences.json"):
+        stem = name[: -len("_summary_confidences.json")]
+        return (parent, stem), 1
+    if name.endswith("_confidences.json"):
+        stem = name[: -len("_confidences.json")]
+        return (parent, stem), 0
+    if name.endswith("_summary_confidence.json"):
+        stem = name[: -len("_summary_confidence.json")]
+        return (parent, stem), 1
+    if name.endswith("_confidence.json"):
+        stem = name[: -len("_confidence.json")]
+        return (parent, stem), 0
+
+    # Boltz uses the ``confidence_<input>_model_<n>.json`` convention.  Keep
+    # the filename in the key because separate model/sample files are useful
+    # independent validation results.
+    return (parent, name), 0
+
+
+def discover_confidence_files(root: Union[str, Path]) -> list[Path]:
+    """Find supported confidence JSON files without counting one result twice.
+
+    Supported names include AlphaFold3's ``confidence.json``,
+    ``*_confidences.json`` and ``*_summary_confidences.json`` files, plus the
+    ``confidence_*.json`` / ``*_confidence.json`` forms emitted by Boltz and
+    similar validators.  When detailed and summary AlphaFold3 files are both
+    present, only the detailed file is returned.  Results are deterministic
+    and an absent or unreadable root yields an empty list.
+    """
+    root_path = Path(root)
+    if not root_path.is_dir():
+        return []
+
+    candidates: list[Path] = []
+    try:
+        for path in root_path.rglob("*.json"):
+            name = path.name.lower()
+            if (
+                name == "confidence.json"
+                or name.endswith("_confidences.json")
+                or name.endswith("_summary_confidences.json")
+                or name.endswith("_confidence.json")
+                or name.endswith("_summary_confidence.json")
+                or name.startswith("confidence_")
+            ):
+                candidates.append(path)
+    except OSError:
+        return []
+
+    selected: dict[tuple[str, str], tuple[int, Path]] = {}
+    for path in sorted(candidates, key=lambda item: str(item.resolve())):
+        key, priority = _confidence_file_info(path)
+        current = selected.get(key)
+        if current is None or (priority, str(path)) < (current[0], str(current[1])):
+            selected[key] = (priority, path)
+
+    return [item[1] for item in sorted(selected.values(), key=lambda item: str(item[1].resolve()))]
+
+
+def _iter_json_objects(value: Any):
+    """Yield nested JSON objects in stable traversal order."""
+    if isinstance(value, dict):
+        yield value
+        for child in value.values():
+            yield from _iter_json_objects(child)
+    elif isinstance(value, list):
+        for child in value:
+            yield from _iter_json_objects(child)
+
+
+def _coerce_number(value: Any) -> Optional[float]:
+    """Convert finite JSON numbers and numeric strings to floats."""
+    if isinstance(value, bool) or value is None:
+        return None
+    if isinstance(value, (int, float)):
+        number = float(value)
+    elif isinstance(value, str):
+        try:
+            number = float(value.strip())
+        except ValueError:
+            return None
+    else:
+        return None
+    return number if math.isfinite(number) else None
+
+
+def _mean_numeric(value: Any) -> Optional[float]:
+    """Average finite numbers from a scalar or arbitrarily nested JSON array."""
+    values = _flatten_numbers(value)
+    return sum(values) / len(values) if values else None
+
+
+def _flatten_numbers(value: Any) -> list[float]:
+    """Flatten numeric values from a JSON array, ignoring malformed entries."""
+    scalar = _coerce_number(value)
+    if scalar is not None:
+        return [scalar]
+    if isinstance(value, (list, tuple)):
+        values: list[float] = []
+        for child in value:
+            values.extend(_flatten_numbers(child))
+        return values
+    return []
+
+
+def _find_metric_entry(objects: list[dict[str, Any]], keys: tuple[str, ...]):
+    """Find the first normalized key/value pair in nested JSON objects."""
+    wanted = set(keys)
+    for obj in objects:
+        for key, value in obj.items():
+            normalized = str(key).lower().replace("-", "_")
+            if normalized in wanted and value is not None:
+                return normalized, value
+    return None
+
+
+def _find_metric_value(objects: list[dict[str, Any]], keys: tuple[str, ...]) -> Any:
+    """Find the first value for any case-insensitive normalized key."""
+    entry = _find_metric_entry(objects, keys)
+    return entry[1] if entry is not None else None
+
+
+def _paired_confidence_path(path: Path) -> Optional[Path]:
+    """Return the sibling detailed/summary confidence file, if present."""
+    name = path.name
+    lower_name = name.lower()
+    if lower_name.endswith("_summary_confidences.json"):
+        candidate = path.with_name(
+            name[: -len("_summary_confidences.json")] + "_confidences.json"
+        )
+    elif lower_name.endswith("_confidences.json"):
+        candidate = path.with_name(
+            name[: -len("_confidences.json")] + "_summary_confidences.json"
+        )
+    else:
+        return None
+    return candidate if candidate.is_file() else None
+
+
+def _confidence_documents(path: Path) -> list[dict[str, Any]]:
+    """Load a confidence file and its optional AlphaFold3 sibling.
+
+    The detailed file is placed first so its atom-level pLDDT/PAE values take
+    precedence over any overlapping summary values.  A malformed optional
+    sibling is ignored, while an error in the requested file is propagated.
+    """
+    paired = _paired_confidence_path(path)
+    paths = [path]
+    if paired is not None:
+        if path.name.lower().endswith("_summary_confidences.json"):
+            paths = [paired, path]
+        else:
+            paths.append(paired)
+
+    documents: list[dict[str, Any]] = []
+    for document_path in paths:
+        try:
+            with open(document_path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+        except Exception:
+            if document_path == path:
+                raise
+            continue
+        if isinstance(data, dict):
+            documents.append(data)
+    return documents
+
+
+def _parse_confidence_document(data: dict[str, Any]) -> dict[str, Any]:
+    """Extract canonical confidence metrics from one JSON document."""
+    # Prefer explicit confidence/summary/metrics blocks, then inspect the
+    # complete document for flat layouts used by Boltz and other tools.
+    objects: list[dict[str, Any]] = []
+    seen_objects: set[int] = set()
+    preferred = [data.get(key) for key in ("confidence", "summary", "metrics")]
+    preferred.extend([data])
+    for value in preferred:
+        for obj in _iter_json_objects(value):
+            if id(obj) not in seen_objects:
+                seen_objects.add(id(obj))
+                objects.append(obj)
 
     metrics: dict[str, Any] = {}
 
-    # 1. Nested ``confidence`` block (AlphaFold3 / OpenFold3).
-    conf = data.get("confidence")
-    if isinstance(conf, dict):
-        for key in _CONFIDENCE_METRIC_KEYS:
-            value = conf.get(key)
-            if value is not None:
-                _store_metric(metrics, key, value)
+    # Detailed AlphaFold3 files contain atom_plddts, while summary files
+    # commonly contain complex_plddt.  Keep this order so an atom-level value
+    # is not replaced by a less specific summary value in the same document.
+    plddt_entry = _find_metric_entry(objects, ("plddt",))
+    if plddt_entry is None:
+        plddt_entry = _find_metric_entry(objects, ("mean_plddt",))
+    if plddt_entry is None:
+        plddt_entry = _find_metric_entry(objects, ("atom_plddts",))
+    if plddt_entry is None:
+        plddt_entry = _find_metric_entry(objects, ("complex_plddt",))
 
-    # 2. Flat keys (Boltz-1 / Chai-1 / ESMFold / OmegaFold).
-    for key in _CONFIDENCE_METRIC_KEYS:
-        if key in metrics:
-            continue
-        value = data.get(key)
+    plddt = _mean_numeric(plddt_entry[1]) if plddt_entry is not None else None
+    if plddt is not None and plddt_entry[0] == "complex_plddt" and 0 <= plddt <= 1:
+        # AlphaFold3 reports complex pLDDT on a 0–1 scale, whereas atom-level
+        # pLDDTs and this project's filtering thresholds use 0–100.
+        plddt *= 100.0
+    if plddt is not None:
+        metrics["plddt"] = plddt
+
+    iptm_entry = _find_metric_entry(
+        objects, ("iptm", "complex_iptm", "interface_iptm")
+    )
+    iptm = _coerce_number(iptm_entry[1]) if iptm_entry is not None else None
+    if iptm is not None:
+        metrics["iptm"] = iptm
+
+    ptm_entry = _find_metric_entry(objects, ("ptm", "complex_ptm"))
+    ptm = _coerce_number(ptm_entry[1]) if ptm_entry is not None else None
+    if ptm is not None:
+        metrics["ptm"] = ptm
+
+    pae_entry = _find_metric_entry(
+        objects, ("pae", "predicted_aligned_error", "mean_pae")
+    )
+    pae = _mean_numeric(pae_entry[1]) if pae_entry is not None else None
+    if pae is not None:
+        metrics["pae"] = pae
+
+    for key in ("ranking_score", "confidence_score"):
+        value = _coerce_number(_find_metric_value(objects, (key,)))
         if value is not None:
-            _store_metric(metrics, key, value)
+            metrics[key] = value
 
-    # 3. Per-residue pLDDT list -> mean pLDDT.
-    for source in (data, conf if isinstance(conf, dict) else {}):
-        if "plddt" in source and isinstance(source["plddt"], list):
-            vals = [float(x) for x in source["plddt"] if isinstance(x, (int, float))]
-            if vals and metrics.get("plddt") is None:
-                metrics["plddt"] = sum(vals) / len(vals)
-                break
+    has_clash = _find_metric_value(objects, ("has_clash",))
+    if isinstance(has_clash, bool):
+        metrics["has_clash"] = has_clash
+    elif isinstance(has_clash, str) and has_clash.strip().lower() in {"true", "false"}:
+        metrics["has_clash"] = has_clash.strip().lower() == "true"
 
     return metrics
 
 
-def _store_metric(metrics: dict[str, Any], key: str, value: Any) -> None:
-    """Store a scalar confidence metric, coercing numbers to float.
+def parse_confidence_json(json_path: Union[str, Path]) -> dict[str, Any]:
+    """Parse confidence metrics from AlphaFold3, Boltz, Chai-1, or Protenix.
 
-    ``mean_plddt`` is aliased to ``plddt`` when a direct pLDDT value is absent.
+    The returned mapping uses canonical keys: ``plddt`` (including the mean of
+    ``atom_plddts``), ``iptm``, ``ptm``, and ``pae``.  It also understands
+    AlphaFold3's detailed/summary file pair, ``complex_*`` aliases, numeric
+    strings, nested result blocks, and PAE matrices.  Missing metrics are
+    omitted.
     """
-    if isinstance(value, bool):
-        metrics[key] = value
-        return
-    if isinstance(value, (int, float)):
-        coerced = float(value)
-        metrics[key] = coerced
-        if key == "mean_plddt" and "plddt" not in metrics:
-            metrics["plddt"] = coerced
-        return
-    # Lists / non-scalars are intentionally ignored here; list-aware logic
-    # (e.g. per-residue pLDDT) is handled separately.
+    path = Path(json_path)
+    documents = _confidence_documents(path)
+    metrics: dict[str, Any] = {}
+    for document in documents:
+        # Detailed files are ordered before summary files by
+        # _confidence_documents().  Summary data fills gaps but never
+        # overwrites a metric already extracted from the detailed document.
+        for key, value in _parse_confidence_document(document).items():
+            metrics.setdefault(key, value)
+    return metrics
 
 
 # ---------------------------------------------------------------------------
@@ -393,7 +612,7 @@ def _run_notifier(argv: list[str]) -> None:
         pass
 
 
-def probe_gpus(timeout: float = 5.0) -> list[dict[str, Any]] | None:
+def probe_gpus(timeout: float = 5.0) -> Optional[list[dict[str, Any]]]:
     """Probe NVIDIA GPUs via ``nvidia-smi``.
 
     Returns:
@@ -429,7 +648,7 @@ def probe_gpus(timeout: float = 5.0) -> list[dict[str, Any]] | None:
 
 
 # ---------------------------------------------------------------------------
-# Protein-keyword matching (canonical pattern for hooks and hooks.json)
+# Protein-keyword matching (canonical pattern for hook logic and host matchers)
 # ---------------------------------------------------------------------------
 
 PROTEIN_DESIGN_KEYWORDS: tuple[str, ...] = (
@@ -443,8 +662,8 @@ PROTEIN_DESIGN_KEYWORDS: tuple[str, ...] = (
 PROTEIN_DESIGN_PATTERN: str = r"\b(" + "|".join(PROTEIN_DESIGN_KEYWORDS) + r")\b"
 """Canonical protein-design keyword regex (without flags; add re.IGNORECASE).
 
-The declarative UserPromptSubmit matcher in hooks/hooks.json mirrors this
-keyword set; a parity test guards the two against drift.
+Host-specific UserPromptSubmit matchers may use this keyword set; tests guard
+supported matchers against drift.
 """
 
 
@@ -463,23 +682,237 @@ def protein_keyword_pattern(extra_keywords: tuple[str, ...] = ()) -> str:
 # Hook input helper
 # ---------------------------------------------------------------------------
 
-def extract_content_text(result: Any) -> str:
-    """Best-effort extraction of the text payload from a tool-result object.
+_MISSING = object()
 
-    Hook payloads arrive from external tools and are not always well-formed:
-    ``content`` may be missing, not a list, or hold non-dict entries. This
-    helper never raises; it returns ``""`` whenever the text cannot be found.
+
+def _top_level_value(data: Any, *keys: str) -> Any:
+    """Return the first explicitly present top-level hook field."""
+    if not isinstance(data, dict):
+        return _MISSING
+    for key in keys:
+        if key in data:
+            return data[key]
+    return _MISSING
+
+
+def get_hook_tool_name(data: Any) -> str:
+    """Return a normalized tool name from a standard or legacy hook payload.
+
+    Current hosts send top-level ``tool_name``.  Older payloads used
+    top-level ``tool`` or nested values in ``tool_input``/``params``; those
+    forms remain accepted for compatibility.
     """
-    if not isinstance(result, dict):
+    value = _top_level_value(data, "tool_name", "tool")
+    if value is _MISSING and isinstance(data, dict):
+        for field in ("tool_input", "params"):
+            nested = data.get(field)
+            if isinstance(nested, dict):
+                value = _top_level_value(nested, "tool_name", "tool")
+                if value is not _MISSING:
+                    break
+    return str(value).strip() if value is not _MISSING and value is not None else ""
+
+
+def get_hook_tool_input(data: Any) -> Any:
+    """Return ``tool_input`` with fallback to the legacy ``params`` field."""
+    value = _top_level_value(data, "tool_input")
+    if value is not _MISSING:
+        return value
+    value = _top_level_value(data, "params")
+    return None if value is _MISSING else value
+
+
+def get_hook_tool_response(data: Any) -> Any:
+    """Return ``tool_response`` with fallback to the legacy ``result`` field."""
+    value = _top_level_value(data, "tool_response")
+    if value is not _MISSING:
+        return value
+    value = _top_level_value(data, "result")
+    return None if value is _MISSING else value
+
+
+def get_hook_error(data: Any) -> Any:
+    """Return the host-provided top-level tool error, if present."""
+    value = _top_level_value(data, "error")
+    return None if value is _MISSING else value
+
+
+def get_hook_prompt(data: Any) -> str:
+    """Return the submitted prompt from a UserPromptSubmit payload."""
+    value = _top_level_value(data, "prompt")
+    return str(value) if value is not _MISSING and value is not None else ""
+
+
+def extract_content_text(value: Any) -> str:
+    """Best-effort extraction of text from strings and nested tool responses.
+
+    Hosts have used a direct string, ``{"content": [...]}``, and nested
+    ``tool_response``/``result`` objects.  Content lists may contain strings,
+    text blocks, or further nested objects.  Invalid shapes are ignored and
+    the function never raises.
+    """
+    if isinstance(value, str):
+        return value
+    if isinstance(value, (bytes, bytearray)):
+        try:
+            return bytes(value).decode("utf-8")
+        except UnicodeDecodeError:
+            return ""
+    if isinstance(value, list):
+        # A host content array contains structured text blocks, not bare
+        # strings.  Keep direct strings valid for whole responses while
+        # ignoring malformed scalar entries inside a content array.
+        parts = [
+            extract_content_text(item)
+            for item in value
+            if isinstance(item, (dict, list, bytes, bytearray))
+        ]
+        return "\n".join(part for part in parts if part)
+    if not isinstance(value, dict):
         return ""
-    content = result.get("content")
-    if not isinstance(content, list) or not content:
+
+    text = value.get("text")
+    if isinstance(text, str):
+        return text
+
+    # Probe the standard response containers first.  Content is expected to be
+    # a list of text blocks; a scalar content string is a malformed shape and
+    # must not be mistaken for a valid response.  Generic traversal below
+    # covers vendor-specific wrappers without making callers know their shape.
+    for key in ("content", "tool_response", "result", "response", "output", "error"):
+        if key not in value:
+            continue
+        if key == "content" and not isinstance(value[key], (list, dict)):
+            continue
+        extracted = extract_content_text(value[key])
+        if extracted:
+            return extracted
+
+    for key, child in value.items():
+        if key == "content" and not isinstance(child, (list, dict)):
+            continue
+        extracted = extract_content_text(child)
+        if extracted:
+            return extracted
+    return ""
+
+
+# The runner inventory is intentionally explicit: hook decisions must never be
+# enabled by arbitrary shell text or a similarly named third-party script.
+HOOK_RUNNERS: frozenset[str] = frozenset(
+    {
+        "batch_runner", "convert_format", "job_manager", "project_dashboard",
+        "run_alphafold3", "run_boltz", "run_chai1", "run_colabfold",
+        "run_esm_if1", "run_esmfold", "run_filtering", "run_ligandmpnn",
+        "run_omegafold", "run_openfold3", "run_pdbfixer", "run_proteinmpnn",
+        "run_protenix", "run_rfdiffusion", "summarize_outputs",
+    }
+)
+_SHELL_TOOL_NAMES = frozenset(
+    {"bash", "powershell", "shell", "exec_command", "run_shell_command"}
+)
+# Direct tool payloads have historically used the short tool name, whereas
+# shell payloads invoke the public ``scripts/run_*.py`` runner. Keep this
+# mapping explicit rather than trusting prefix or substring matches.
+HOOK_RUNNER_ALIASES = {
+    runner.removeprefix("run_"): runner
+    for runner in HOOK_RUNNERS
+    if runner.startswith("run_")
+}
+
+
+def _is_windows_shell_tool(tool_name: str) -> bool:
+    """Return whether a hook payload's structured shell uses Windows syntax."""
+    return tool_name.strip().casefold() == "powershell"
+
+
+def _split_hook_command(command: str, windows: bool) -> list[str]:
+    """Safely split one simple structured shell command without evaluating it."""
+    if not isinstance(command, str) or not command.strip():
+        return []
+    # Compound syntax is excluded so a runner decision cannot be influenced by
+    # a second command, substitution, redirection, or interpreter code mode.
+    if any(char in command for char in ("\n", "\r", ";", "|", "&", "`", "$", "<", ">")):
+        return []
+    try:
+        import shlex
+
+        tokens = shlex.split(command, posix=not windows)
+    except ValueError:
+        return []
+    if windows:
+        tokens = [
+            token[1:-1]
+            if len(token) >= 2 and token[0] == token[-1] and token[0] in "\"'"
+            else token
+            for token in tokens
+        ]
+    return tokens
+
+
+def _hook_command_runner_tokens(data: Any) -> list[str]:
+    """Return parsed runner invocation tokens from a structured shell payload."""
+    tool_name = get_hook_tool_name(data).casefold()
+    if tool_name not in _SHELL_TOOL_NAMES:
+        return []
+    tool_input = get_hook_tool_input(data)
+    if not isinstance(tool_input, dict):
+        return []
+    command = tool_input.get("command")
+    tokens = _split_hook_command(command, _is_windows_shell_tool(tool_name))
+    if not tokens:
+        return []
+    interpreter = Path(tokens[0].replace("\\", "/")).name.casefold()
+    if interpreter not in {"python", "python3", "python.exe", "python3.exe", "py", "py.exe"}:
+        return []
+    if len(tokens) < 2 or tokens[1] in {"-c", "-m"} or tokens[1].startswith("-"):
+        return []
+    script = tokens[1].replace("\\", "/")
+    if not script.casefold().endswith(".py"):
+        return []
+    runner = Path(script).stem.casefold()
+    if runner not in HOOK_RUNNERS:
+        return []
+    parts = [part for part in script.split("/") if part not in {"", "."}]
+    if ".." in parts or "scripts" not in parts:
+        return []
+    return tokens
+
+
+def get_hook_invoked_runner(data: Any) -> Optional[str]:
+    """Return the allowlisted project runner invoked by a hook payload.
+
+    Direct tool invocations may report an allowlisted runner in ``tool_name``.
+    Bash and PowerShell invocations are resolved exclusively from their
+    structured ``tool_input.command`` field and only after conservative token
+    validation. Arbitrary text, compound shell syntax, and unrecognized scripts
+    return ``None``.
+    """
+    tool_name = get_hook_tool_name(data).strip().casefold()
+    if tool_name in HOOK_RUNNERS:
+        return tool_name
+    if tool_name in HOOK_RUNNER_ALIASES:
+        return HOOK_RUNNER_ALIASES[tool_name]
+    tokens = _hook_command_runner_tokens(data)
+    if not tokens:
+        return None
+    return Path(tokens[1].replace("\\", "/")).stem.casefold()
+
+
+def get_hook_invoked_runner_arguments(data: Any) -> list[str]:
+    """Return safe runner CLI arguments, or an empty list when unresolved."""
+    tokens = _hook_command_runner_tokens(data)
+    return tokens[2:] if tokens else []
+
+
+def hook_advisory_output(additional_context: str) -> str:
+    """Serialize the portable advisory hook response schema."""
+    if not isinstance(additional_context, str) or not additional_context.strip():
         return ""
-    first = content[0]
-    if not isinstance(first, dict):
-        return ""
-    text = first.get("text", "")
-    return text if isinstance(text, str) else ""
+    return json.dumps(
+        {"hookSpecificOutput": {"additionalContext": additional_context}},
+        ensure_ascii=False,
+    )
 
 
 def read_hook_input() -> dict[str, Any]:

@@ -13,7 +13,7 @@ import json
 import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
-from protein_design.utils import read_hook_input
+from protein_design.utils import get_hook_invoked_runner, hook_advisory_output, read_hook_input
 
 
 def _find_job_manager() -> str:
@@ -36,15 +36,10 @@ def main() -> int:
         traceback.print_exc()
         return 1
 
-    # Only trigger on job queries. The current standalone entry point is
-    # scripts/job_manager.py (the PostToolUse matcher also matches
-    # "job_manager"); legacy MCP-era "query_job" kept for compatibility.
     if not isinstance(data, dict):
         return 0
-    tool = str(data.get("tool") or data.get("tool_name") or "")
-    if not tool and isinstance(data.get("params"), dict):
-        tool = str(data["params"].get("tool", ""))
-    if tool.lower() not in {"query_job", "job_manager"}:
+    tool = get_hook_invoked_runner(data)
+    if tool != "job_manager":
         return 0
 
     job_manager = _find_job_manager()
@@ -152,7 +147,7 @@ screen -r rfdiffusion  # to reattach
 ```
 """)
 
-    print("\n".join(output_parts))
+    print(hook_advisory_output("\n".join(output_parts)))
     return 0
 
 

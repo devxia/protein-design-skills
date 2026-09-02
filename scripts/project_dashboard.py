@@ -13,7 +13,7 @@ import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from protein_design.utils import parse_confidence_json
+from protein_design.utils import discover_confidence_files, parse_confidence_json
 
 import argparse
 import json
@@ -93,7 +93,7 @@ def count_stage_artifacts(stage_dir: Path) -> dict[str, int]:
         "pdb": sum(1 for p in stage_dir.rglob("*.pdb")),
         "fasta": sum(1 for p in stage_dir.rglob("*.fa")) + sum(1 for p in stage_dir.rglob("*.fasta")),
         "cif": sum(1 for p in stage_dir.rglob("*.cif")),
-        "confidence_json": sum(1 for p in stage_dir.rglob("confidence.json")),
+        "confidence_json": len(discover_confidence_files(stage_dir)),
         "filtered_json": 1 if (stage_dir / "filtered_results.json").exists() else 0,
     }
 
@@ -101,7 +101,7 @@ def count_stage_artifacts(stage_dir: Path) -> dict[str, int]:
 def collect_validation_metrics(stage_dir: Path) -> dict[str, list[float]]:
     """Collect validation metrics from confidence.json files."""
     metrics: dict[str, list[float]] = defaultdict(list)
-    for conf_path in stage_dir.rglob("confidence.json"):
+    for conf_path in discover_confidence_files(stage_dir):
         try:
             conf = parse_confidence_json(conf_path)
         except Exception:
