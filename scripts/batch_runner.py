@@ -20,8 +20,12 @@ import sys
 import time
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-def run_stage(stage_name: str, command: list[str], verbose: bool = False) -> bool:
+from protein_design.process_utils import run_process
+
+
+def run_stage(stage_name: str, command: list[str], verbose: bool = False):
     """Run a pipeline stage and return success status."""
     if verbose:
         print(f"\n{'=' * 60}")
@@ -31,7 +35,7 @@ def run_stage(stage_name: str, command: list[str], verbose: bool = False) -> boo
 
     start = time.time()
     try:
-        result = subprocess.run(
+        result = run_process(
             command,
             capture_output=True,
             text=True,
@@ -103,26 +107,207 @@ def _concat_fasta_command(seq_dir: Path, out_fasta: Path) -> list[str]:
     return [sys.executable, "-c", script, str(seq_dir), str(out_fasta)]
 
 
+_SPLIT_CANDIDATES_SCRIPT = r'''
+import hashlib
+import json
+import re
+import sys
+from pathlib import Path
+
+
+def read_fasta(path):
+    records = []
+    current_id = None
+    sequence = []
+    with path.open(encoding="utf-8") as handle:
+        for line in handle:
+            line = line.strip()
+            if not line:
+                continue
+            if line.startswith(">"):
+                if current_id is not None and sequence:
+                    records.append((current_id, "".join(sequence)))
+                current_id = line[1:].strip().split()[0] if line[1:].strip() else None
+                sequence = []
+            elif current_id is not None:
+                sequence.append(line)
+    if current_id is not None and sequence:
+        records.append((current_id, "".join(sequence)))
+    return records
+
+
+def safe_name(value):
+    value = re.sub(r"[^A-Za-z0-9_.-]+", "_", value).strip("._")
+    return value or "candidate"
+
+
+if len(sys.argv) != 4 or sys.argv[1] != "--split-candidates":
+    raise SystemExit("usage: --split-candidates SEQUENCE_DIR CANDIDATE_DIR")
+
+sequence_dir = Path(sys.argv[2])
+candidate_dir = Path(sys.argv[3])
+candidate_dir.mkdir(parents=True, exist_ok=True)
+manifest = []
+used_names = set()
+ignored_names = {"all_sequences.fa", "all_sequences.fasta"}
+max_candidate_basename = 120
+short_hash_length = 12
+
+for source in sorted(sequence_dir.rglob("*")):
+    if not source.is_file() or source.suffix.lower() not in {".fa", ".fasta"}:
+        continue
+    if source.name.lower() in ignored_names:
+        continue
+    for record_index, (sequence_id, sequence) in enumerate(read_fasta(source), 1):
+        base = safe_name(f"{source.stem}__{record_index}__{sequence_id}")
+        if len(base) > max_candidate_basename:
+            identity = "\0".join([
+                source.relative_to(sequence_dir).as_posix(),
+                str(record_index),
+                sequence_id,
+                sequence,
+            ])
+            digest = hashlib.sha256(identity.encode("utf-8")).hexdigest()[:short_hash_length]
+            base = f"{base[:max_candidate_basename - len(digest) - 2]}__{digest}"
+
+        candidate_name = base
+        suffix = 2
+        while candidate_name in used_names:
+            suffix_text = f"_{suffix}"
+            candidate_name = f"{base[:max_candidate_basename - len(suffix_text)]}{suffix_text}"
+            suffix += 1
+        used_names.add(candidate_name)
+
+        fasta_path = candidate_dir / f"{candidate_name}.fa"
+        json_path = candidate_dir / f"{candidate_name}.json"
+        fasta_path.write_text(f">{candidate_name}\n{sequence}\n", encoding="utf-8")
+        json_path.write_text(json.dumps({
+            "dialect": "alphafold3",
+            "version": 1,
+            "name": candidate_name,
+            "sequences": [{"protein": {"id": "A", "sequence": sequence}}],
+            "modelSeeds": [1],
+        }, indent=2), encoding="utf-8")
+        manifest.append({
+            "name": candidate_name,
+            "source": str(source),
+            "sequence_id": sequence_id,
+            "fasta": str(fasta_path),
+            "json": str(json_path),
+        })
+
+manifest_path = candidate_dir / "manifest.json"
+manifest_path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+if not manifest:
+    print(f"ERROR: No FASTA candidates found in {sequence_dir}", file=sys.stderr)
+    raise SystemExit(1)
+print(f"Prepared {len(manifest)} candidate(s) in {candidate_dir}")
+'''.strip()
+
+
+_VALIDATE_CANDIDATES_SCRIPT = r'''
+import json
+import subprocess
+import sys
+from pathlib import Path
+
+if len(sys.argv) != 6 or sys.argv[1] != "--validate-candidates":
+    raise SystemExit(
+        "usage: --validate-candidates CANDIDATE_DIR VALIDATION_DIR VALIDATOR SCRIPTS_DIR"
+    )
+
+candidate_dir = Path(sys.argv[2])
+validation_dir = Path(sys.argv[3])
+validator = sys.argv[4]
+scripts_dir = Path(sys.argv[5])
+script_names = {
+    "alphafold3": "run_alphafold3.py",
+    "boltz": "run_boltz.py",
+    "chai1": "run_chai1.py",
+    "omegafold": "run_omegafold.py",
+    "esmfold": "run_esmfold.py",
+    "protenix": "run_protenix.py",
+    "openfold3": "run_openfold3.py",
+}
+if validator not in script_names:
+    print(f"ERROR: Unsupported validator: {validator}", file=sys.stderr)
+    raise SystemExit(2)
+
+manifest_path = candidate_dir / "manifest.json"
+if not manifest_path.exists():
+    print(f"ERROR: Candidate manifest not found: {manifest_path}", file=sys.stderr)
+    raise SystemExit(1)
+with manifest_path.open(encoding="utf-8") as handle:
+    manifest = json.load(handle)
+if not manifest:
+    print("ERROR: Candidate manifest is empty", file=sys.stderr)
+    raise SystemExit(1)
+
+validation_dir.mkdir(parents=True, exist_ok=True)
+validator_script = scripts_dir / script_names[validator]
+for candidate in manifest:
+    output_dir = validation_dir / candidate["name"]
+    output_dir.mkdir(parents=True, exist_ok=True)
+    if validator == "alphafold3":
+        command = [
+            sys.executable,
+            str(validator_script),
+            "--json",
+            candidate["json"],
+            "--output-dir",
+            str(output_dir),
+            "--verbose",
+        ]
+    else:
+        command = [
+            sys.executable,
+            str(validator_script),
+            "--input",
+            candidate["fasta"],
+            "--output-dir",
+            str(output_dir),
+            "--verbose",
+        ]
+    print(f"Validating candidate {candidate['name']}: {' '.join(command)}")
+    result = subprocess.run(command, capture_output=True, text=True)
+    if result.stdout:
+        print(result.stdout, end="")
+    if result.returncode != 0:
+        print(f"ERROR: Candidate validation failed for {candidate['name']} "
+              f"(exit code {result.returncode})", file=sys.stderr)
+        if result.stderr:
+            print(result.stderr[-2000:], file=sys.stderr)
+        raise SystemExit(result.returncode or 1)
+    if result.stderr:
+        print(result.stderr, file=sys.stderr, end="")
+'''.strip()
+
+
 def build_standard_pipeline(args) -> list[dict]:
     """Build standard 5-stage pipeline from CLI args."""
     stages = []
     scripts_dir = Path(__file__).parent
+    fixed_pdb = args.output_dir / "fixed.pdb"
 
-    # Stage 0: PDBFixer (if input PDB provided)
+    # Stage 0: PDBFixer (if input PDB provided).  Stage 1 below references this
+    # future output directly; do not inspect its existence while building the
+    # stage list because it is created by this preceding command at runtime.
     if args.input_pdb and args.stage <= 0:
         stages.append({
             "name": "Stage 0: PDBFixer",
             "command": [
                 sys.executable, str(scripts_dir / "run_pdbfixer.py"),
-                "--input", args.input_pdb,
-                "--output", args.output_dir / "fixed.pdb",
+                "--input", str(args.input_pdb),
+                "--output", str(fixed_pdb),
                 "--verbose",
             ],
         })
 
-    # Stage 1: RFdiffusion (if backbone generation requested)
+    # Stage 1: RFdiffusion (if backbone generation requested).  If Stage 0 was
+    # built, run_pipeline_stages guarantees this path has been created before
+    # this command runs.  For a pipeline started at Stage 1, it is the explicit
+    # preprocessed input from the previous run.
     if args.contig and args.stage <= 1:
-        input_pdb = args.output_dir / "fixed.pdb" if args.input_pdb else None
         cmd = [
             sys.executable, str(scripts_dir / "run_rfdiffusion.py"),
             "--contig", args.contig,
@@ -130,8 +315,8 @@ def build_standard_pipeline(args) -> list[dict]:
             "--output-prefix", str(args.output_dir / "design"),
             "--verbose",
         ]
-        if input_pdb and input_pdb.exists():
-            cmd.extend(["--input-pdb", str(input_pdb)])
+        if args.input_pdb:
+            cmd.extend(["--input-pdb", str(fixed_pdb), "--skip-preprocessing"])
         if args.hotspot_res:
             cmd.extend(["--hotspot-res", args.hotspot_res])
 
@@ -140,7 +325,8 @@ def build_standard_pipeline(args) -> list[dict]:
             "command": cmd,
         })
 
-    # Stage 2: ProteinMPNN (if sequence design requested)
+    # Stage 2: ProteinMPNN (if sequence design requested).  The runner expands
+    # this glob and invokes the official single-PDB interface once per target.
     if args.stage <= 2:
         stages.append({
             "name": "Stage 2: ProteinMPNN",
@@ -153,13 +339,19 @@ def build_standard_pipeline(args) -> list[dict]:
             ],
         })
 
-    # Stage 3: Validation (if requested)
+    # Stage 3: Validation (if requested).  Each FASTA record becomes one
+    # candidate FASTA and one single-chain AF3 JSON.  Validators are then run
+    # one candidate per output directory, never as a multi-chain aggregate.
     if args.validator and args.stage <= 3:
         seq_dir = args.output_dir / "sequences"
-        all_seqs = seq_dir / "all_sequences.fa"
+        candidate_dir = args.output_dir / "validation_inputs"
+        validation_dir = args.output_dir / "validation"
         stages.append({
-            "name": "Stage 2b: Concatenate sequences",
-            "command": _concat_fasta_command(seq_dir, all_seqs),
+            "name": "Stage 3a: Split candidates",
+            "command": [
+                sys.executable, "-c", _SPLIT_CANDIDATES_SCRIPT,
+                "--split-candidates", str(seq_dir), str(candidate_dir),
+            ],
         })
         validator_scripts = {
             "alphafold3": "run_alphafold3.py",
@@ -170,43 +362,20 @@ def build_standard_pipeline(args) -> list[dict]:
             "protenix": "run_protenix.py",
             "openfold3": "run_openfold3.py",
         }
-        script_name = validator_scripts.get(args.validator)
-        if script_name:
-            # First convert FASTA to appropriate format
-            if args.validator == "alphafold3":
-                stages.append({
-                    "name": "Stage 3a: Format Conversion",
-                    "command": [
-                        sys.executable, str(scripts_dir / "convert_format.py"),
-                        "--from", "fasta",
-                        "--to", "alphafold3_json",
-                        "--input", str(all_seqs),
-                        "--output", str(args.output_dir / "af3_input.json"),
-                        "--verbose",
-                    ],
-                })
-                stages.append({
-                    "name": "Stage 3b: AlphaFold3",
-                    "command": [
-                        sys.executable, str(scripts_dir / script_name),
-                        "--json", str(args.output_dir / "af3_input.json"),
-                        "--output-dir", str(args.output_dir / "validation"),
-                        "--verbose",
-                    ],
-                })
-            else:
-                stages.append({
-                    "name": f"Stage 3: {args.validator}",
-                    "command": [
-                        sys.executable, str(scripts_dir / script_name),
-                        "--input", str(all_seqs),
-                        "--output-dir", str(args.output_dir / "validation"),
-                        "--verbose",
-                    ],
-                })
+        if args.validator in validator_scripts:
+            stages.append({
+                "name": f"Stage 3b: Candidate-wise {args.validator}",
+                "command": [
+                    sys.executable, "-c", _VALIDATE_CANDIDATES_SCRIPT,
+                    "--validate-candidates", str(candidate_dir),
+                    str(validation_dir), args.validator, str(scripts_dir),
+                ],
+            })
 
-    # Stage 4: Filtering (if validation was run)
-    if args.stage <= 4 and (args.validator or args.stage <= 3):
+    # Stage 4: Filtering.  Keep this stage available when explicitly requested
+    # even without a validator; run_filtering reports a missing results
+    # directory (or empty results) with its normal, actionable error code.
+    if args.stage <= 4:
         stages.append({
             "name": "Stage 4: Filtering",
             "command": [

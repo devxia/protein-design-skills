@@ -8,10 +8,13 @@ filesystem-aware progress tracking.
 import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
-from protein_design.utils import parse_confidence_json, read_hook_input
+from protein_design.utils import (
+    discover_confidence_files, get_hook_invoked_runner, get_hook_tool_input,
+    hook_advisory_output, parse_confidence_json, read_hook_input,
+)
 import traceback
 import json
-from typing import Any
+from typing import Any, Optional
 
 
 STAGE_TOOLS = {
@@ -37,9 +40,10 @@ STAGE_HINTS: dict[str, str] = {
 }
 
 
-def _find_output_dir(data: dict[str, Any]) -> Path | None:
+def _find_output_dir(data: dict[str, Any]) -> Optional[Path]:
     """Infer output directory from hook payload."""
-    tool_input = data.get("tool_input", {}) if isinstance(data.get("tool_input", {}), dict) else {}
+    tool_input = get_hook_tool_input(data)
+    tool_input = tool_input if isinstance(tool_input, dict) else {}
     for key in ("output_dir", "output_prefix", "results_dir", "out_folder"):
         val = tool_input.get(key)
         if val:
@@ -65,11 +69,8 @@ def _count_files(root: Path, suffixes: tuple[str, ...]) -> int:
 
 
 def _find_confidence_files(root: Path) -> list[Path]:
-    """Find all confidence.json files under root."""
-    try:
-        return list(root.rglob("confidence.json"))
-    except Exception:
-        return []
+    """Find supported confidence files under root without double counting."""
+    return discover_confidence_files(root)
 
 
 def _quality_distribution(plddts: list[float]) -> dict[str, int]:
@@ -192,16 +193,8 @@ def main() -> int:
         traceback.print_exc()
         return 1
 
-    tool_name = str(data.get("tool", "")).lower()
-    tool_input = data.get("tool_input", {})
-    if isinstance(tool_input, dict):
-        tool_name = tool_name or str(tool_input.get("tool", "")).lower()
-
-    stage = None
-    for name, label in STAGE_TOOLS.items():
-        if name in tool_name:
-            stage = label
-            break
+    tool_name = get_hook_invoked_runner(data)
+    stage = STAGE_TOOLS.get(tool_name or "")
 
     if stage is None:
         return 0
@@ -210,7 +203,7 @@ def main() -> int:
     if out_dir is None:
         return 0
 
-    print(_summarize(out_dir, stage))
+    print(hook_advisory_output(_summarize(out_dir, stage)))
     return 0
 
 

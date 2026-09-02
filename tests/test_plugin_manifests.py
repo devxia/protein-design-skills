@@ -153,7 +153,7 @@ def test_validate_marketplace_rejects_object_source():
     )
 
 
-def test_rewrite_hook_commands_local_uses_relative_paths():
+def test_rewrite_hook_commands_local_uses_absolute_paths():
     rewrite = _INSTALL_HOOKS._rewrite_hook_commands
     source = {
         "hooks": {
@@ -173,8 +173,8 @@ def test_rewrite_hook_commands_local_uses_relative_paths():
     cmd = rewritten["hooks"]["UserPromptSubmit"][0]["hooks"][0]["command"]
     parts = cmd.split(maxsplit=1)
     assert parts[0] == sys.executable
-    assert parts[1].startswith("./protein_design/hooks/")
-    assert not Path(parts[1]).is_absolute()
+    assert Path(parts[1]).is_absolute()
+    assert parts[1].endswith("protein_design/hooks/user-onboarding.py")
     assert "${PLUGIN_ROOT}" not in cmd
     assert "${CLAUDE_PLUGIN_ROOT}" not in cmd
 
@@ -190,6 +190,58 @@ def test_all_manifests_use_canonical_author():
     assert agents["owner"]["name"] == "DevXia"
     for entry in agents["plugins"]:
         assert entry["author"]["name"] == "DevXia"
+
+
+def test_host_hook_contract_has_twenty_supported_events_and_native_commands():
+    sources = {
+        "claude": json.loads((_PROJECT_ROOT / "hooks" / "hooks.json").read_text(encoding="utf-8")),
+        "codex": json.loads((_PROJECT_ROOT / "hooks" / "codex-hooks.json").read_text(encoding="utf-8")),
+        "kimi": json.loads((_PROJECT_ROOT / "kimi.plugin.json").read_text(encoding="utf-8")),
+    }
+    handler_maps = {}
+    for host, source in sources.items():
+        handlers = list(_INSTALL_HOOKS._iter_hook_handlers(source))
+        assert len(handlers) == 20
+        assert {event for event, _matcher, _hook in handlers} <= {
+            "UserPromptSubmit", "PreToolUse", "PostToolUse"
+        }
+        assert {event for event, _matcher, _hook in handlers} == {
+            "UserPromptSubmit", "PreToolUse", "PostToolUse"
+        }
+        assert {
+            event: sum(1 for candidate, _matcher, _hook in handlers if candidate == event)
+            for event in {"UserPromptSubmit", "PreToolUse", "PostToolUse"}
+        } == {"UserPromptSubmit": 9, "PreToolUse": 3, "PostToolUse": 8}
+
+        handler_maps[host] = set()
+        for event, matcher, hook in handlers:
+            if event in {"PreToolUse", "PostToolUse"}:
+                assert matcher == "Bash|PowerShell"
+            if host == "claude":
+                assert hook["command"].startswith(
+                    "python ${CLAUDE_PLUGIN_ROOT}/protein_design/hooks/"
+                )
+            elif host == "codex":
+                assert hook["command"].startswith('python "${PLUGIN_ROOT}/protein_design/hooks/')
+                assert hook["commandWindows"].startswith('python "${PLUGIN_ROOT}\\protein_design\\hooks\\')
+            else:
+                assert hook["command"].startswith("python ./protein_design/hooks/")
+
+            location = _INSTALL_HOOKS._hook_script_argument(hook)
+            assert location is not None
+            field, index = location
+            if field == "args":
+                script = hook[field][index]
+            else:
+                script = (
+                    _INSTALL_HOOKS._hook_command_text(hook)
+                    .replace("\\", "/")
+                    .split("/")[-1]
+                    .strip('"')
+                )
+            handler_maps[host].add((event, Path(script).name))
+
+    assert handler_maps["claude"] == handler_maps["codex"] == handler_maps["kimi"]
 
 
 def test_hook_matchers_do_not_overmatch():

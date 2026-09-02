@@ -148,7 +148,7 @@ pip install jax[cuda12]  # For CUDA 12
 # After approval, download to ./models/
 
 # Download genetic databases (~2.6TB)
-# Or configure to skip MSA: run_data_pipeline=false
+# Or pass --no-msa to scripts/run_alphafold3.py to skip MSA
 
 # Verify
 python run_alphafold.py --help
@@ -243,7 +243,7 @@ nvidia-smi
 ```bash
 # Databases need ~2.6TB
 # Use external drive or network storage
-# Or skip MSA: run_data_pipeline=false
+# Or pass --no-msa to scripts/run_alphafold3.py
 ```
 
 ### Model weights not found

@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
+import ast
 import io
 import json
-import re
 
 from tests.helpers import PROJECT_ROOT, load_hook_module
 
@@ -37,10 +37,16 @@ def test_no_inline_stdin_reads_remain():
 
 def test_all_hooks_import_read_hook_input():
     for path in HOOK_FILES:
-        text = path.read_text(encoding="utf-8")
-        assert re.search(
-            r"from protein_design\.utils import .*\bread_hook_input\b", text
-        ), f"{path.name} does not import read_hook_input"
+        tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+        imported_names = {
+            alias.name
+            for node in ast.walk(tree)
+            if isinstance(node, ast.ImportFrom) and node.module == "protein_design.utils"
+            for alias in node.names
+        }
+        assert "read_hook_input" in imported_names, (
+            f"{path.name} does not import read_hook_input"
+        )
 
 
 def test_cost_estimator_reads_prompt_from_json_payload(monkeypatch, capsys):

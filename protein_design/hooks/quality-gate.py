@@ -5,14 +5,25 @@ After structure prediction completes, this hook checks confidence metrics
 against project-specific thresholds and provides clear pass/fail decisions
 with actionable next steps — reducing manual review overhead.
 """
-import traceback
 import json
-from typing import Any
+import math
+import re
 import sys
+import traceback
 from pathlib import Path
+from typing import Any, Optional
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
-from protein_design.utils import extract_content_text, read_hook_input
+from protein_design.utils import (
+    discover_confidence_files,
+    extract_content_text,
+    get_hook_invoked_runner,
+    get_hook_invoked_runner_arguments,
+    get_hook_tool_response,
+    hook_advisory_output,
+    parse_confidence_json,
+    read_hook_input,
+)
 
 
 THRESHOLDS: dict[str, dict[str, float]] = {
@@ -40,25 +51,198 @@ THRESHOLDS: dict[str, dict[str, float]] = {
 }
 
 
+def _to_float(value: Any) -> Optional[float]:
+    """Coerce one finite numeric value without raising."""
+    if isinstance(value, bool) or value is None:
+        return None
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return None
+    return number if math.isfinite(number) else None
+
+
+def _normalise_metric(key: str, value: Any) -> Optional[float]:
+    """Return a confidence metric only when it is in its valid range."""
+    metric = key.lower().replace("mean_", "")
+    number = _to_float(value)
+    if number is None:
+        return None
+    if metric == "plddt" and 0.0 <= number <= 100.0:
+        return number
+    if metric in {"iptm", "ptm"} and 0.0 <= number <= 1.0:
+        return number
+    return None
+
+
 def _extract_metrics(result: dict[str, Any]) -> dict[str, float]:
-    """Extract confidence metrics from tool result."""
+    """Extract confidence metrics from a safely decoded tool result."""
     metrics: dict[str, float] = {}
+    if not isinstance(result, dict):
+        return metrics
 
-    # Try different result formats
-    if "metrics" in result:
-        m = result["metrics"]
+    # Try different result formats, accepting only mapping-shaped blocks.
+    m = result.get("metrics")
+    if isinstance(m, dict):
         for key in ["mean_plddt", "plddt", "iptm", "ipTM", "ptm", "pTM"]:
-            if key in m:
-                metrics[key.lower().replace("mean_", "")] = float(m[key])
-    elif "plddt" in result:
-        metrics["plddt"] = float(result["plddt"])
-    elif "confidence" in result:
-        c = result["confidence"]
-        for key in ["plddt", "iptm", "ptm"]:
-            if key in c:
-                metrics[key] = float(c[key])
+            value = _normalise_metric(key, m.get(key))
+            if value is not None:
+                metrics[key.lower().replace("mean_", "")] = value
+    else:
+        value = _normalise_metric("plddt", result.get("plddt"))
+        if value is not None:
+            metrics["plddt"] = value
 
+        c = result.get("confidence")
+        if isinstance(c, dict):
+            for key in ["plddt", "iptm", "ptm"]:
+                value = _normalise_metric(key, c.get(key))
+                if value is not None:
+                    metrics[key] = value
+
+    if metrics:
+        return metrics
+    for key in ("tool_response", "result", "response", "output", "content"):
+        nested = result.get(key)
+        if isinstance(nested, (dict, list, str)):
+            nested_metrics = _extract_metrics(nested) if isinstance(nested, dict) else {}
+            if nested_metrics:
+                return nested_metrics
     return metrics
+
+
+def _decode_tool_response(value: Any) -> Optional[dict[str, Any]]:
+    """Decode direct, wrapped, or JSON-string responses safely."""
+    if isinstance(value, str):
+        try:
+            decoded = json.loads(value)
+        except (TypeError, ValueError):
+            return None
+        return _decode_tool_response(decoded) if isinstance(decoded, (dict, list)) else None
+
+    if isinstance(value, dict):
+        if value.get("isError"):
+            return value
+        if any(key in value for key in ("status", "metrics", "plddt", "confidence")):
+            return value
+
+        # Prefer actual response containers over generic text extraction, so
+        # an outer wrapper containing JSON text is unwrapped before fallback.
+        for key in ("tool_response", "result", "response", "output", "content"):
+            if key not in value:
+                continue
+            nested = value[key]
+            if nested is value:
+                continue
+            decoded = _decode_tool_response(nested)
+            if decoded is not None:
+                return decoded
+
+        text = extract_content_text(value)
+        if text:
+            try:
+                decoded = json.loads(text)
+            except (TypeError, ValueError):
+                decoded = None
+            if isinstance(decoded, (dict, list)):
+                return _decode_tool_response(decoded)
+    elif isinstance(value, list):
+        for nested in value:
+            decoded = _decode_tool_response(nested)
+            if decoded is not None:
+                return decoded
+    return None
+
+
+_FAILURE_STATUSES = {
+    "cancelled",
+    "canceled",
+    "error",
+    "errored",
+    "failed",
+    "failure",
+    "killed",
+    "timed_out",
+    "timeout",
+}
+_VALIDATION_SCRIPTS = {
+    "run_alphafold3.py",
+    "run_boltz.py",
+    "run_chai1.py",
+    "run_esmfold.py",
+    "run_omegafold.py",
+    "run_openfold3.py",
+    "run_protenix.py",
+}
+
+
+def _error_flag_is_set(value: Any) -> bool:
+    """Interpret common boolean-shaped error flags without treating 'false' as true."""
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)):
+        return value != 0
+    if isinstance(value, str):
+        return value.strip().casefold() in {"1", "true", "yes"}
+    return False
+
+
+def _response_is_error(value: Any) -> bool:
+    """Return whether a response or nested wrapper marks an error."""
+    if isinstance(value, dict):
+        if _error_flag_is_set(value.get("isError")):
+            return True
+        status = value.get("status")
+        if isinstance(status, str) and status.strip().casefold() in _FAILURE_STATUSES:
+            return True
+        error = value.get("error")
+        if error not in (None, False, "", [], {}):
+            return True
+        return any(
+            _response_is_error(value.get(key))
+            for key in ("tool_response", "result", "response", "output", "content")
+            if key in value
+        )
+    if isinstance(value, list):
+        return any(_response_is_error(item) for item in value)
+    if isinstance(value, str):
+        try:
+            decoded = json.loads(value)
+        except (TypeError, ValueError):
+            return False
+        return _response_is_error(decoded) if isinstance(decoded, (dict, list)) else False
+    return False
+
+
+def _is_validation_invocation(data: dict[str, Any]) -> bool:
+    """Recognize validation only through the shared allowlisted runner parser."""
+    return get_hook_invoked_runner(data) in {
+        Path(script).stem for script in _VALIDATION_SCRIPTS
+    }
+
+
+def _output_dir_metrics(data: dict[str, Any]) -> dict[str, float]:
+    """Load the first usable confidence artifact from a safe runner output dir."""
+    args = get_hook_invoked_runner_arguments(data)
+    output_dir = None
+    for index, value in enumerate(args[:-1]):
+        if value in {"--output-dir", "--out-dir", "--output", "-o"}:
+            output_dir = args[index + 1]
+            break
+    if not output_dir:
+        return {}
+    try:
+        files = discover_confidence_files(Path(output_dir))
+    except (OSError, ValueError):
+        return {}
+    for path in files:
+        try:
+            metrics = _extract_metrics({"metrics": parse_confidence_json(path)})
+        except (OSError, ValueError, json.JSONDecodeError):
+            continue
+        if metrics:
+            return metrics
+    return {}
 
 
 def _detect_design_type(result: dict[str, Any]) -> str:
@@ -80,25 +264,26 @@ def _evaluate_quality(metrics: dict[str, float], design_type: str) -> dict[str, 
     passed = []
     failed = []
 
+    evaluated = 0
     for metric, threshold in thresholds.items():
         # Threshold keys are prefixed with "min_"; extracted metric keys are
         # not (e.g. "min_plddt" vs "plddt"). Normalize before lookup.
-        actual = metrics.get(metric.removeprefix("min_"))
+        metric_name = metric.removeprefix("min_")
+        actual = metrics.get(metric_name)
         if actual is None:
+            failed.append(f"{metric}: missing (required >= {threshold})")
             continue
+        evaluated += 1
         if actual >= threshold:
             passed.append(f"{metric}: {actual:.2f} >= {threshold}")
         else:
             failed.append(f"{metric}: {actual:.2f} < {threshold}")
 
-    evaluated = len(passed) + len(failed)
     return {
         "design_type": design_type,
         "passed": passed,
         "failed": failed,
-        # Fail closed: when no threshold could be evaluated, the gate has
-        # no evidence to pass on, so it must not report success.
-        "is_passing": evaluated > 0 and len(failed) == 0,
+        "is_passing": len(failed) == 0,
         "no_metrics_evaluated": evaluated == 0,
         "thresholds": thresholds,
     }
@@ -119,41 +304,33 @@ def main() -> int:
     if not isinstance(data, dict):
         return 0
 
-    # Only process validation tool completions
-    result = data.get("result") or {}
-    if isinstance(result, dict) and result.get("isError"):
+    # Do not scan arbitrary payload text: a recognized validation runner is
+    # the sole trigger. Once recognized, the gate must always emit a decision.
+    if not _is_validation_invocation(data):
         return 0
 
-    # Extract tool result
-    text = extract_content_text(result)
-    try:
-        tool_result = json.loads(text) if text else {}
-    except json.JSONDecodeError:
-        return 0
+    result = get_hook_tool_response(data)
+    tool_result = _decode_tool_response(result)
+    if not isinstance(tool_result, dict):
+        tool_result = {}
+    response_failed = _response_is_error(result) or _response_is_error(tool_result)
 
-    # Only process validation tools. Prefer explicit payload keys; the
-    # full-payload text match is a last-resort fallback for agents that do
-    # not populate a tool name (an arbitrary field mentioning "boltz" must
-    # not trigger the gate).
-    tool_indicators = ["alphafold", "boltz", "chai", "omegafold", "esmfold", "protenix"]
-    tool_name = str(data.get("tool") or data.get("tool_name") or "").lower()
-    if not tool_name and isinstance(data.get("tool_input"), dict):
-        tool_input = data["tool_input"]
-        tool_name = str(tool_input.get("tool") or tool_input.get("tool_name") or "").lower()
-    if tool_name:
-        if not any(ind in tool_name for ind in tool_indicators):
-            return 0
-    elif not any(ind in str(data).lower() for ind in tool_indicators):
-        return 0
-
-    metrics = _extract_metrics(tool_result)
+    # Prefer metrics returned by the runner, then inspect the runner's explicit
+    # output directory for canonical confidence artifacts. Both absence paths
+    # fail closed below rather than silently skipping the validation run.
+    metrics = {} if response_failed else _extract_metrics(tool_result)
     if not metrics:
-        return 0
+        metrics = _output_dir_metrics(data)
 
     design_type = _detect_design_type(tool_result)
     evaluation = _evaluate_quality(metrics, design_type)
 
-    if evaluation["is_passing"]:
+    if response_failed:
+        evaluation["is_passing"] = False
+        evaluation["failed"].append("validation runner reported an error")
+        status = "❌ FAIL"
+        action = "Validation runner failed; re-run it successfully before accepting this design."
+    elif evaluation["is_passing"]:
         status = "✅ PASS"
         action = "Design meets quality thresholds. Proceed to Stage 4 (Filtering) or finalize."
     elif evaluation.get("no_metrics_evaluated"):
@@ -181,8 +358,8 @@ Next steps:
 """
     if evaluation["is_passing"]:
         output += """  • Add to candidate pool for experimental validation
-  • Compare with other designs using analyze_alphafold3_results
-  • Run additional seeds for top candidates (num_seeds=5)
+  • Compare with other designs using scripts/run_filtering.py
+  • Run additional seeds for top candidates (--num-seeds 5)
 """
     else:
         output += """  • Regenerate with adjusted parameters (see auto-parameter-tuner skill)
@@ -191,7 +368,7 @@ Next steps:
   • Consider relaxing thresholds if this is an early screening round
 """
 
-    print(output)
+    print(hook_advisory_output(output))
     return 0
 
 

@@ -11,7 +11,7 @@ This plugin uses **three layers** — no server needed:
 | Layer | What | Count | Location |
 |-------|------|-------|----------|
 | **Skills** | Markdown knowledge for the LLM | 76 | `skills/` |
-| **Hooks** | Automation scripts | 22 | `protein_design/hooks/` |
+| **Hooks** | Cross-host automation registrations | 20 | Host manifests |
 | **Scripts** | Standalone execution | 19 | `scripts/` |
 
 **How it works:** Skills teach the agent → Hooks fire automatically → Scripts run tools directly.
@@ -24,7 +24,7 @@ This plugin uses **three layers** — no server needed:
 - **Stage 3 — Validation**: AlphaFold3, Boltz-1, Chai-1, OmegaFold, ESMFold, Protenix, OpenFold3
 - **Stage 4 — Filtering**: Quality metrics, cross-validation consensus, score-first screening
 - **76 Skills**: Covering 15+ design pipelines from fast screening to full validation
-- **22 Hooks**: Auto-context injection, GPU checks, tool recommendation, pipeline orchestration, error recovery
+- **20 cross-host Hooks**: Auto-context injection, GPU checks, tool recommendation, pipeline orchestration, error recovery
 - **19 Scripts**: Direct command-line execution for all pipeline stages
 
 ## 15+ Design Pipelines Available
@@ -240,7 +240,7 @@ Once the plugin is enabled, your agent automatically gets:
 | **session-health-check** | Protein prompts | Checks installed tools, suggests alternatives for missing ones |
 | **tool-recommender** | Design requests | Recommends scripts and parameters for your scenario |
 | **error-recovery** | Tool failures | Suggests fixes, alternative tools, and install commands |
-| **progress-reporter** | Long jobs | ETA estimation, file counting, progress updates |
+| **progress-reporter** | Direct helper (not registered) | On-demand ETA estimation, file counting, and progress updates |
 | **pipeline-orchestrator** | Stage completion | Auto-detects next step, suggests what to run |
 | **quality-gate** | Validation results | Pass/fail decisions with thresholds |
 | **design-report** | Filtering complete | Auto-generates summary with rankings |
@@ -252,11 +252,11 @@ No manual setup needed — hooks fire automatically when you talk about protein 
 
 | Agent | Hook Source | Hook Format | Status |
 |-------|-------------|-------------|--------|
-| **Claude Code** | `~/.claude/settings.json` (or `.claude/settings.json` with `--local`) | JSON | ✅ Fully supported |
-| **Codex CLI** | `~/.codex/hooks.json` (or `.codex/hooks.json` with `--local`) | JSON | ✅ Fully supported |
+| **Claude Code** | `hooks/hooks.json`; installer fallback writes `~/.claude/settings.json` (or `.claude/settings.json` with `--local`) | Nested JSON | ✅ Fully supported |
+| **Codex CLI** | `hooks/codex-hooks.json`; installer fallback writes `~/.codex/hooks.json` (or `.codex/hooks.json` with `--local`) | Nested JSON | ✅ Fully supported |
 | **Kimi Code** | `kimi.plugin.json` (native plugin hooks) | Manifest | ✅ Fully supported |
 
-All agents get the same 22 hooks and 76 skills. Claude Code auto-discovers `hooks/hooks.json`; Codex CLI loads hooks from `.codex-plugin/plugin.json` (requires trust review); Kimi Code reads hooks directly from `kimi.plugin.json`. Use `install-hooks.py` as a fallback for Claude Code and Codex CLI when you need user/global hook registration.
+All agents get the same 20 cross-host hooks and 76 skills. Claude Code auto-discovers `hooks/hooks.json`; Codex CLI loads its host-specific `hooks/codex-hooks.json` through `.codex-plugin/plugin.json` (requires trust review); Kimi Code reads hooks directly from `kimi.plugin.json`. Use `install-hooks.py` as a fallback for Claude Code and Codex CLI when you need user/global hook registration.
 
 ## System Requirements
 
@@ -378,11 +378,12 @@ This project supports multiple coding agents with agent-specific manifest files:
 |------|---------|---------|
 | `.claude-plugin/plugin.json` | Claude Code plugin manifest. Must contain only plugin metadata plus `skills` paths. Do **not** put `category`, `source`, or the default `hooks` path here; Claude auto-discovers `hooks/hooks.json`. | Claude Code |
 | `.claude-plugin/marketplace.json` | Claude marketplace registration. `category` and `source` belong here; `source` should be `"./"`. | `claude plugin marketplace add` |
-| `.codex-plugin/plugin.json` | Codex CLI plugin manifest. Can declare `hooks` pointing to `hooks/hooks.json`. | Codex CLI |
+| `.codex-plugin/plugin.json` | Codex CLI plugin manifest. Declares `hooks/codex-hooks.json`. | Codex CLI |
 | `plugin.json` | Root-level metadata | npm, GitHub, general tooling |
-| `kimi.plugin.json` | Kimi Code plugin manifest | Kimi Code |
+| `kimi.plugin.json` | Kimi Code plugin manifest and native hook source | Kimi Code |
 | `.agents/plugins/marketplace.json` | Multi-agent marketplace index | `.agents` plugin loader |
-| `hooks/hooks.json` | Canonical hook definitions. Uses `${CLAUDE_PLUGIN_ROOT}` for portable paths. | `install-hooks.py`, Claude Code auto-discovery, Codex manifest hooks |
+| `hooks/hooks.json` | Claude hook definitions using `${CLAUDE_PLUGIN_ROOT}`. | Claude Code auto-discovery, `install-hooks.py` |
+| `hooks/codex-hooks.json` | Codex hook definitions using `${PLUGIN_ROOT}` and supported Codex event matchers. | Codex manifest, `install-hooks.py` |
 
 The `.claude-plugin/plugin.json` follows the [Claude Code plugin-structure spec](https://docs.anthropic.com/en/docs/claude-code/plugins). Hooks are also installable via `protein_design/hooks/install-hooks.py` for agents that don't use the standard hook loader.
 

@@ -91,11 +91,15 @@ Lightweight job manager — process tracking
 python scripts/job_manager.py submit --name rfdiff -- python scripts/run_rfdiffusion.py --contig "150-150"
 python scripts/job_manager.py list
 python scripts/job_manager.py status <job_id>
+python scripts/job_manager.py wait <job_id> --timeout 3600
+python scripts/job_manager.py cancel <job_id>
 ```
 
-Completion is tracked through a per-job `.exit` marker file written by the
-launcher, so `list` and `status` agree on finished jobs even when a PID has
-been recycled.
+Completion is tracked through an atomically published per-job `.exit` marker,
+so `list` and `status` agree on finished jobs even when a PID has been recycled.
+A corrupt marker is never treated as completion. `cancel` verifies the recorded
+process identity before signalling and only records `cancelled` after the process
+group exits; `wait` returns 143 for a cancelled job and 3 when its timeout expires.
 
 ## `project_dashboard.py`
 
@@ -120,7 +124,8 @@ Run AlphaFold3 — standalone execution
 
 | Parameter | Flag | Required | Default | Type | Description |
 |-----------|------|----------|---------|------|-------------|
-| `json` | `--json / -j` | Yes | — | string | AlphaFold3 JSON input file |
+| `json` | `--json / -j` | One of `--json` / `--input-dir` | — | string | AlphaFold3 JSON input file |
+| `input_dir` | `--input-dir` | One of `--json` / `--input-dir` | — | string | Directory containing AlphaFold3 JSON inputs |
 | `output_dir` | `--output-dir / --out-dir / -o` | Yes | — | string | Output directory |
 | `db_dir` | `--db-dir / -d` | No | — | string | Path to AlphaFold3 databases (~2.6TB) |
 | `no_msa` | `--no-msa` | No | false | flag | Skip MSA search (faster, less accurate) |

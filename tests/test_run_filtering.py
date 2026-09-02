@@ -90,6 +90,48 @@ def test_filter_designs_dedupes_json_and_pdb_sources(tmp_path):
     assert json.loads((tmp_path / "filtered_results.json").read_text(encoding="utf-8"))["total_designs"] == 1
 
 
+def test_filter_designs_malformed_confidence_does_not_hide_pdb_fallback(tmp_path):
+    """Only successfully parsed confidence JSON may suppress its PDB fallback."""
+    import json
+
+    result_dir = tmp_path / "design1"
+    result_dir.mkdir()
+    (result_dir / "confidence.json").write_text("{malformed", encoding="utf-8")
+    pdb_file = result_dir / "model.pdb"
+    pdb_file.write_text(
+        "HEADER    test\n"
+        "ATOM      1  N   ALA A   1      0.000   0.000   0.000  1.00 90.00           N\n"
+        "ATOM      2  CA  ALA A   1      1.000   0.000   0.000  1.00 90.00           C\n"
+        "END\n"
+    )
+
+    assert filter_designs(str(tmp_path), min_plddt=70) == 0
+    results = json.loads((tmp_path / "filtered_results.json").read_text(encoding="utf-8"))
+    assert results["total_designs"] == 1
+    assert results["top_designs"][0]["path"] == str(pdb_file)
+
+
+def test_filter_designs_discovers_filename_agnostic_pdb(tmp_path):
+    """A valid PDB fallback is found even without a design-like filename."""
+    import json
+
+    pdb_file = tmp_path / "validator_output" / "model.pdb"
+    pdb_file.parent.mkdir()
+    pdb_file.write_text(
+        "HEADER    test\n"
+        "ATOM      1  N   ALA A   1      0.000   0.000   0.000  1.00 80.00           N\n"
+        "ATOM      2  CA  ALA A   1      1.000   0.000   0.000  1.00 80.00           C\n"
+        "END\n"
+    )
+
+    rc = filter_designs(str(tmp_path), min_plddt=70)
+    assert rc == 0
+    results = json.loads((tmp_path / "filtered_results.json").read_text(encoding="utf-8"))
+    assert results["total_designs"] == 1
+    assert results["passing_designs"] == 1
+    assert results["top_designs"][0]["name"] == "model"
+
+
 def test_filter_designs_pdb_dedup_only_skips_json_dirs(tmp_path):
     """A keyword PDB in a directory WITHOUT confidence.json still counts."""
     import json

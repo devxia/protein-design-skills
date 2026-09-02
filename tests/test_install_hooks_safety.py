@@ -49,3 +49,25 @@ def test_cleanup_removes_only_managed_files(tmp_path, monkeypatch):
     assert not marker_file.exists()
     assert bystander.exists()
     assert removed is True
+
+
+def test_windows_command_rewrite_rejects_expansion_characters_in_project_path(tmp_path):
+    """cmd.exe expansion characters must not enter generated hook commands."""
+    root = tmp_path / "project%USERPROFILE%"
+    hook_dir = root / "protein_design" / "hooks"
+    hook_dir.mkdir(parents=True)
+    (hook_dir / "quality-gate.py").write_text("# hook\n", encoding="utf-8")
+    source = {
+        "hooks": {
+            "PostToolUse": [{
+                "matcher": "PowerShell",
+                "hooks": [{
+                    "command": 'python "${PLUGIN_ROOT}/protein_design/hooks/quality-gate.py"'
+                }],
+            }]
+        }
+    }
+    import pytest
+
+    with pytest.raises(ValueError, match="unsafe expansion"):
+        ih._rewrite_hook_commands(source, root, platform="win32")

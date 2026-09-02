@@ -21,7 +21,7 @@ protein-design-skills/
 │   ├── pipeline-selection/       # Choose from 30+ design pipelines
 │   └── ...                       # Additional specialized skills
 ├── protein_design/
-│   └── hooks/                    # Automation scripts (22 hooks + install-hooks.py)
+│   └── hooks/                    # Hook scripts (20 cross-host registrations + installer)
 │       ├── install-hooks.py      # One-click installer
 │       ├── protein-context-inject.py
 │       ├── gpu-check-hook.py
@@ -54,7 +54,7 @@ protein-design-skills/
 | 0 | Preprocessing | PDBFixer | Fixed PDB |
 | 1 | Backbone generation | RFdiffusion | 10 backbones |
 | 2 | Sequence design | ProteinMPNN | 8 sequences / backbone |
-| 3 | Structure validation | AlphaFold3 | 5 predictions / design |
+| 3 | Structure validation | AlphaFold3 | 1 prediction / design (`--num-seeds` to increase) |
 | 4 | Filtering & ranking | Filtering | Ranked by quality score |
 
 ## Execution flow
@@ -75,13 +75,10 @@ Hook: gpu-check-hook.py (verify GPU availability)
 Standalone Script Execution (scripts/run_*.py)
     |
     v
-Hook: progress-reporter.py (track progress, estimate ETA)
+Hook: job-monitor.py / pipeline-orchestrator.py (registered post-execution guidance)
     |
     v
-Hook: design-complete-notify.py (desktop notification on completion)
-    |
-    v
-Results + Next Skill Recommendation
+Results + Next Skill Recommendation (use progress-reporter.py directly for a progress summary)
 ```
 
 ## Choosing a pipeline
@@ -115,11 +112,11 @@ Use `skills/pipeline-selection/SKILL.md` to choose from 15+ design pipelines:
 | `gpu-check-hook.py` | Before GPU-intensive task | Verify GPU availability and memory |
 | `session-health-check.py` | Manual / Session start | Check tool installations |
 | `job-monitor.py` | After job submission | Monitor background jobs |
-| `progress-reporter.py` | During long tasks | Parse logs, estimate ETA |
+| `progress-reporter.py` | Direct helper (not registered) | Parse logs and estimate ETA on demand |
 | `execution-adapter.py` | Script execution | Route to correct script with args |
 | `pipeline-orchestrator.py` | Multi-stage request | Chain stages automatically |
 | `design-complete-notify.py` | Job completion | Desktop notification |
-| `background-notify.py` | Background job completion | Notification for async jobs |
+| `background-notify.py` | Direct helper (not registered) | Send a notification when invoked explicitly |
 | `auto-parameter-tuner.py` | Parameter tuning | Suggest optimal parameters |
 | `design-comparator.py` | Result comparison | Compare multiple designs |
 | `cost-estimator.py` | Before execution | Estimate GPU time and cost |

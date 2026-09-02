@@ -29,12 +29,21 @@ from __future__ import annotations
 import argparse
 import json
 import os
-import signal
 import subprocess
 import sys
 import time
 from datetime import datetime
 from pathlib import Path
+from typing import Optional
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from protein_design.process_utils import (
+    get_process_identity,
+    process_group_is_alive,
+    process_group_popen_kwargs,
+    terminate_process_group,
+)
 
 
 def get_jobs_dir() -> Path:
@@ -44,7 +53,7 @@ def get_jobs_dir() -> Path:
     return jobs_dir
 
 
-def _read_metadata(meta_file: Path) -> dict | None:
+def _read_metadata(meta_file: Path) -> Optional[dict]:
     """Read job metadata; return None for a missing or corrupt file.
 
     A submit that crashes midway can leave a half-written or placeholder
@@ -66,7 +75,52 @@ def _write_metadata(meta_file: Path, metadata: dict) -> None:
     os.replace(tmp_file, meta_file)
 
 
-def generate_job_id(jobs_dir: Path | None = None) -> str:
+def _read_exit_code(exit_file: Path) -> Optional[int]:
+    """Return a complete integer marker, or ``None`` for invalid content."""
+    try:
+        value = exit_file.read_text(encoding="utf-8").strip()
+    except OSError:
+        return None
+    if not value:
+        return None
+    digits = value[1:] if value[0] in "+-" else value
+    if not digits or any(character < "0" or character > "9" for character in digits):
+        return None
+    return int(value)
+
+
+def _wait_for_process_group_exit(
+    pid: int,
+    timeout: float,
+    *,
+    fallback_to_process: bool = True,
+) -> bool:
+    """Wait until a process group is confirmed dead within ``timeout``."""
+    deadline = time.monotonic() + timeout
+    while True:
+        alive = process_group_is_alive(
+            pid,
+            fallback_to_process=fallback_to_process,
+        )
+        if alive is False:
+            return True
+        if alive is None:
+            return False
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            return False
+        time.sleep(min(0.05, remaining))
+
+
+def _nonnegative_timeout(value: str) -> int:
+    """Argparse type for a timeout that allows zero but rejects negatives."""
+    parsed = int(value)
+    if parsed < 0:
+        raise argparse.ArgumentTypeError("timeout must be non-negative")
+    return parsed
+
+
+def generate_job_id(jobs_dir: Optional[Path] = None) -> str:
     """Generate and atomically claim a unique job ID.
 
     Keeps the ``<timestamp>_<counter>`` format (the timestamp prefix
@@ -126,28 +180,41 @@ def submit_job(command: list[str], job_name: str = "", verbose: bool = False) ->
         # A command that cannot launch records 127 ("command not found"),
         # so the marker is always written for started jobs.
         wrapper_code = (
-            "import subprocess, sys\n"
+            "import os, subprocess, sys\n"
             "try:\n"
             "    r = subprocess.run(sys.argv[2:])\n"
             "    rc = r.returncode\n"
             "except Exception:\n"
             "    rc = 127\n"
-            "open(sys.argv[1], 'w').write(str(rc))\n"
+            "tmp = sys.argv[1] + '.tmp.' + str(os.getpid())\n"
+            "try:\n"
+            "    with open(tmp, 'w', encoding='utf-8') as marker:\n"
+            "        marker.write(str(rc))\n"
+            "        marker.flush()\n"
+            "    os.replace(tmp, sys.argv[1])\n"
+            "finally:\n"
+            "    try:\n"
+            "        os.unlink(tmp)\n"
+            "    except FileNotFoundError:\n"
+            "        pass\n"
             "print('EXIT_CODE: ' + str(rc))\n"
             "sys.exit(rc)\n"
         )
         process = subprocess.Popen(
             [sys.executable, "-c", wrapper_code, str(exit_file)] + command,
-            stdout=log,
-            stderr=subprocess.STDOUT,
-            start_new_session=True,  # Detach from parent
+            **process_group_popen_kwargs(
+                stdout=log,
+                stderr=subprocess.STDOUT,
+            ),
         )
 
     # Write PID file
     with open(pid_file, "w", encoding="utf-8") as f:
         f.write(str(process.pid))
 
-    # Write metadata
+    # Write metadata. Creation time protects later cancellation from PID reuse
+    # when the current platform can obtain it; missing identity remains
+    # compatible with metadata written by older versions.
     metadata = {
         "job_id": job_id,
         "job_name": job_name or command[0],
@@ -157,6 +224,9 @@ def submit_job(command: list[str], job_name: str = "", verbose: bool = False) ->
         "start_time": datetime.now().isoformat(),
         "log_file": str(log_file),
     }
+    process_identity = get_process_identity(process.pid)
+    if process_identity is not None:
+        metadata["process_identity"] = process_identity
     _write_metadata(meta_file, metadata)
 
     if verbose:
@@ -188,31 +258,26 @@ def get_job_status(job_id: str) -> dict:
     if metadata.get("status") == "cancelled":
         return metadata
 
-    # The launcher writes a completion-marker file with the exit code as its
-    # final act, so its presence (not process liveness, which can't detect
-    # zombies) is the authoritative completion signal.
-    if exit_file.exists():
-        try:
-            metadata["exit_code"] = int(exit_file.read_text(encoding="utf-8").strip())
-        except (ValueError, OSError):
-            pass
+    # A marker is authoritative only after the launcher has atomically
+    # published a complete integer. Empty or corrupt files are ignored.
+    exit_code = _read_exit_code(exit_file)
+    if exit_code is not None:
+        metadata["exit_code"] = exit_code
         metadata["status"] = "completed"
         return metadata
 
     # Fallback: best-effort liveness check for jobs still running.
     pid = metadata.get("pid")
     if pid and pid_file.exists():
-        try:
-            os.kill(pid, 0)  # Signal 0 checks if process exists
+        alive = process_group_is_alive(pid)
+        if alive is True:
             metadata["status"] = "running"
-        except PermissionError:
-            # Process exists but is owned by another user — it is alive.
-            metadata["status"] = "running"
-        except ProcessLookupError:
-            # The launcher always writes its exit marker before exiting, so
-            # a dead PID without one means the process was killed — never
-            # report that as a successful completion.
+        elif alive is False:
+            # The launcher writes its marker before exiting, so a dead process
+            # without a valid one was killed or failed while publishing it.
             metadata["status"] = "failed"
+        else:
+            metadata["status"] = "unknown"
     else:
         metadata["status"] = "unknown"
 
@@ -231,31 +296,27 @@ def list_jobs(status_filter: str = "all", verbose: bool = False) -> list[dict]:
             with open(meta_file, encoding="utf-8") as f:
                 metadata = json.load(f)
 
-            # The launcher's completion-marker file is the authoritative
-            # completion signal (a live PID may belong to a recycled process);
-            # fall back to best-effort PID liveness only while a job runs.
+            # Use the same strict marker contract as get_job_status.
             exit_file = jobs_dir / f"{meta_file.stem}.exit"
+            exit_code = _read_exit_code(exit_file)
             pid = metadata.get("pid")
             if metadata.get("status") == "cancelled":
                 # Terminal status recorded by `cancel` stays authoritative;
                 # a dead PID must not rewrite it to "completed".
                 metadata["current_status"] = "cancelled"
-            elif exit_file.exists():
+            elif exit_code is not None:
                 metadata["current_status"] = "completed"
-                try:
-                    metadata["exit_code"] = int(exit_file.read_text(encoding="utf-8").strip())
-                except (ValueError, OSError):
-                    pass
+                metadata["exit_code"] = exit_code
             elif pid:
-                try:
-                    os.kill(pid, 0)
+                alive = process_group_is_alive(pid)
+                if alive is True:
                     metadata["current_status"] = "running"
-                except PermissionError:
-                    # Process exists but is owned by another user — alive.
-                    metadata["current_status"] = "running"
-                except ProcessLookupError:
-                    # Dead PID without an exit marker: killed, not completed.
+                elif alive is False:
                     metadata["current_status"] = "failed"
+                else:
+                    metadata["current_status"] = "unknown"
+            else:
+                metadata["current_status"] = "unknown"
 
             if status_filter == "all" or metadata.get("current_status") == status_filter:
                 jobs.append(metadata)
@@ -266,7 +327,7 @@ def list_jobs(status_filter: str = "all", verbose: bool = False) -> list[dict]:
 
 
 def cancel_job(job_id: str, verbose: bool = False) -> bool:
-    """Cancel a running job."""
+    """Cancel a running job, recording cancellation only after verified exit."""
     jobs_dir = get_jobs_dir()
     meta_file = jobs_dir / f"{job_id}.json"
 
@@ -284,39 +345,82 @@ def cancel_job(job_id: str, verbose: bool = False) -> bool:
         return True
 
     pid = metadata.get("pid")
-    if not pid:
-        print(f"ERROR: Job {job_id} has no PID", file=sys.stderr)
+    if not isinstance(pid, int) or pid <= 0:
+        print(f"ERROR: Job {job_id} has no valid PID", file=sys.stderr)
         return False
+
+    # If submit recorded a creation-time identity, an inability to reproduce
+    # it is ambiguous and must fail safe. Metadata from older versions has no
+    # such field and retains the legacy PID-only cancellation path.
+    if "process_identity" in metadata:
+        expected_identity = metadata["process_identity"]
+        current_identity = get_process_identity(pid)
+        if current_identity is None:
+            print(
+                f"ERROR: Cannot confirm process identity for job {job_id}",
+                file=sys.stderr,
+            )
+            return False
+        if current_identity != expected_identity:
+            print(
+                f"ERROR: Process identity mismatch for job {job_id}",
+                file=sys.stderr,
+            )
+            return False
 
     try:
-        # Kill entire process group
-        os.killpg(os.getpgid(pid), signal.SIGTERM)
-        time.sleep(1)
-        # Force kill if still running
-        try:
-            os.killpg(os.getpgid(pid), signal.SIGKILL)
-        except (ProcessLookupError, PermissionError):
-            pass
+        # New jobs are known process-group leaders. If their group disappears,
+        # do not fall back to a possibly zombie/recycled leader PID. Legacy
+        # metadata keeps the PID fallback for jobs created before isolation.
+        fallback_to_process = "process_identity" not in metadata
 
-        # Update metadata
-        metadata["status"] = "cancelled"
-        metadata["end_time"] = datetime.now().isoformat()
-        _write_metadata(meta_file, metadata)
-
-        if verbose:
-            print(f"Job {job_id} cancelled")
-
-        return True
-
-    except ProcessLookupError:
-        print(f"WARNING: Job {job_id} process already exited", file=sys.stderr)
-        return True
-    except PermissionError:
-        print(f"ERROR: Permission denied to cancel job {job_id}", file=sys.stderr)
+        # First request graceful process-tree termination. Escalate only while
+        # the group remains alive, then require an explicit dead result before
+        # publishing cancelled metadata.
+        if not terminate_process_group(pid):
+            print(f"ERROR: Failed to terminate job {job_id}", file=sys.stderr)
+            return False
+        if not _wait_for_process_group_exit(
+            pid,
+            1.0,
+            fallback_to_process=fallback_to_process,
+        ):
+            force_sent = terminate_process_group(pid, force=True)
+            if not force_sent:
+                # The group may have exited between the graceful-wait deadline
+                # and escalation. The earlier SIGTERM was sent successfully,
+                # so accept this race only when a fresh probe confirms death.
+                if process_group_is_alive(
+                    pid,
+                    fallback_to_process=fallback_to_process,
+                ) is not False:
+                    print(f"ERROR: Failed to force-kill job {job_id}", file=sys.stderr)
+                    return False
+            elif not _wait_for_process_group_exit(
+                pid,
+                5.0,
+                fallback_to_process=fallback_to_process,
+            ):
+                print(
+                    f"ERROR: Job {job_id} process group is still alive or unconfirmed",
+                    file=sys.stderr,
+                )
+                return False
+    except (OSError, TypeError, ValueError):
+        print(f"ERROR: Failed to cancel job {job_id}", file=sys.stderr)
         return False
 
+    metadata["status"] = "cancelled"
+    metadata["end_time"] = datetime.now().isoformat()
+    _write_metadata(meta_file, metadata)
 
-def wait_job(job_id: str, timeout: int | None = None, verbose: bool = False) -> int:
+    if verbose:
+        print(f"Job {job_id} cancelled")
+
+    return True
+
+
+def wait_job(job_id: str, timeout: Optional[float] = None, verbose: bool = False) -> int:
     """Wait for a job to complete.
 
     Returns the job's exit code on completion; 143 for a cancelled job
@@ -324,7 +428,7 @@ def wait_job(job_id: str, timeout: int | None = None, verbose: bool = False) -> 
     that died without recording an exit code, or if the job does not
     exist; 3 if the wait timed out with the job still running.
     """
-    start = time.time()
+    start = time.monotonic()
     while True:
         status = get_job_status(job_id)
         if "error" in status:
@@ -341,7 +445,7 @@ def wait_job(job_id: str, timeout: int | None = None, verbose: bool = False) -> 
                 print(f"Job {job_id} finished with exit code {exit_code}")
             return exit_code
 
-        if timeout and (time.time() - start) > timeout:
+        if timeout is not None and (time.monotonic() - start) >= timeout:
             print(
                 f"WARNING: Timeout waiting for job {job_id} (still running)",
                 file=sys.stderr,
@@ -455,7 +559,9 @@ Examples:
         "wait", help="Wait for job completion (cancelled jobs return exit code 143)"
     )
     wait_parser.add_argument("job_id", help="Job ID")
-    wait_parser.add_argument("--timeout", "-t", type=int, help="Timeout in seconds")
+    wait_parser.add_argument(
+        "--timeout", "-t", type=_nonnegative_timeout, help="Timeout in seconds"
+    )
     wait_parser.add_argument("--verbose", "-v", action="store_true")
 
     args = parser.parse_args()

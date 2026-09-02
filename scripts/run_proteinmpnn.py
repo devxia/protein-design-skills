@@ -16,27 +16,30 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from protein_design.utils import get_config, log_history
-from protein_design.conda_utils import find_conda_env, build_tool_command, resolve_wrapper_script
+from protein_design.conda_utils import find_conda_env, build_tool_command, resolve_wrapper_script, resolve_configured_path
+from protein_design.process_utils import run_process
 
 import argparse
 import glob
+import shutil
 import subprocess
 import time
 
 
 def find_proteinmpnn(config):
     """Locate ProteinMPNN installation."""
-    # 1. Configured path
-    if config.get("proteinmpnn_path"):
-        path = Path(config["proteinmpnn_path"])
-        if path.exists():
-            return str(path)
+    # 1. Configured path.  A directory must contain ProteinMPNN's specific
+    # entry point; do not guess a generic run.py here.
+    configured = resolve_configured_path(
+        config.get("proteinmpnn_path"), ["protein_mpnn_run.py"]
+    )
+    if configured:
+        return configured
 
     # 2. Common locations
     common_paths = [
         Path.home() / "ProteinMPNN" / "protein_mpnn_run.py",
         Path.home() / "proteinmpnn" / "protein_mpnn_run.py",
-        Path.home() / "ProteinMPNN" / "run.py",
         Path("/opt/ProteinMPNN/protein_mpnn_run.py"),
         Path("/usr/local/ProteinMPNN/protein_mpnn_run.py"),
     ]
@@ -49,108 +52,176 @@ def find_proteinmpnn(config):
     if env is not None:
         return f"conda run -n {env} python -m proteinmpnn"
 
-    # 4. Try which
-    try:
-        result = subprocess.run(["which", "protein_mpnn_run.py"],
-                                capture_output=True, text=True, timeout=5)
-        if result.returncode == 0 and result.stdout.strip():
-            return result.stdout.strip()
-    except FileNotFoundError:
-        pass
+    # 4. Try the console script on PATH.
+    path = shutil.which("protein_mpnn_run.py")
+    if path:
+        return path
 
     return None
+
+
+def _expand_pdb_paths(pattern):
+    """Expand a PDB path or glob into sorted, regular-file paths."""
+    matches = glob.glob(str(pattern), recursive=True)
+    return sorted(dict.fromkeys(match for match in matches if Path(match).is_file()))
+
+
+def _snapshot_files(root):
+    """Capture file metadata below ``root`` before a tool invocation."""
+    snapshot = {}
+    for path in root.rglob("*"):
+        if not path.is_file():
+            continue
+        try:
+            stat = path.stat()
+        except OSError:
+            continue
+        snapshot[path] = (stat.st_mtime_ns, stat.st_size)
+    return snapshot
+
+
+def _new_fasta_files(root, before):
+    """Return FASTA files created or changed by the current invocation."""
+    fresh = []
+    for path in root.rglob("*"):
+        if not path.is_file() or path.suffix.lower() not in {".fa", ".fasta"}:
+            continue
+        try:
+            stat = path.stat()
+        except OSError:
+            continue
+        metadata = (stat.st_mtime_ns, stat.st_size)
+        if before.get(path) != metadata:
+            fresh.append(path)
+    return sorted(fresh)
 
 
 def run_proteinmpnn(pdb_path, out_folder, num_seq_per_target=8,
                     sampling_temp="0.1", pdb_path_chains=None,
                     fixed_positions=None, verbose=False):
-    """Run ProteinMPNN with given parameters."""
+    """Run ProteinMPNN once per input PDB and collect fresh FASTA outputs."""
     config = get_config("proteinmpnn")
-    proteinmpnn_script = find_proteinmpnn(config)
+    pdb_files = _expand_pdb_paths(pdb_path)
+    if not pdb_files:
+        print(f"ERROR: No PDB files found matching: {pdb_path}", file=sys.stderr)
+        return 1
 
+    proteinmpnn_script = find_proteinmpnn(config)
     if not proteinmpnn_script:
         print("ERROR: ProteinMPNN not found. Install from: https://github.com/dauparas/ProteinMPNN",
               file=sys.stderr)
         return 2
 
-    # Resolve glob patterns in pdb_path
-    pdb_files = glob.glob(pdb_path)
-    if not pdb_files:
-        print(f"ERROR: No PDB files found matching: {pdb_path}", file=sys.stderr)
-        return 1
-
-    # Create output folder
     out_path = Path(out_folder)
     out_path.mkdir(parents=True, exist_ok=True)
-
-    # Build command
     wrapper = resolve_wrapper_script(config, "proteinmpnn")
-    cmd = build_tool_command(proteinmpnn_script, wrapper_script=wrapper)
-
-    cmd.extend([
-        "--pdb_path", pdb_path,
-        "--out_folder", out_folder,
-        "--num_seq_per_target", str(num_seq_per_target),
-        "--sampling_temp", str(sampling_temp),
-    ])
-
-    if pdb_path_chains:
-        cmd.extend(["--pdb_path_chains", pdb_path_chains])
-
-    if fixed_positions:
-        cmd.extend(["--fixed_positions", fixed_positions])
+    base_cmd = build_tool_command(proteinmpnn_script, wrapper_script=wrapper)
+    multiple_inputs = len(pdb_files) > 1
+    used_target_names = set()
+    total_fasta_files = 0
 
     if verbose:
-        print(f"Running: {' '.join(cmd)}")
         print(f"Input PDBs: {len(pdb_files)} file(s)")
 
-    start_time = time.time()
-    try:
-        result = subprocess.run(
-            cmd,
-            capture_output=True,
-            text=True,
-            timeout=1800  # 30 minutes max
-        )
-        runtime = time.time() - start_time
+    for index, pdb_file in enumerate(pdb_files, 1):
+        target_name = Path(pdb_file).stem or f"target_{index}"
+        if target_name in used_target_names:
+            target_name = f"{target_name}_{index}"
+        used_target_names.add(target_name)
+        target_out = out_path / "seqs" / target_name if multiple_inputs else out_path
+        target_out.mkdir(parents=True, exist_ok=True)
+        before = _snapshot_files(target_out)
 
-        if verbose and result.stdout:
-            print(result.stdout[-2000:])
-
-        if result.returncode != 0:
-            print(f"ERROR: ProteinMPNN failed (exit code {result.returncode})", file=sys.stderr)
-            if result.stderr:
-                print(result.stderr[-2000:], file=sys.stderr)
-            log_history("proteinmpnn",
-                        {"pdb_path": pdb_path, "num_seq": num_seq_per_target}, runtime, False,
-                        config["output_dir"])
-            return 3
-
-        # Check output
-        fasta_files = list(out_path.glob("*.fa")) + list(out_path.glob("*.fasta"))
-        if not fasta_files:
-            print("WARNING: No FASTA output files found", file=sys.stderr)
-
-        log_history("proteinmpnn",
-                    {"pdb_path": pdb_path, "num_seq": num_seq_per_target}, runtime, True,
-                    config["output_dir"])
+        cmd = list(base_cmd)
+        cmd.extend([
+            "--pdb_path", str(pdb_file),
+            "--out_folder", str(target_out),
+            "--num_seq_per_target", str(num_seq_per_target),
+            "--sampling_temp", str(sampling_temp),
+        ])
+        if pdb_path_chains:
+            cmd.extend(["--pdb_path_chains", pdb_path_chains])
+        if fixed_positions:
+            cmd.extend(["--fixed_positions", fixed_positions])
 
         if verbose:
-            print(f"SUCCESS: ProteinMPNN completed in {runtime:.1f}s")
-            print(f"Output: {out_folder}")
-            print(f"FASTA files: {len(fasta_files)}")
+            print(f"Running: {' '.join(cmd)}")
 
-        return 0
+        start_time = time.time()
+        try:
+            result = run_process(
+                cmd,
+                capture_output=True,
+                text=True,
+                timeout=1800,  # 30 minutes max
+            )
+            runtime = time.time() - start_time
 
-    except subprocess.TimeoutExpired:
-        print("ERROR: ProteinMPNN timed out (>30 minutes)", file=sys.stderr)
-        log_history("proteinmpnn", {"pdb_path": pdb_path}, 1800, False, config["output_dir"])
-        return 3
-    except Exception as e:
-        print(f"ERROR: {e}", file=sys.stderr)
-        log_history("proteinmpnn", {"pdb_path": pdb_path}, time.time() - start_time, False,
-                    config["output_dir"])
-        return 3
+            if verbose and result.stdout:
+                print(result.stdout[-2000:])
+
+            if result.returncode != 0:
+                print(f"ERROR: ProteinMPNN failed for {pdb_file} (exit code {result.returncode})",
+                      file=sys.stderr)
+                if result.stderr:
+                    print(result.stderr[-2000:], file=sys.stderr)
+                log_history(
+                    "proteinmpnn",
+                    {"pdb_path": str(pdb_file), "num_seq": num_seq_per_target},
+                    runtime,
+                    False,
+                    config["output_dir"],
+                )
+                return 3
+
+            fasta_files = _new_fasta_files(target_out, before)
+            if not fasta_files:
+                print(f"ERROR: No new FASTA output files found for {pdb_file}", file=sys.stderr)
+                log_history(
+                    "proteinmpnn",
+                    {"pdb_path": str(pdb_file), "num_seq": num_seq_per_target},
+                    runtime,
+                    False,
+                    config["output_dir"],
+                )
+                return 3
+
+            total_fasta_files += len(fasta_files)
+            log_history(
+                "proteinmpnn",
+                {"pdb_path": str(pdb_file), "num_seq": num_seq_per_target},
+                runtime,
+                True,
+                config["output_dir"],
+            )
+
+        except subprocess.TimeoutExpired:
+            print(f"ERROR: ProteinMPNN timed out for {pdb_file} (>30 minutes)", file=sys.stderr)
+            log_history(
+                "proteinmpnn",
+                {"pdb_path": str(pdb_file), "num_seq": num_seq_per_target},
+                1800,
+                False,
+                config["output_dir"],
+            )
+            return 3
+        except Exception as e:
+            print(f"ERROR: {e}", file=sys.stderr)
+            log_history(
+                "proteinmpnn",
+                {"pdb_path": str(pdb_file), "num_seq": num_seq_per_target},
+                time.time() - start_time,
+                False,
+                config["output_dir"],
+            )
+            return 3
+
+    if verbose:
+        print(f"SUCCESS: ProteinMPNN completed for {len(pdb_files)} PDB(s)")
+        print(f"Output: {out_folder}")
+        print(f"FASTA files: {total_fasta_files}")
+
+    return 0
 
 
 def main():

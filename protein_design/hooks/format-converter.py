@@ -6,45 +6,81 @@ this hook provides the exact convert_format parameters or direct CLI commands.
 """
 import traceback
 import json
-from typing import Any
+from typing import Any, Optional
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
-from protein_design.utils import extract_content_text, read_hook_input
+from protein_design.utils import (
+    extract_content_text, get_hook_invoked_runner, get_hook_tool_response,
+    hook_advisory_output, read_hook_input,
+)
 
 
-def _detect_conversion_need(data: dict[str, Any]) -> dict[str, Any] | None:
+def _decode_tool_response(value: Any) -> Optional[dict[str, Any]]:
+    """Decode direct, wrapped, or JSON-string tool responses safely."""
+    if isinstance(value, str):
+        try:
+            decoded = json.loads(value)
+        except (TypeError, ValueError):
+            return None
+        return _decode_tool_response(decoded) if isinstance(decoded, (dict, list)) else None
+
+    if isinstance(value, dict):
+        if value.get("isError"):
+            return value
+        if any(key in value for key in ("sequences", "fasta", "output_path")):
+            return value
+
+        text = extract_content_text(value)
+        if text:
+            try:
+                decoded = json.loads(text)
+            except (TypeError, ValueError):
+                decoded = None
+            if isinstance(decoded, (dict, list)):
+                result = _decode_tool_response(decoded)
+                if result is not None:
+                    return result
+
+        for key in ("tool_response", "result", "response", "output", "content"):
+            nested = value.get(key)
+            if nested is value:
+                continue
+            result = _decode_tool_response(nested)
+            if result is not None:
+                return result
+    elif isinstance(value, list):
+        for nested in value:
+            result = _decode_tool_response(nested)
+            if result is not None:
+                return result
+    return None
+
+
+def _detect_conversion_need(data: dict[str, Any]) -> Optional[dict[str, Any]]:
     """Detect if format conversion is needed based on tool output."""
     if not isinstance(data, dict):
         return None
-    result = data.get("result") or {}
 
-    # Prefilter: sequence-design completions. The FASTA-content check below
-    # is the real gate; this only avoids parsing unrelated results. Legacy
-    # MCP-era "submit_job" is kept for backward compatibility.
-    params = data.get("params")
-    tool_name = str(data.get("tool") or data.get("tool_name") or "")
-    if not tool_name and isinstance(params, dict):
-        tool_name = str(params.get("tool", ""))
-    lowered = tool_name.lower()
-    if not ("proteinmpnn" in lowered or "submit_job" in lowered
-            or lowered.startswith("run_")):
+    # Trigger only after the allowlisted sequence-design runner.
+    if get_hook_invoked_runner(data) not in {"run_proteinmpnn", "run_ligandmpnn", "run_esm_if1"}:
         return None
 
-    # Check if result contains sequences (FASTA output)
-    text = extract_content_text(result)
-    if text:
-        try:
-            tool_result = json.loads(text)
-            if "sequences" in tool_result or "fasta" in str(tool_result).lower():
-                return {
-                    "from_format": "fasta",
-                    "to_format": "alphafold3_json",
-                    "input_path": tool_result.get("output_path", "outputs/sequences.fa"),
-                }
-        except (json.JSONDecodeError, IndexError):
-            pass
+    # Check if the standard tool_response (or legacy result) contains
+    # sequences. The decoder accepts strings, content blocks, direct mappings,
+    # and nested response wrappers without assuming a particular host schema.
+    tool_result = _decode_tool_response(get_hook_tool_response(data))
+    if not isinstance(tool_result, dict) or tool_result.get("isError"):
+        return None
+
+    if "sequences" in tool_result or "fasta" in str(tool_result).lower():
+        input_path = tool_result.get("output_path", "outputs/sequences.fa")
+        return {
+            "from_format": "fasta",
+            "to_format": "alphafold3_json",
+            "input_path": input_path,
+        }
 
     return None
 
@@ -112,7 +148,7 @@ echo '{{"name":"design","sequences":[{{"protein":{{"id":"A","sequence":"$(cat se
 ```
 
 ## For Multi-Chain Complexes
-If your design includes a receptor/target, add `receptor_pdb` to the convert_format call.
+Create the AlphaFold3 JSON input with one `protein` entry per receptor or target chain before running `scripts/run_alphafold3.py`.
 
 ## Alternative: Boltz/Chai-1/Protenix Input
 These tools accept different formats:
@@ -123,7 +159,7 @@ These tools accept different formats:
 See respective skills for format details.
 """
 
-    print(output)
+    print(hook_advisory_output(output))
     return 0
 
 

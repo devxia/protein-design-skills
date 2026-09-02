@@ -39,7 +39,13 @@ def test_pip_probe_uses_sys_executable_and_survives_timeout(monkeypatch):
     assert not any(c[0] == "python" for c in calls)
 
 
-def test_pip_probe_success_returns_module_command(monkeypatch):
+def test_pip_probe_success_preserves_spaced_sys_executable(monkeypatch):
+    python_executable = "/opt/Python Environments/boltz/bin/python3.11"
+    expected_probe = [python_executable, "-m", "boltz", "--help"]
+    monkeypatch.setattr(boltz.sys, "executable", python_executable)
+    monkeypatch.setattr(boltz.shutil, "which", lambda name: None)
+    monkeypatch.setattr(boltz, "probe_conda_envs", lambda *args, **kwargs: None)
+
     def fake_run(cmd, **kwargs):
         cmd = [str(c) for c in cmd]
 
@@ -49,7 +55,10 @@ def test_pip_probe_success_returns_module_command(monkeypatch):
                 self.stdout = ""
                 self.stderr = ""
 
-        return R(0 if cmd[0] == sys.executable else 1)
+        return R(0 if cmd == expected_probe else 1)
 
     monkeypatch.setattr(boltz.subprocess, "run", fake_run)
-    assert boltz.find_boltz({}) == "python -m boltz"
+
+    discovered = boltz.find_boltz({})
+    assert discovered == boltz.shlex.join(expected_probe[:-1])
+    assert boltz.build_tool_command(discovered) == expected_probe[:-1]

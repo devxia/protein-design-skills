@@ -1,6 +1,6 @@
 {
   "name": "protein-design-skills",
-  "description": "Agent-agnostic marketplace for end-to-end protein design workflows — 76 skills, 22 hooks, and 19 standalone scripts",
+  "description": "Agent-agnostic marketplace for end-to-end protein design workflows — 76 skills, 20 cross-host hooks, and 19 standalone scripts",
   "owner": {
     "name": "DevXia"
   },
@@ -9,7 +9,7 @@
       "name": "protein-design-skills",
       "version": "0.2.0",
       "source": "./",
-      "description": "End-to-end protein design orchestration plugin. Provides 76 workflow skills, 22 automation hooks, and 19 standalone scripts for direct tool execution.",
+      "description": "End-to-end protein design orchestration plugin. Provides 76 workflow skills, 20 cross-host automation hooks, and 19 standalone scripts for direct tool execution.",
       "author": {
         "name": "DevXia"
       },

@@ -141,3 +141,73 @@ def test_quality_gate_reads_explicit_tool_key(monkeypatch, capsys):
     rc, captured = _run_main(_quality_gate, monkeypatch, capsys, payload)
     assert rc == 0
     assert "[Quality Gate]" in captured.out
+
+
+def test_quality_gate_recognizes_validation_runner_in_bash(monkeypatch, capsys):
+    payload = {
+        "tool_name": "Bash",
+        "tool_input": {"command": "python scripts/run_boltz.py --input x.yaml --out-dir out"},
+        "tool_response": {
+            "status": "completed",
+            "metrics": {"mean_plddt": 90.0, "ptm": 0.8},
+        },
+    }
+    rc, captured = _run_main(_quality_gate, monkeypatch, capsys, payload)
+    assert rc == 0
+    assert "[Quality Gate] ✅ PASS" in captured.out
+
+
+def test_quality_gate_recognizes_windows_runner_path(monkeypatch, capsys):
+    payload = {
+        "tool_name": "PowerShell",
+        "tool_input": {"command": r"python C:\repo\scripts\run_omegafold.py -i in.fa -o out"},
+        "tool_response": {"metrics": {"mean_plddt": 90.0, "ptm": 0.8}},
+    }
+    rc, captured = _run_main(_quality_gate, monkeypatch, capsys, payload)
+    assert rc == 0
+    assert "[Quality Gate] ✅ PASS" in captured.out
+
+
+def test_quality_gate_explicitly_fails_failed_validation_response(monkeypatch, capsys):
+    payload = {
+        "tool_name": "run_boltz",
+        "tool_response": {
+            "status": "failed",
+            "error": "prediction crashed",
+            "metrics": {"mean_plddt": 95.0, "ptm": 0.9},
+        },
+    }
+    rc, captured = _run_main(_quality_gate, monkeypatch, capsys, payload)
+    assert rc == 0
+    assert "[Quality Gate] ❌ FAIL" in captured.out
+    assert "reported an error" in captured.out
+
+
+def test_quality_gate_reads_confidence_from_runner_output_dir(monkeypatch, capsys, tmp_path):
+    (tmp_path / "confidence.json").write_text(
+        json.dumps({"plddt": 90.0, "ptm": 0.8}), encoding="utf-8"
+    )
+    payload = {
+        "tool_name": "Bash",
+        "tool_input": {
+            "command": f"python scripts/run_boltz.py --out-dir {tmp_path}"
+        },
+        "tool_response": {"status": "completed"},
+    }
+    rc, captured = _run_main(_quality_gate, monkeypatch, capsys, payload)
+    assert rc == 0
+    assert "[Quality Gate] ✅ PASS" in captured.out
+
+
+def test_quality_gate_rejects_non_finite_metrics(monkeypatch, capsys):
+    payload = {
+        "tool_name": "run_boltz",
+        "tool_response": {
+            "status": "completed",
+            "metrics": {"mean_plddt": "Infinity", "ptm": "Infinity"},
+        },
+    }
+    rc, captured = _run_main(_quality_gate, monkeypatch, capsys, payload)
+    assert rc == 0
+    assert "[Quality Gate] ❌ FAIL" in captured.out
+    assert "missing" in captured.out

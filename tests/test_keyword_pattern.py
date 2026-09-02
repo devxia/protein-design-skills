@@ -2,10 +2,9 @@
 
 from __future__ import annotations
 
-import json
 import re
 
-from protein_design.utils import PROTEIN_DESIGN_KEYWORDS, PROTEIN_DESIGN_PATTERN
+from protein_design.utils import PROTEIN_DESIGN_PATTERN
 from tests.helpers import PROJECT_ROOT
 
 
@@ -16,20 +15,22 @@ def test_canonical_pattern_matches_keywords():
     assert not pattern.search("unrelated small talk")
 
 
-def test_hooks_json_matcher_keyword_parity():
-    """The declarative UserPromptSubmit matcher can never drift from the canonical set."""
+def test_hooks_json_user_prompt_matcher_is_unfiltered():
+    """Host-level prompt hooks must not use unsupported keyword matchers."""
+    import json
+
     hooks_json = json.loads((PROJECT_ROOT / "hooks" / "hooks.json").read_text(encoding="utf-8"))
-    groups = hooks_json["hooks"]["UserPromptSubmit"]
-    assert len(groups) == 1
-    matcher = groups[0]["matcher"]
-    alternations = [g for g in re.findall(r"\(([^()]+)\)", matcher) if "|" in g]
-    assert len(alternations) == 1, f"unexpected matcher shape: {matcher}"
-    assert set(alternations[0].split("|")) == set(PROTEIN_DESIGN_KEYWORDS)
+    assert hooks_json["hooks"]["UserPromptSubmit"] == [
+        {**hooks_json["hooks"]["UserPromptSubmit"][0], "matcher": ""}
+    ]
 
 
 def test_kimi_plugin_matcher_keyword_parity():
-    """kimi.plugin.json UserPromptSubmit matchers must use the same keyword set
-    as hooks.json, or the same prompt triggers on some agents but not Kimi (#30)."""
+    """Kimi's supported prompt matcher stays aligned with the canonical set."""
+    import json
+
+    from protein_design.utils import PROTEIN_DESIGN_KEYWORDS
+
     manifest = json.loads((PROJECT_ROOT / "kimi.plugin.json").read_text(encoding="utf-8"))
     prompt_submit = [h for h in manifest["hooks"] if h.get("event") == "UserPromptSubmit"]
     assert prompt_submit, "kimi.plugin.json lost its UserPromptSubmit hooks"

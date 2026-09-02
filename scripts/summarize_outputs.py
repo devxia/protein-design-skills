@@ -26,13 +26,13 @@ import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from protein_design.utils import parse_confidence_json as _parse_confidence_json
+from protein_design.utils import discover_confidence_files, parse_confidence_json as _parse_confidence_json
 
 
 import argparse
 import json
 import time
-from typing import Any
+from typing import Any, Optional
 
 
 def _format_bar(pct: float, width: int = 24) -> str:
@@ -44,13 +44,8 @@ def _format_bar(pct: float, width: int = 24) -> str:
 
 
 def _find_metrics_files(root: Path) -> list[Path]:
-    """Find confidence JSON / summary CSV files under root."""
-    metrics: list[Path] = []
-    metrics.extend(root.rglob("confidence.json"))
-    metrics.extend(root.rglob("*summary*.json"))
-    metrics.extend(root.rglob("*result_summary*.csv"))
-    metrics.extend(root.rglob("*_ranking.json"))
-    return metrics
+    """Find supported confidence JSON files under root."""
+    return discover_confidence_files(root)
 
 
 def _count_by_suffix(root: Path, suffixes: tuple[str, ...]) -> int:
@@ -82,7 +77,7 @@ def _count_validation_jobs(root: Path) -> int:
     return len(_find_metrics_files(root))
 
 
-def _collect_top_designs(root: Path, top_n: int | None = 5) -> list[dict[str, Any]]:
+def _collect_top_designs(root: Path, top_n: Optional[int] = 5) -> list[dict[str, Any]]:
     """Collect designs sorted by average pLDDT (descending).
 
     Args:
@@ -139,7 +134,7 @@ def _quality_distribution(designs: list[dict[str, Any]]) -> dict[str, int]:
     return buckets
 
 
-def summarize(root: Path, expected: dict[str, int] | None = None) -> dict[str, Any]:
+def summarize(root: Path, expected: Optional[dict[str, int]] = None) -> dict[str, Any]:
     """Build a summary dict for the output directory."""
     expected = expected or {}
     summary: dict[str, Any] = {}

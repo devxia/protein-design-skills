@@ -13,7 +13,7 @@ import sys
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
-from protein_design.utils import PROTEIN_DESIGN_PATTERN, probe_gpus, read_hook_input
+from protein_design.utils import PROTEIN_DESIGN_PATTERN, get_hook_prompt, probe_gpus, read_hook_input
 
 
 def _check_tools() -> dict[str, Any]:
@@ -81,7 +81,7 @@ def main() -> int:
         traceback.print_exc()
         return 1
 
-    user_prompt = data.get("prompt", "") if isinstance(data, dict) else ""
+    user_prompt = get_hook_prompt(data)
 
     # Only activate for protein design keywords
     protein_keywords = re.compile(PROTEIN_DESIGN_PATTERN, re.IGNORECASE)

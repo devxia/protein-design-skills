@@ -143,3 +143,133 @@ def test_concat_fasta_excludes_its_own_output(tmp_path):
     result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
     assert result.returncode == 0, result.stderr
     assert out.read_text(encoding="utf-8") == seqs
+
+
+def _standard_args(tmp_path, **overrides):
+    from types import SimpleNamespace
+
+    values = {
+        "input_pdb": None,
+        "stage": 0,
+        "contig": None,
+        "num_designs": 5,
+        "num_seq": 4,
+        "validator": None,
+        "output_dir": tmp_path,
+        "hotspot_res": None,
+        "min_plddt": 75.0,
+        "top_n": 10,
+    }
+    values.update(overrides)
+    return SimpleNamespace(**values)
+
+
+def test_build_standard_pipeline_passes_fixed_pdb_without_build_time_exists(tmp_path):
+    """Stage 1 must reference Stage 0's future output on a first run."""
+    from scripts.batch_runner import build_standard_pipeline
+
+    stages = build_standard_pipeline(
+        _standard_args(tmp_path, input_pdb=tmp_path / "target.pdb", contig="150-150")
+    )
+    stage1 = next(stage for stage in stages if stage["name"].startswith("Stage 1:"))
+    command = stage1["command"]
+
+    assert command[command.index("--input-pdb") + 1] == str(tmp_path / "fixed.pdb")
+    assert "--skip-preprocessing" in command
+
+
+def test_stage4_is_built_without_validator(tmp_path):
+    """Explicit Stage 4 must run filtering even when no validator is selected."""
+    from scripts.batch_runner import build_standard_pipeline
+
+    stages = build_standard_pipeline(_standard_args(tmp_path, stage=4))
+
+    assert [stage["name"] for stage in stages] == ["Stage 4: Filtering"]
+
+
+def test_validation_pipeline_is_candidate_wise_not_a_multi_chain_concat(tmp_path):
+    """Validation must split candidates instead of making one multi-chain job."""
+    from scripts.batch_runner import build_standard_pipeline
+
+    stages = build_standard_pipeline(
+        _standard_args(tmp_path, stage=3, validator="alphafold3")
+    )
+    names = [stage["name"] for stage in stages]
+    commands = [token for stage in stages for token in stage["command"]]
+
+    assert any("Split candidates" in name for name in names)
+    assert any("Candidate-wise" in name for name in names)
+    assert "all_sequences.fa" not in commands
+    assert "--split-candidates" in commands
+    assert "--validate-candidates" in commands
+
+
+def test_split_candidates_creates_single_chain_inputs(tmp_path):
+    """The runtime split command preserves candidate provenance and chain count."""
+    import json
+    import subprocess
+
+    from scripts.batch_runner import _SPLIT_CANDIDATES_SCRIPT
+
+    sequence_dir = tmp_path / "sequences"
+    sequence_dir.mkdir()
+    (sequence_dir / "design.fa").write_text(">first\nAAAA\n>second\nBBBB\n", encoding="utf-8")
+    (sequence_dir / "all_sequences.fa").write_text(">stale\nCCCC\n", encoding="utf-8")
+    candidate_dir = tmp_path / "validation_inputs"
+
+    command = [
+        sys.executable,
+        "-c",
+        _SPLIT_CANDIDATES_SCRIPT,
+        "--split-candidates",
+        str(sequence_dir),
+        str(candidate_dir),
+    ]
+    result = subprocess.run(command, capture_output=True, text=True, timeout=30)
+
+    assert result.returncode == 0, result.stderr
+    manifest = json.loads((candidate_dir / "manifest.json").read_text(encoding="utf-8"))
+    assert len(manifest) == 2
+    assert {item["sequence_id"] for item in manifest} == {"first", "second"}
+    for item in manifest:
+        payload = json.loads(Path(item["json"]).read_text(encoding="utf-8"))
+        assert len(payload["sequences"]) == 1
+        assert payload["sequences"][0]["protein"]["id"] == "A"
+        assert payload["version"] == 1
+
+
+def test_split_candidates_bounds_long_ids_with_stable_unique_hashes(tmp_path):
+    """Long FASTA IDs must not create overlong or unstable Stage 3 filenames."""
+    import json
+    import re
+    import subprocess
+
+    from scripts.batch_runner import _SPLIT_CANDIDATES_SCRIPT
+
+    sequence_dir = tmp_path / "sequences"
+    sequence_dir.mkdir()
+    long_id = "candidate_" + "X" * 400
+    (sequence_dir / "long_source.fa").write_text(
+        f">{long_id}\nAAAA\n>{long_id}\nBBBB\n", encoding="utf-8"
+    )
+
+    def split_into(candidate_dir):
+        result = subprocess.run([
+            sys.executable, "-c", _SPLIT_CANDIDATES_SCRIPT,
+            "--split-candidates", str(sequence_dir), str(candidate_dir),
+        ], capture_output=True, text=True, timeout=30)
+        assert result.returncode == 0, result.stderr
+        return json.loads((candidate_dir / "manifest.json").read_text(encoding="utf-8"))
+
+    first = split_into(tmp_path / "validation_inputs_one")
+    second = split_into(tmp_path / "validation_inputs_two")
+    first_names = [item["name"] for item in first]
+
+    assert first_names == [item["name"] for item in second]
+    assert len(first_names) == len(set(first_names)) == 2
+    assert all(len(name) <= 120 for name in first_names)
+    assert all(re.search(r"__[0-9a-f]{12}$", name) for name in first_names)
+    for item in first:
+        assert Path(item["fasta"]).name == f"{item['name']}.fa"
+        assert Path(item["json"]).name == f"{item['name']}.json"
+        assert json.loads(Path(item["json"]).read_text(encoding="utf-8"))["name"] == item["name"]

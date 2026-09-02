@@ -16,7 +16,7 @@ import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from protein_design.utils import parse_confidence_json
+from protein_design.utils import discover_confidence_files, parse_confidence_json
 
 import argparse
 import json
@@ -66,6 +66,19 @@ def compute_composite_score(result, weights):
     return 0.0
 
 
+def _confidence_result_key(conf_file):
+    """Return the PDB-deduplication key represented by a confidence file."""
+    name = conf_file.name.lower()
+    parent = str(conf_file.parent.resolve())
+    if name == "confidence.json":
+        return parent, None
+    for suffix in ("_summary_confidences.json", "_confidences.json",
+                   "_summary_confidence.json", "_confidence.json"):
+        if name.endswith(suffix):
+            return parent, name[: -len(suffix)]
+    return parent, name.removesuffix(".json")
+
+
 def filter_designs(results_dir, min_plddt=70, min_iptm=0.6, min_ptm=0.7,
                    max_pae=10.0, top_n=None, weights=None, verbose=False):
     """Filter and rank designs from validation results."""
@@ -78,33 +91,42 @@ def filter_designs(results_dir, min_plddt=70, min_iptm=0.6, min_ptm=0.7,
         weights = {"plddt": 0.5, "iptm": 0.3, "ptm": 0.1, "pae": 0.1}
 
     designs = []
-    json_dirs = set()
+    confidence_files = discover_confidence_files(results_path)
 
-    # Search for confidence.json files
-    for conf_file in results_path.rglob("confidence.json"):
+    # A successfully parsed ``confidence.json`` owns its whole result
+    # directory, while a named confidence file owns the matching PDB basename.
+    # Do not claim a key before parsing succeeds: malformed JSON must leave its
+    # PDB fallback available.
+    confidence_result_keys = set()
+
+    # Search confidence schemas emitted by AlphaFold3, Boltz, Chai-1, and
+    # other validators.  discover_confidence_files() removes detailed/summary
+    # duplicates before they reach the ranking table.
+    for conf_file in confidence_files:
         try:
             design = {"path": str(conf_file), "name": conf_file.parent.name if conf_file.parent != Path(".") else conf_file.stem}
             design.update(parse_confidence_json(conf_file))
             designs.append(design)
-            json_dirs.add(conf_file.parent.resolve())
+            confidence_result_keys.add(_confidence_result_key(conf_file))
         except Exception as e:
             if verbose:
                 print(f"Warning: Could not parse {conf_file}: {e}")
 
-    # Search for PDB files (ESMFold/OmegaFold direct output)
+    # Search for PDB files (ESMFold/OmegaFold direct output).  The fallback is
+    # intentionally filename-agnostic: validators are free to call the model
+    # file ``model.pdb``, ``result.pdb``, or anything else.
     for pdb_file in results_path.rglob("*.pdb"):
-        # A directory that already contributed a confidence.json entry is
-        # covered; the PDB fallback must not count the same design twice.
-        if pdb_file.parent.resolve() in json_dirs:
+        parent_key = str(pdb_file.parent.resolve())
+        pdb_key = (parent_key, pdb_file.stem.casefold())
+        if (parent_key, None) in confidence_result_keys or pdb_key in confidence_result_keys:
             continue
-        if any(x in pdb_file.name.lower() for x in ["design", "pred", "fold"]):
-            plddt = parse_pdb_bfactor(pdb_file)
-            if plddt is not None:
-                designs.append({
-                    "path": str(pdb_file),
-                    "name": pdb_file.stem,
-                    "plddt": plddt,
-                })
+        plddt = parse_pdb_bfactor(pdb_file)
+        if plddt is not None:
+            designs.append({
+                "path": str(pdb_file),
+                "name": pdb_file.stem,
+                "plddt": plddt,
+            })
 
     if not designs:
         print(f"ERROR: No valid results found in {results_dir}", file=sys.stderr)

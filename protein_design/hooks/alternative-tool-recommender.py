@@ -10,7 +10,13 @@ from typing import Any
 import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
-from protein_design.utils import read_hook_input
+from protein_design.utils import (
+    get_hook_invoked_runner,
+    get_hook_prompt,
+    get_hook_tool_input,
+    hook_advisory_output,
+    read_hook_input,
+)
 
 
 PIPELINE_OPTIONS: list[dict[str, Any]] = [
@@ -738,23 +744,19 @@ def main() -> int:
     if not isinstance(data, dict):
         return 0
 
-    # Only process tool use requests for protein design tools. Prefer the
-    # flat payload shape; tolerate the nested legacy shape and "tool_name".
-    tool_name = data.get("tool") or data.get("tool_name") or ""
-    if not tool_name and isinstance(data.get("params"), dict):
-        tool_name = data["params"].get("tool", "")
-    if tool_name not in {"run_rfdiffusion", "run_proteinmpnn", "run_alphafold3",
-                         "run_pdbfixer", "run_filtering", "run_boltz",
-                         "run_chai1", "run_esmfold", "run_omegafold",
-                         "run_openfold3", "run_protenix", "run_colabfold",
-                         "run_esm_if1", "run_ligandmpnn"}:
+    # Resolve only allowlisted project runners from the structured invocation.
+    # Arbitrary shell text must not activate an advisory hook.
+    if get_hook_invoked_runner(data) is None:
         return 0
 
-    # Get the user's original query from context (if available)
-    context = data.get("context", "")
-    if not context and isinstance(data.get("params"), dict):
-        # Use params as fallback context
-        context = json.dumps(data.get("params", {}))
+    # Get the user's original query from the standard prompt/context fields.
+    context = get_hook_prompt(data) or data.get("context", "")
+    if not isinstance(context, str) or not context:
+        tool_input = get_hook_tool_input(data)
+        if isinstance(tool_input, dict):
+            context = json.dumps(tool_input)
+        else:
+            context = ""
 
     if not context:
         return 0
@@ -815,7 +817,7 @@ def main() -> int:
 - For ensemble: see `esm-if1-design` skill (Stage 2 ensemble)
 """
 
-    print(output)
+    print(hook_advisory_output(output))
     return 0
 
 

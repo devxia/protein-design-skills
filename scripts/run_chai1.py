@@ -16,31 +16,29 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from protein_design.utils import get_config, log_history
-from protein_design.conda_utils import probe_conda_envs, build_tool_command, resolve_wrapper_script, is_bare_executable
+from protein_design.conda_utils import probe_conda_envs, build_tool_command, resolve_wrapper_script, is_bare_executable, resolve_configured_path
+from protein_design.process_utils import run_process
 
 import argparse
+import shlex
+import shutil
 import subprocess
 import time
 
 
 def find_chai1(config):
     """Locate Chai-1 installation."""
-    # 1. Configured path / environment variable
-    if config.get("chai1_path"):
-        path = Path(config["chai1_path"])
-        if path.exists():
-            return str(path)
+    # 1. Configured path / environment variable.  Resolve the known console
+    # entry point when a project or bin directory is configured.
+    configured = resolve_configured_path(
+        config.get("chai1_path"), ["chai-lab", "bin/chai-lab"]
+    )
+    if configured:
+        return configured
 
-    # 2. Try direct command
-    try:
-        result = subprocess.run(
-            ["which", "chai-lab"],
-            capture_output=True, text=True, timeout=5
-        )
-        if result.returncode == 0 and result.stdout.strip():
-            return "chai-lab"
-    except FileNotFoundError:
-        pass
+    # 2. Try direct command on PATH.
+    if shutil.which("chai-lab"):
+        return "chai-lab"
 
     # 3. Conda environments
     env = probe_conda_envs(["chai1", "chai-1", "protein-design"], ["chai-lab", "--help"])
@@ -54,7 +52,7 @@ def find_chai1(config):
             capture_output=True, text=True, timeout=5
         )
         if result.returncode == 0:
-            return "python -m chai_lab"
+            return shlex.join([sys.executable, "-m", "chai_lab"])
     # Importing chai_lab pulls in torch and can easily exceed the 5s probe
     # timeout; treat it as a failed probe, not a crash.
     except (subprocess.TimeoutExpired, FileNotFoundError):
@@ -102,7 +100,7 @@ def run_chai1(input_file, output_dir, use_msa_server=True, num_trunk_recycles=3,
 
     start_time = time.time()
     try:
-        result = subprocess.run(
+        result = run_process(
             cmd,
             capture_output=True,
             text=True,

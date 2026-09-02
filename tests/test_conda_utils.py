@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import shlex
+
 import pytest
 
 from protein_design.conda_utils import (
@@ -102,6 +104,43 @@ def test_build_tool_command_wrapper_with_conda_api() -> None:
 
 def test_build_tool_command_splits_python_module_invocation() -> None:
     assert build_tool_command("python -m pdbfixer") == ["python", "-m", "pdbfixer"]
+
+
+@pytest.mark.parametrize(
+    "python_executable",
+    ["/usr/bin/python3.11", "/opt/Python Environments/design/bin/python3.11"],
+)
+def test_build_tool_command_preserves_module_interpreter(
+    python_executable: str,
+) -> None:
+    command = shlex.join([python_executable, "-m", "boltz"])
+    assert build_tool_command(command) == [python_executable, "-m", "boltz"]
+
+
+def test_build_tool_command_spaced_interpreter_with_wrapper() -> None:
+    python_executable = "/opt/Python Environments/design/bin/python"
+    wrapper = "/opt/Tool Wrappers/activate.sh"
+    command = shlex.join([python_executable, "-m", "chai_lab"])
+    assert build_tool_command(command, wrapper_script=wrapper) == [
+        wrapper,
+        python_executable,
+        "-m",
+        "chai_lab",
+    ]
+
+
+@pytest.mark.parametrize(
+    "executable", ["/opt/bin/boltz", "/opt/Protein Tools/bin/boltz"]
+)
+def test_build_tool_command_console_executable_runs_directly(
+    executable: str,
+) -> None:
+    assert build_tool_command(executable) == [executable]
+
+
+def test_build_tool_command_spaced_script_path_still_uses_python() -> None:
+    script = "/opt/Protein Tools/run_model.py"
+    assert build_tool_command(script) == ["python", script]
 
 
 def test_build_tool_command_bare_executable_runs_directly() -> None:

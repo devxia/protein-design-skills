@@ -12,7 +12,15 @@ from typing import Any
 import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
-from protein_design.utils import extract_content_text, read_hook_input
+from protein_design.utils import (
+    extract_content_text,
+    get_hook_error,
+    get_hook_invoked_runner,
+    get_hook_tool_name,
+    get_hook_tool_response,
+    hook_advisory_output,
+    read_hook_input,
+)
 
 
 def _parse_error(error_text: str) -> dict[str, Any]:
@@ -148,7 +156,7 @@ def _build_recovery_strategy(error_info: dict[str, Any], tool_name: str) -> list
     elif error_type == "timeout":
         strategies = [
             "Job timed out. Solutions:",
-            "  1. For AlphaFold3: set run_data_pipeline=false to skip MSA",
+            "  1. For AlphaFold3: pass --no-msa to skip MSA",
             "  2. Reduce num_designs or num_seeds",
             "  3. Use a shorter protein sequence",
             "  4. Check the GPU is working",
@@ -157,7 +165,7 @@ def _build_recovery_strategy(error_info: dict[str, Any], tool_name: str) -> list
     elif error_type == "msa_error":
         strategies = [
             "MSA/Database error. Solutions:",
-            "  1. Set run_data_pipeline=false to skip MSA (fast but less accurate)",
+            "  1. Pass --no-msa to skip MSA (fast but less accurate)",
             "  2. Use ESMFold or OmegaFold instead (no databases needed)",
             "  3. Check the database directory exists and is complete (~2.6TB)",
             "  4. Check disk space",
@@ -184,29 +192,107 @@ def _build_recovery_strategy(error_info: dict[str, Any], tool_name: str) -> list
     return strategies
 
 
-def _extract_tool_name(data: dict[str, Any]) -> str:
-    """Extract the tool name from hook input data."""
-    # Try to find tool name from various locations in the data
-    text = extract_content_text(data.get("result"))
-    if text:
+def _find_response_tool_name(value: Any) -> str:
+    """Find a tool name in nested response wrappers or JSON strings."""
+    if isinstance(value, dict):
+        for key in ("tool_name", "tool"):
+            candidate = value.get(key)
+            if isinstance(candidate, str) and candidate.strip():
+                return candidate.strip()
+        for key in ("tool_response", "result", "response", "output", "content"):
+            if key in value:
+                found = _find_response_tool_name(value[key])
+                if found:
+                    return found
+    elif isinstance(value, list):
+        for item in value:
+            found = _find_response_tool_name(item)
+            if found:
+                return found
+    elif isinstance(value, str):
         try:
-            result_json = json.loads(text)
-            # Check for tool name in result
-            if "tool_name" in result_json:
-                return result_json["tool_name"]
-            if "tool" in result_json:
-                return result_json["tool"]
-        except json.JSONDecodeError:
-            pass
+            decoded = json.loads(value)
+        except (TypeError, ValueError):
+            return ""
+        if isinstance(decoded, (dict, list)):
+            return _find_response_tool_name(decoded)
+    return ""
 
-    # Check for error message
-    error = data.get("error", "")
-    if isinstance(error, str):
-        for tool in ["rfdiffusion", "proteinmpnn", "alphafold", "pdbfixer", "filtering"]:
-            if tool in error.lower():
-                return tool
+
+def _extract_tool_name(data: dict[str, Any], error_text: str = "") -> str:
+    """Extract the authoritative or best-effort tool name from hook input."""
+    tool_name = get_hook_tool_name(data)
+    if tool_name:
+        return tool_name
+
+    # Older hosts sometimes included the tool name in the JSON response.
+    tool_name = _find_response_tool_name(get_hook_tool_response(data))
+    if tool_name:
+        return tool_name
+
+    for tool in ["rfdiffusion", "proteinmpnn", "alphafold", "pdbfixer", "filtering"]:
+        if tool in error_text.lower():
+            return tool
 
     return "unknown"
+
+
+def _response_is_error(response: Any) -> bool:
+    """Return whether a structured response or nested wrapper marks an error."""
+    if isinstance(response, dict):
+        if bool(response.get("isError")):
+            return True
+        return any(
+            _response_is_error(response.get(key))
+            for key in ("tool_response", "result", "response", "output", "content")
+            if key in response
+        )
+    if isinstance(response, list):
+        return any(_response_is_error(item) for item in response)
+    if isinstance(response, str):
+        try:
+            decoded = json.loads(response)
+        except (TypeError, ValueError):
+            return False
+        return _response_is_error(decoded) if isinstance(decoded, (dict, list)) else False
+    return False
+
+
+def _extract_error_text(value: Any) -> str:
+    """Extract useful text from a response, unwrapping JSON strings."""
+    if isinstance(value, str):
+        try:
+            decoded = json.loads(value)
+        except (TypeError, ValueError):
+            return value
+        if isinstance(decoded, (dict, list)):
+            nested = _extract_error_text(decoded)
+            return nested or value
+        return value
+    if isinstance(value, dict):
+        for key in ("error", "message", "content", "tool_response", "result", "response", "output"):
+            if key in value:
+                nested = _extract_error_text(value[key])
+                if nested:
+                    return nested
+    elif isinstance(value, list):
+        for item in value:
+            nested = _extract_error_text(item)
+            if nested:
+                return nested
+    return extract_content_text(value)
+
+
+def _get_error_text(data: dict[str, Any]) -> str:
+    """Extract an error message from standard or legacy failure payloads."""
+    error_value = get_hook_error(data)
+    if error_value is not None:
+        return _extract_error_text(error_value)
+
+    response = get_hook_tool_response(data)
+    if _response_is_error(response):
+        return _extract_error_text(response)
+    return ""
 
 
 def main() -> int:
@@ -221,28 +307,28 @@ def main() -> int:
         traceback.print_exc()
         return 1
 
-    # Only process failed tool calls
+    # Only process failed tool calls. PostToolUseFailure payloads may contain
+    # only a top-level error, while older PostToolUse payloads use result.
     if not isinstance(data, dict):
         return 0
 
-    result = data.get("result", {})
-    if isinstance(result, dict) and result.get("isError"):
-        error_text = extract_content_text(result)
+    error_text = _get_error_text(data)
+    if not error_text:
+        return 0
+    # Shell invocations are always resolved by the shared allowlist. Legacy
+    # failure payloads may provide only an error response, so retain its
+    # extracted tool label as an advisory-only compatibility fallback.
+    tool_name = get_hook_invoked_runner(data) or _extract_tool_name(data, error_text)
+    error_info = _parse_error(error_text)
+    strategies = _build_recovery_strategy(error_info, tool_name)
 
-        if not error_text:
-            return 0
-
-        tool_name = _extract_tool_name(data)
-        error_info = _parse_error(error_text)
-        strategies = _build_recovery_strategy(error_info, tool_name)
-
-        output = f"""[Error Recovery] Tool: {tool_name} | Type: {error_info['type']}
+    output = f"""[Error Recovery] Tool: {tool_name} | Type: {error_info['type']}
 
 {chr(10).join(strategies)}
 
 Error summary: {error_info['message'][:200]}
 """
-        print(output)
+    print(hook_advisory_output(output))
 
     return 0
 

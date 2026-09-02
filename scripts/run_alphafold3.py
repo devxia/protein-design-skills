@@ -2,7 +2,7 @@
 """
 Standalone AlphaFold3 runner.
 
-Usage: python scripts/run_alphafold3.py --json input.json --output-dir outputs/af3/ [options]
+Usage: python scripts/run_alphafold3.py (--json input.json | --input-dir inputs/) --output-dir outputs/af3/ [options]
 
 Exit codes:
     0 = Success
@@ -16,22 +16,79 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from protein_design.utils import get_config, log_history
-from protein_design.conda_utils import find_conda_env, build_tool_command, resolve_wrapper_script
+from protein_design.conda_utils import (
+    build_tool_command,
+    resolve_configured_path,
+    resolve_wrapper_script,
+)
+from protein_design.process_utils import run_process
 
 import argparse
 import json
+import re
+import shlex
 import subprocess
 import time
+from textwrap import dedent
+
+
+def _probe_conda_alphafold3_script(env):
+    """Return AlphaFold3's real ``run_alphafold.py`` path in ``env``."""
+    probe = """
+import pathlib
+import sys
+
+candidates = []
+try:
+    import alphafold3
+except (ImportError, AttributeError):
+    pass
+else:
+    package = pathlib.Path(alphafold3.__file__).resolve().parent
+    candidates.extend([
+        package.parent / "run_alphafold.py",
+        package / "run_alphafold.py",
+        package.parent.parent / "run_alphafold.py",
+    ])
+
+prefix = pathlib.Path(sys.prefix)
+candidates.extend([
+    prefix / "run_alphafold.py",
+    prefix / "bin" / "run_alphafold.py",
+])
+print(next((str(path) for path in candidates if path.is_file()), ""))
+"""
+    try:
+        result = subprocess.run(
+            ["conda", "run", "-n", env, "python", "-c", dedent(probe)],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+    except (subprocess.TimeoutExpired, OSError):
+        return None
+
+    if result.returncode != 0:
+        return None
+    for line in result.stdout.splitlines():
+        script = line.strip()
+        if script:
+            return script
+    return None
 
 
 def find_alphafold3(config):
-    """Locate AlphaFold3 installation."""
-    # 1. Configured path (alphafold3_path key, with legacy alphafold_path fallback)
-    tool_path = config.get("alphafold3_path") or config.get("alphafold_path")
-    if tool_path:
-        path = Path(tool_path)
-        if path.exists():
-            return str(path)
+    """Locate AlphaFold3's executable ``run_alphafold.py`` entry point."""
+    # 1. Configured path (alphafold3_path key, with legacy alphafold_path
+    # fallback).  A configured checkout directory is resolved to its standard
+    # run_alphafold.py entry point rather than being passed as an executable.
+    for configured_value in (
+        config.get("alphafold3_path"),
+        config.get("alphafold_path"),
+    ):
+        configured = resolve_configured_path(configured_value, ["run_alphafold.py"])
+        if configured:
+            return configured
 
     # 2. Common locations
     common_paths = [
@@ -45,13 +102,16 @@ def find_alphafold3(config):
         if path.exists():
             return str(path)
 
-    # 3. Conda environments
-    env = find_conda_env(
-        ["alphafold3", "alphafold", "protein-design"],
-        "import alphafold3; print(alphafold3.__file__)",
-    )
-    if env is not None:
-        return f"conda run -n {env} python -m alphafold3"
+    # 3. Conda environments.  AlphaFold3 does not provide a reliable
+    # ``python -m alphafold3`` entry point, so only return a command after the
+    # actual run_alphafold.py file has been located inside the environment.
+    for env in ("alphafold3", "alphafold", "protein-design"):
+        script = _probe_conda_alphafold3_script(env)
+        if script:
+            # build_tool_command() tokenizes conda commands with shlex.split().
+            # Serialize the discovered argv with shlex.join() so paths with
+            # spaces or Windows backslashes round-trip as one script argument.
+            return shlex.join(["conda", "run", "-n", env, "python", script])
 
     return None
 
@@ -163,7 +223,7 @@ def run_alphafold3(json_path, output_dir, db_dir=None, run_data_pipeline=True,
 
     start_time = time.time()
     try:
-        result = subprocess.run(
+        result = run_process(
             cmd,
             capture_output=True,
             text=True,
@@ -202,7 +262,69 @@ def run_alphafold3(json_path, output_dir, db_dir=None, run_data_pipeline=True,
         return 3
 
 
-def main():
+def _safe_unique_basename(json_path, used_names):
+    """Create a deterministic, filesystem-safe output directory basename."""
+    raw_name = Path(json_path).stem
+    safe_name = re.sub(r"[^A-Za-z0-9._-]+", "_", raw_name).strip("._-")
+    safe_name = safe_name or "input"
+
+    candidate = safe_name
+    suffix = 2
+    while candidate in used_names:
+        candidate = f"{safe_name}_{suffix}"
+        suffix += 1
+    used_names.add(candidate)
+    return candidate
+
+
+def run_alphafold3_batch(input_dir, output_dir, db_dir=None,
+                         run_data_pipeline=True, num_seeds=1, verbose=False):
+    """Run AlphaFold3 once for every JSON file in ``input_dir``.
+
+    Input files are processed in stable filename order.  Each input receives a
+    separate output subdirectory named from its sanitized basename; collisions
+    are resolved with deterministic numeric suffixes.  All files are
+    attempted even when an earlier task fails, and the first non-zero status is
+    returned after the batch completes.
+    """
+    input_path = Path(input_dir)
+    if not input_path.is_dir():
+        print(f"ERROR: Input directory not found: {input_dir}", file=sys.stderr)
+        return 1
+
+    json_files = sorted(input_path.glob("*.json"), key=lambda path: path.name)
+    json_files = [path for path in json_files if path.is_file()]
+    if not json_files:
+        print(f"ERROR: No JSON input files found in: {input_dir}", file=sys.stderr)
+        return 1
+
+    batch_output = Path(output_dir)
+    batch_output.mkdir(parents=True, exist_ok=True)
+    used_names = set()
+    first_failure = 0
+
+    for json_file in json_files:
+        task_output = batch_output / _safe_unique_basename(json_file, used_names)
+        task_output.mkdir(parents=True, exist_ok=True)
+        if verbose:
+            print(f"Batch task: {json_file} -> {task_output}")
+
+        result = run_alphafold3(
+            json_path=str(json_file),
+            output_dir=str(task_output),
+            db_dir=db_dir,
+            run_data_pipeline=run_data_pipeline,
+            num_seeds=num_seeds,
+            verbose=verbose,
+        )
+        if result != 0 and first_failure == 0:
+            first_failure = result if isinstance(result, int) and result > 0 else 1
+
+    return first_failure
+
+
+def build_parser():
+    """Build the AlphaFold3 command-line argument parser."""
     parser = argparse.ArgumentParser(
         description="Run AlphaFold3 — standalone execution",
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -217,12 +339,18 @@ Examples:
   # Multiple seeds for confidence
   python run_alphafold3.py --json design.json --output-dir outputs/af3/ --num-seeds 5
 
+  # Batch prediction
+  python run_alphafold3.py --input-dir inputs/af3/ --output-dir outputs/af3/
+
   # With custom database path
   python run_alphafold3.py --json design.json --output-dir outputs/af3/ --db-dir /path/to/databases
         """
     )
-    parser.add_argument("--json", "-j", required=True,
-                        help="AlphaFold3 JSON input file")
+    input_group = parser.add_mutually_exclusive_group(required=True)
+    input_group.add_argument("--json", "-j",
+                             help="AlphaFold3 JSON input file")
+    input_group.add_argument("--input-dir",
+                             help="Directory containing AlphaFold3 JSON inputs")
     parser.add_argument("--output-dir", "--out-dir", "-o", required=True,
                         help="Output directory")
     parser.add_argument("--db-dir", "-d",
@@ -233,8 +361,21 @@ Examples:
                         help="Number of random seeds; sets modelSeeds in the input JSON (default: 1)")
     parser.add_argument("--verbose", "-v", action="store_true",
                         help="Verbose output")
+    return parser
 
-    args = parser.parse_args()
+
+def main():
+    args = build_parser().parse_args()
+
+    if args.input_dir:
+        return run_alphafold3_batch(
+            input_dir=args.input_dir,
+            output_dir=args.output_dir,
+            db_dir=args.db_dir,
+            run_data_pipeline=not args.no_msa,
+            num_seeds=args.num_seeds,
+            verbose=args.verbose,
+        )
 
     return run_alphafold3(
         json_path=args.json,

@@ -2,161 +2,34 @@
   "name": "protein-design-skills",
   "version": "0.2.0",
   "description": "Agent-agnostic protein design pipeline: RFdiffusion backbone generation, ProteinMPNN sequence design, AlphaFold3 structure validation — skills + hooks + scripts",
-  "keywords": [
-    "protein",
-    "protein-design",
-    "alphafold",
-    "proteinmpnn",
-    "rfdiffusion",
-    "bioinformatics"
-  ],
-  "author": {
-    "name": "DevXia"
-  },
+  "keywords": ["protein", "protein-design", "alphafold", "proteinmpnn", "rfdiffusion", "bioinformatics"],
+  "author": {"name": "DevXia"},
   "homepage": "https://github.com/devxia/protein-design-skills",
   "license": "MIT",
   "skills": "./skills/",
-  "sessionStart": {
-    "skill": "protein-design-context"
-  },
+  "sessionStart": {"skill": "protein-design-context"},
   "skillInstructions": "This plugin uses Skills + Hooks + Standalone Scripts only. Read SKILL_INDEX.md to find relevant skills. Use scripts/ directory for tool execution: run_pdbfixer.py, run_rfdiffusion.py, run_proteinmpnn.py, run_alphafold3.py, run_boltz.py, run_chai1.py, run_esmfold.py, run_omegafold.py, run_openfold3.py, run_protenix.py, run_colabfold.py, run_esm_if1.py, run_ligandmpnn.py, run_filtering.py, convert_format.py, batch_runner.py, job_manager.py, summarize_outputs.py, project_dashboard.py. Kimi Code: hooks are enabled automatically via kimi.plugin.json. Claude Code / Codex CLI: run `python protein_design/hooks/install-hooks.py` to enable automation hooks. For pipeline selection, read the pipeline-selection skill. For quick start, read the quickstart-guide skill.",
-  "interface": {
-    "displayName": "Protein Design",
-    "shortDescription": "Protein design pipeline — skills + hooks + scripts",
-    "developerName": "DevXia"
-  },
+  "interface": {"displayName": "Protein Design", "shortDescription": "Protein design pipeline — skills + hooks + scripts", "developerName": "DevXia"},
   "hooks": [
-    {
-      "event": "UserPromptSubmit",
-      "matcher": "(?i)\\b(protein|pdb|binder|alphafold|rfdiffusion|proteinmpnn|design|structure|sequence|residue|loop|scaffold|motif|oligomer|diffusion|backbone|monomer|complex|interface|epitope|target|fold|prediction|plddt|ptm|iptm|msa|validation|ranking|filter|chain)\\b",
-      "command": "python ./protein_design/hooks/user-onboarding.py",
-      "timeout": 5
-    },
-    {
-      "event": "UserPromptSubmit",
-      "matcher": "(?i)\\b(protein|pdb|binder|alphafold|rfdiffusion|proteinmpnn|design|structure|sequence|residue|loop|scaffold|motif|oligomer|diffusion|backbone|monomer|complex|interface|epitope|target|fold|prediction|plddt|ptm|iptm|msa|validation|ranking|filter|chain)\\b",
-      "command": "python ./protein_design/hooks/session-health-check.py",
-      "timeout": 5
-    },
-    {
-      "event": "UserPromptSubmit",
-      "matcher": "(?i)\\b(protein|pdb|binder|alphafold|rfdiffusion|proteinmpnn|design|structure|sequence|residue|loop|scaffold|motif|oligomer|diffusion|backbone|monomer|complex|interface|epitope|target|fold|prediction|plddt|ptm|iptm|msa|validation|ranking|filter|chain)\\b",
-      "command": "python ./protein_design/hooks/protein-context-inject.py",
-      "timeout": 5
-    },
-    {
-      "event": "UserPromptSubmit",
-      "matcher": "(?i)\\b(protein|pdb|binder|alphafold|rfdiffusion|proteinmpnn|design|structure|sequence|residue|loop|scaffold|motif|oligomer|diffusion|backbone|monomer|complex|interface|epitope|target|fold|prediction|plddt|ptm|iptm|msa|validation|ranking|filter|chain)\\b",
-      "command": "python ./protein_design/hooks/tool-recommender.py",
-      "timeout": 5
-    },
-    {
-      "event": "UserPromptSubmit",
-      "matcher": "(?i)\\b(protein|pdb|binder|alphafold|rfdiffusion|proteinmpnn|design|structure|sequence|residue|loop|scaffold|motif|oligomer|diffusion|backbone|monomer|complex|interface|epitope|target|fold|prediction|plddt|ptm|iptm|msa|validation|ranking|filter|chain)\\b",
-      "command": "python ./protein_design/hooks/auto-parameter-tuner.py",
-      "timeout": 5
-    },
-    {
-      "event": "UserPromptSubmit",
-      "matcher": "(?i)\\b(protein|pdb|binder|alphafold|rfdiffusion|proteinmpnn|design|structure|sequence|residue|loop|scaffold|motif|oligomer|diffusion|backbone|monomer|complex|interface|epitope|target|fold|prediction|plddt|ptm|iptm|msa|validation|ranking|filter|chain)\\b",
-      "command": "python ./protein_design/hooks/batch-orchestrator.py",
-      "timeout": 5
-    },
-    {
-      "event": "UserPromptSubmit",
-      "matcher": "(?i)\\b(protein|pdb|binder|alphafold|rfdiffusion|proteinmpnn|design|structure|sequence|residue|loop|scaffold|motif|oligomer|diffusion|backbone|monomer|complex|interface|epitope|target|fold|prediction|plddt|ptm|iptm|msa|validation|ranking|filter|chain)\\b",
-      "command": "python ./protein_design/hooks/progress-query-helper.py",
-      "timeout": 5
-    },
-    {
-      "event": "UserPromptSubmit",
-      "matcher": "(?i)\\b(protein|pdb|binder|alphafold|rfdiffusion|proteinmpnn|design|structure|sequence|residue|loop|scaffold|motif|oligomer|diffusion|backbone|monomer|complex|interface|epitope|target|fold|prediction|plddt|ptm|iptm|msa|validation|ranking|filter|chain)\\b",
-      "command": "python ./protein_design/hooks/cost-estimator.py",
-      "timeout": 5
-    },
-    {
-      "event": "UserPromptSubmit",
-      "matcher": "(?i)\\b(protein|pdb|binder|alphafold|rfdiffusion|proteinmpnn|design|structure|sequence|residue|loop|scaffold|motif|oligomer|diffusion|backbone|monomer|complex|interface|epitope|target|fold|prediction|plddt|ptm|iptm|msa|validation|ranking|filter|chain)\\b",
-      "command": "python ./protein_design/hooks/parameter-generator.py",
-      "timeout": 5
-    },
-    {
-      "event": "PreToolUse",
-      "matcher": "(?i)\\b(run_pdbfixer|run_rfdiffusion|run_proteinmpnn|run_alphafold3|run_filtering|run_boltz|run_chai1|run_esmfold|run_omegafold|run_openfold3|run_protenix|run_colabfold|run_esm_if1|run_ligandmpnn)\\b",
-      "command": "python ./protein_design/hooks/alternative-tool-recommender.py",
-      "timeout": 5
-    },
-    {
-      "event": "PreToolUse",
-      "matcher": "(?i)\\b(run_pdbfixer|run_rfdiffusion|run_proteinmpnn|run_alphafold3|run_filtering|run_boltz|run_chai1|run_esmfold|run_omegafold|run_openfold3|run_protenix|run_colabfold|run_esm_if1|run_ligandmpnn)\\b",
-      "command": "python ./protein_design/hooks/execution-adapter.py",
-      "timeout": 5
-    },
-    {
-      "event": "PreToolUse",
-      "matcher": "(?i)\\b(run_pdbfixer|run_rfdiffusion|run_proteinmpnn|run_alphafold3|run_filtering|run_boltz|run_chai1|run_esmfold|run_omegafold|run_openfold3|run_protenix|run_colabfold|run_esm_if1|run_ligandmpnn)\\b",
-      "command": "python ./protein_design/hooks/gpu-check-hook.py",
-      "timeout": 5
-    },
-    {
-      "event": "PostToolUse",
-      "matcher": "(?i)\\b(run_pdbfixer|run_rfdiffusion|run_proteinmpnn|run_alphafold3|run_filtering|run_boltz|run_chai1|run_esmfold|run_omegafold|run_openfold3|run_protenix|run_colabfold|run_esm_if1|run_ligandmpnn|batch_runner|job_manager)\\b",
-      "command": "python ./protein_design/hooks/design-complete-notify.py",
-      "timeout": 5
-    },
-    {
-      "event": "PostToolUse",
-      "matcher": "(?i)\\b(run_pdbfixer|run_rfdiffusion|run_proteinmpnn|run_alphafold3|run_filtering|run_boltz|run_chai1|run_esmfold|run_omegafold|run_openfold3|run_protenix|run_colabfold|run_esm_if1|run_ligandmpnn|batch_runner|job_manager)\\b",
-      "command": "python ./protein_design/hooks/design-comparator.py",
-      "timeout": 5
-    },
-    {
-      "event": "PostToolUse",
-      "matcher": "(?i)\\b(run_pdbfixer|run_rfdiffusion|run_proteinmpnn|run_alphafold3|run_filtering|run_boltz|run_chai1|run_esmfold|run_omegafold|run_openfold3|run_protenix|run_colabfold|run_esm_if1|run_ligandmpnn|batch_runner|job_manager)\\b",
-      "command": "python ./protein_design/hooks/design-report.py",
-      "timeout": 5
-    },
-    {
-      "event": "PostToolUse",
-      "matcher": "(?i)\\b(run_pdbfixer|run_rfdiffusion|run_proteinmpnn|run_alphafold3|run_filtering|run_boltz|run_chai1|run_esmfold|run_omegafold|run_openfold3|run_protenix|run_colabfold|run_esm_if1|run_ligandmpnn|batch_runner|job_manager)\\b",
-      "command": "python ./protein_design/hooks/error-recovery.py",
-      "timeout": 5
-    },
-    {
-      "event": "PostToolUse",
-      "matcher": "(?i)\\b(run_pdbfixer|run_rfdiffusion|run_proteinmpnn|run_alphafold3|run_filtering|run_boltz|run_chai1|run_esmfold|run_omegafold|run_openfold3|run_protenix|run_colabfold|run_esm_if1|run_ligandmpnn|batch_runner|job_manager)\\b",
-      "command": "python ./protein_design/hooks/format-converter.py",
-      "timeout": 5
-    },
-    {
-      "event": "PostToolUse",
-      "matcher": "(?i)\\b(run_pdbfixer|run_rfdiffusion|run_proteinmpnn|run_alphafold3|run_filtering|run_boltz|run_chai1|run_esmfold|run_omegafold|run_openfold3|run_protenix|run_colabfold|run_esm_if1|run_ligandmpnn|batch_runner|job_manager)\\b",
-      "command": "python ./protein_design/hooks/job-monitor.py",
-      "timeout": 5
-    },
-    {
-      "event": "PostToolUse",
-      "matcher": "(?i)\\b(run_pdbfixer|run_rfdiffusion|run_proteinmpnn|run_alphafold3|run_filtering|run_boltz|run_chai1|run_esmfold|run_omegafold|run_openfold3|run_protenix|run_colabfold|run_esm_if1|run_ligandmpnn|batch_runner|job_manager)\\b",
-      "command": "python ./protein_design/hooks/pipeline-orchestrator.py",
-      "timeout": 5
-    },
-    {
-      "event": "PostToolUse",
-      "matcher": "(?i)\\b(run_pdbfixer|run_rfdiffusion|run_proteinmpnn|run_alphafold3|run_filtering|run_boltz|run_chai1|run_esmfold|run_omegafold|run_openfold3|run_protenix|run_colabfold|run_esm_if1|run_ligandmpnn|batch_runner|job_manager)\\b",
-      "command": "python ./protein_design/hooks/quality-gate.py",
-      "timeout": 5
-    },
-    {
-      "event": "Notification",
-      "matcher": "task\\.(completed|failed|killed|timeout)",
-      "command": "python ./protein_design/hooks/progress-reporter.py",
-      "timeout": 5
-    },
-    {
-      "event": "Notification",
-      "matcher": "task\\.(completed|failed|killed|timeout)",
-      "command": "python ./protein_design/hooks/background-notify.py",
-      "timeout": 5
-    }
+    {"event": "UserPromptSubmit", "matcher": "(?i)\\b(protein|pdb|binder|alphafold|rfdiffusion|proteinmpnn|design|structure|sequence|residue|loop|scaffold|motif|oligomer|diffusion|backbone|monomer|complex|interface|epitope|target|fold|prediction|plddt|ptm|iptm|msa|validation|ranking|filter|chain)\\b", "command": "python ./protein_design/hooks/user-onboarding.py", "timeout": 5},
+    {"event": "UserPromptSubmit", "matcher": "(?i)\\b(protein|pdb|binder|alphafold|rfdiffusion|proteinmpnn|design|structure|sequence|residue|loop|scaffold|motif|oligomer|diffusion|backbone|monomer|complex|interface|epitope|target|fold|prediction|plddt|ptm|iptm|msa|validation|ranking|filter|chain)\\b", "command": "python ./protein_design/hooks/session-health-check.py", "timeout": 5},
+    {"event": "UserPromptSubmit", "matcher": "(?i)\\b(protein|pdb|binder|alphafold|rfdiffusion|proteinmpnn|design|structure|sequence|residue|loop|scaffold|motif|oligomer|diffusion|backbone|monomer|complex|interface|epitope|target|fold|prediction|plddt|ptm|iptm|msa|validation|ranking|filter|chain)\\b", "command": "python ./protein_design/hooks/protein-context-inject.py", "timeout": 5},
+    {"event": "UserPromptSubmit", "matcher": "(?i)\\b(protein|pdb|binder|alphafold|rfdiffusion|proteinmpnn|design|structure|sequence|residue|loop|scaffold|motif|oligomer|diffusion|backbone|monomer|complex|interface|epitope|target|fold|prediction|plddt|ptm|iptm|msa|validation|ranking|filter|chain)\\b", "command": "python ./protein_design/hooks/tool-recommender.py", "timeout": 5},
+    {"event": "UserPromptSubmit", "matcher": "(?i)\\b(protein|pdb|binder|alphafold|rfdiffusion|proteinmpnn|design|structure|sequence|residue|loop|scaffold|motif|oligomer|diffusion|backbone|monomer|complex|interface|epitope|target|fold|prediction|plddt|ptm|iptm|msa|validation|ranking|filter|chain)\\b", "command": "python ./protein_design/hooks/auto-parameter-tuner.py", "timeout": 5},
+    {"event": "UserPromptSubmit", "matcher": "(?i)\\b(protein|pdb|binder|alphafold|rfdiffusion|proteinmpnn|design|structure|sequence|residue|loop|scaffold|motif|oligomer|diffusion|backbone|monomer|complex|interface|epitope|target|fold|prediction|plddt|ptm|iptm|msa|validation|ranking|filter|chain)\\b", "command": "python ./protein_design/hooks/batch-orchestrator.py", "timeout": 5},
+    {"event": "UserPromptSubmit", "matcher": "(?i)\\b(protein|pdb|binder|alphafold|rfdiffusion|proteinmpnn|design|structure|sequence|residue|loop|scaffold|motif|oligomer|diffusion|backbone|monomer|complex|interface|epitope|target|fold|prediction|plddt|ptm|iptm|msa|validation|ranking|filter|chain)\\b", "command": "python ./protein_design/hooks/progress-query-helper.py", "timeout": 5},
+    {"event": "UserPromptSubmit", "matcher": "(?i)\\b(protein|pdb|binder|alphafold|rfdiffusion|proteinmpnn|design|structure|sequence|residue|loop|scaffold|motif|oligomer|diffusion|backbone|monomer|complex|interface|epitope|target|fold|prediction|plddt|ptm|iptm|msa|validation|ranking|filter|chain)\\b", "command": "python ./protein_design/hooks/cost-estimator.py", "timeout": 5},
+    {"event": "UserPromptSubmit", "matcher": "(?i)\\b(protein|pdb|binder|alphafold|rfdiffusion|proteinmpnn|design|structure|sequence|residue|loop|scaffold|motif|oligomer|diffusion|backbone|monomer|complex|interface|epitope|target|fold|prediction|plddt|ptm|iptm|msa|validation|ranking|filter|chain)\\b", "command": "python ./protein_design/hooks/parameter-generator.py", "timeout": 5},
+    {"event": "PreToolUse", "matcher": "Bash|PowerShell", "command": "python ./protein_design/hooks/alternative-tool-recommender.py", "timeout": 5},
+    {"event": "PreToolUse", "matcher": "Bash|PowerShell", "command": "python ./protein_design/hooks/execution-adapter.py", "timeout": 5},
+    {"event": "PreToolUse", "matcher": "Bash|PowerShell", "command": "python ./protein_design/hooks/gpu-check-hook.py", "timeout": 5},
+    {"event": "PostToolUse", "matcher": "Bash|PowerShell", "command": "python ./protein_design/hooks/design-complete-notify.py", "timeout": 5},
+    {"event": "PostToolUse", "matcher": "Bash|PowerShell", "command": "python ./protein_design/hooks/design-comparator.py", "timeout": 5},
+    {"event": "PostToolUse", "matcher": "Bash|PowerShell", "command": "python ./protein_design/hooks/design-report.py", "timeout": 5},
+    {"event": "PostToolUse", "matcher": "Bash|PowerShell", "command": "python ./protein_design/hooks/error-recovery.py", "timeout": 5},
+    {"event": "PostToolUse", "matcher": "Bash|PowerShell", "command": "python ./protein_design/hooks/format-converter.py", "timeout": 5},
+    {"event": "PostToolUse", "matcher": "Bash|PowerShell", "command": "python ./protein_design/hooks/job-monitor.py", "timeout": 5},
+    {"event": "PostToolUse", "matcher": "Bash|PowerShell", "command": "python ./protein_design/hooks/pipeline-orchestrator.py", "timeout": 5},
+    {"event": "PostToolUse", "matcher": "Bash|PowerShell", "command": "python ./protein_design/hooks/quality-gate.py", "timeout": 5}
   ]
 }

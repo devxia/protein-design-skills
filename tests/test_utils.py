@@ -12,9 +12,12 @@ import pytest
 from protein_design.utils import (
     _escape_applescript,
     _escape_powershell,
+    discover_confidence_files,
     extract_content_text,
     fasta_to_alphafold3_json,
     get_config,
+    get_hook_invoked_runner,
+    hook_advisory_output,
     parse_confidence_json,
     read_fasta,
     send_notification,
@@ -52,6 +55,8 @@ def test_write_fasta_round_trips(tmp_path: Path) -> None:
 def test_fasta_to_alphafold3_json() -> None:
     seqs = [("seq1", "ACDEF"), ("seq2", "GHIKL")]
     af3 = fasta_to_alphafold3_json(seqs, job_name="myjob", verbose=False)
+    assert af3["dialect"] == "alphafold3"
+    assert af3["version"] == 1
     assert af3["name"] == "myjob"
     assert af3["modelSeeds"] == [1]
     assert len(af3["sequences"]) == 2
@@ -65,7 +70,17 @@ def test_fasta_to_alphafold3_json_many_chains() -> None:
     af3 = fasta_to_alphafold3_json(seqs)
     ids = [s["protein"]["id"] for s in af3["sequences"]]
     assert ids[:26] == [chr(65 + i) for i in range(26)]
-    assert ids[26] == "X26"
+    assert ids[26] == "AA"
+    assert len(ids) == len(set(ids))
+    assert all(chain_id.isalpha() and chain_id.isupper() for chain_id in ids)
+
+
+def test_fasta_to_alphafold3_json_supports_702_chains() -> None:
+    af3 = fasta_to_alphafold3_json([(f"s{i}", "A") for i in range(702)])
+    ids = [s["protein"]["id"] for s in af3["sequences"]]
+    assert len(ids) == 702
+    assert len(ids) == len(set(ids))
+    assert all(chain_id.isalpha() and chain_id.isupper() for chain_id in ids)
 
 
 def _assert_approx(metrics: dict, key: str, value: Any) -> None:
@@ -95,6 +110,19 @@ def test_parse_confidence_json(tmp_path: Path, payload: dict, expected: dict) ->
         _assert_approx(metrics, key, value)
 
 
+def test_parse_confidence_json_rejects_non_finite_values(tmp_path: Path) -> None:
+    """NaN and infinities must never enter confidence metrics or their means."""
+    path = tmp_path / "confidence.json"
+    path.write_text(json.dumps({
+        "plddt": [80, "NaN", "Infinity", "-Infinity", 100],
+        "iptm": "NaN",
+        "ptm": float("inf"),
+        "pae": [[2, "NaN"], [4, "Infinity"]],
+    }), encoding="utf-8")
+
+    assert parse_confidence_json(path) == pytest.approx({"plddt": 90.0, "pae": 3.0})
+
+
 def test_parse_confidence_json_empty_list_returns_empty(tmp_path: Path) -> None:
     path = tmp_path / "confidence.json"
     path.write_text("[]")
@@ -104,6 +132,48 @@ def test_parse_confidence_json_empty_list_returns_empty(tmp_path: Path) -> None:
 def test_parse_confidence_json_missing_file_raises(tmp_path: Path) -> None:
     with pytest.raises(FileNotFoundError):
         parse_confidence_json(tmp_path / "missing.json")
+
+
+def test_parse_confidence_json_merges_alphafold3_detail_and_summary(tmp_path: Path) -> None:
+    """One AlphaFold3 prediction must combine detail and summary metrics."""
+    detailed = tmp_path / "job_confidences.json"
+    summary = tmp_path / "job_summary_confidences.json"
+    detailed.write_text(
+        json.dumps({"atom_plddts": [80, 90], "pae": [[1, 3], [5, 7]], "ptm": "0.75"}),
+        encoding="utf-8",
+    )
+    summary.write_text(
+        json.dumps({"complex_plddt": 0.91, "complex_iptm": "0.82"}),
+        encoding="utf-8",
+    )
+
+    expected = {"plddt": 85.0, "pae": 4.0, "ptm": 0.75, "iptm": 0.82}
+    assert parse_confidence_json(detailed) == pytest.approx(expected)
+    assert parse_confidence_json(summary) == pytest.approx(expected)
+
+
+def test_parse_confidence_json_normalizes_complex_plddt(tmp_path: Path) -> None:
+    path = tmp_path / "summary_confidences.json"
+    path.write_text(json.dumps({"complex_plddt": "0.875"}), encoding="utf-8")
+    assert parse_confidence_json(path)["plddt"] == pytest.approx(87.5)
+
+
+def test_discover_confidence_files_deduplicates_af3_pair_and_keeps_boltz_models(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "job_confidences.json").write_text("{}", encoding="utf-8")
+    (tmp_path / "job_summary_confidences.json").write_text("{}", encoding="utf-8")
+    model_one = tmp_path / "confidence_target_model_1.json"
+    model_two = tmp_path / "confidence_target_model_2.json"
+    model_one.write_text("{}", encoding="utf-8")
+    model_two.write_text("{}", encoding="utf-8")
+
+    discovered = discover_confidence_files(tmp_path)
+    assert discovered == [
+        tmp_path / "confidence_target_model_1.json",
+        tmp_path / "confidence_target_model_2.json",
+        tmp_path / "job_confidences.json",
+    ]
 
 
 def test_read_fasta_empty_file(tmp_path: Path) -> None:
@@ -387,7 +457,8 @@ def test_extract_content_text_happy_path() -> None:
 
 def test_extract_content_text_malformed_shapes() -> None:
     """Malformed payloads return "" instead of raising (#27)."""
-    assert extract_content_text("not-a-dict") == ""
+    # A direct string is a valid host response, not a malformed object.
+    assert extract_content_text("not-a-dict") == "not-a-dict"
     assert extract_content_text({}) == ""
     assert extract_content_text({"content": "a-string"}) == ""
     assert extract_content_text({"content": []}) == ""
@@ -441,3 +512,32 @@ def test_probe_gpus_empty_list_when_no_gpu(monkeypatch) -> None:
 
     monkeypatch.setattr(utils.subprocess, "run", fake_run)
     assert utils.probe_gpus() == []
+
+
+def test_get_hook_invoked_runner_accepts_only_structured_allowlisted_shell_commands():
+    assert get_hook_invoked_runner({
+        "tool_name": "Bash",
+        "tool_input": {"command": "python scripts/run_boltz.py --out-dir outputs"},
+    }) == "run_boltz"
+    assert get_hook_invoked_runner({
+        "tool_name": "PowerShell",
+        "tool_input": {"command": r'python "C:\\repo path\\scripts\\run_omegafold.py" -o out'},
+    }) == "run_omegafold"
+    assert get_hook_invoked_runner({
+        "tool_name": "Bash",
+        "tool_input": {"command": "python scripts/run_boltz.py; echo injected"},
+    }) is None
+    assert get_hook_invoked_runner({
+        "tool_name": "Bash",
+        "tool_input": {"command": "python -c 'run_boltz.py'"},
+    }) is None
+    assert get_hook_invoked_runner({
+        "tool_name": "Bash",
+        "tool_input": {"command": "python scripts/not-run_boltz.py"},
+    }) is None
+
+
+def test_hook_advisory_output_has_portable_context_schema():
+    assert json.loads(hook_advisory_output("Use a smaller batch.")) == {
+        "hookSpecificOutput": {"additionalContext": "Use a smaller batch."}
+    }

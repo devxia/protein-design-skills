@@ -291,7 +291,7 @@ Single-stage failures do not affect completed stages. Results are preserved in t
 | 1 | GPU OOM | Reduce `num_designs` or `diffuser_T` |
 | 2 | Chain ID mismatch | Verify chain IDs in PDB match params |
 | 3 | JSON format error | Re-run `convert_format` |
-| 3 | MSA timeout | Use `run_data_pipeline=false` if re-running |
+| 3 | MSA timeout | Re-run `scripts/run_alphafold3.py` with `--no-msa` |
 | 4 | All designs fail | Relax criteria or regenerate |
 
 ## Installation & Session Notes

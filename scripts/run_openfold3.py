@@ -19,42 +19,38 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from protein_design.utils import get_config, log_history
-from protein_design.conda_utils import build_tool_command, resolve_wrapper_script
+from protein_design.conda_utils import build_tool_command, resolve_wrapper_script, resolve_configured_path
+from protein_design.process_utils import run_process
 
 import argparse
+import shutil
 import subprocess
 import time
 
 
 def find_openfold3(config):
     """Locate OpenFold3 installation."""
-    # 1. Configured path / environment variable
-    if config.get("openfold3_path"):
-        path = Path(config["openfold3_path"])
-        if path.exists():
-            return str(path)
+    # 1. Configured path / environment variable.  Resolve only OpenFold3's
+    # known script/console entry points when a directory is configured.
+    configured = resolve_configured_path(
+        config.get("openfold3_path"),
+        [
+            "run_pretrained_openfold.py",
+            "scripts/run_pretrained_openfold.py",
+            "openfold3",
+            "openfold-run",
+            "bin/openfold3",
+            "bin/openfold-run",
+        ],
+    )
+    if configured:
+        return configured
 
-    # 2. Try direct openfold command
-    try:
-        result = subprocess.run(
-            ["which", "openfold3"],
-            capture_output=True, text=True, timeout=5
-        )
-        if result.returncode == 0 and result.stdout.strip():
-            return "openfold3"
-    except FileNotFoundError:
-        pass
-
-    # 3. Try openfold-run (alternative entry point)
-    try:
-        result = subprocess.run(
-            ["which", "openfold-run"],
-            capture_output=True, text=True, timeout=5
-        )
-        if result.returncode == 0 and result.stdout.strip():
-            return "openfold-run"
-    except FileNotFoundError:
-        pass
+    # 2. Try direct CLI entry points on PATH.
+    if shutil.which("openfold3"):
+        return "openfold3"
+    if shutil.which("openfold-run"):
+        return "openfold-run"
 
     # 4. Conda environments
     conda_envs = ["openfold3", "openfold", "protein-design"]
@@ -142,7 +138,7 @@ def run_openfold3(input_file, out_dir, model_dir=None, db_dir=None,
 
     start_time = time.time()
     try:
-        result = subprocess.run(
+        result = run_process(
             cmd,
             capture_output=True,
             text=True,

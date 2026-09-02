@@ -22,7 +22,13 @@ import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from protein_design.utils import read_fasta, write_fasta, fasta_to_alphafold3_json
+from protein_design.utils import (
+    discover_confidence_files,
+    fasta_to_alphafold3_json,
+    parse_confidence_json,
+    read_fasta,
+    write_fasta,
+)
 
 import argparse
 import csv
@@ -113,15 +119,15 @@ def json_results_to_csv(results_dir, output_csv):
     results_path = Path(results_dir)
     rows = []
 
-    for conf_file in results_path.rglob("confidence.json"):
+    for conf_file in discover_confidence_files(results_path):
         try:
-            with open(conf_file, encoding="utf-8") as f:
-                data = json.load(f)
-
+            metrics = parse_confidence_json(conf_file)
+            if not metrics:
+                continue
             row = {"name": conf_file.parent.name}
             for key in ["plddt", "ptm", "iptm", "pae"]:
-                if key in data:
-                    row[key] = data[key]
+                if key in metrics:
+                    row[key] = metrics[key]
             rows.append(row)
         except Exception:
             pass

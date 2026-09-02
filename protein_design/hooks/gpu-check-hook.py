@@ -24,7 +24,12 @@ import traceback
 from typing import Any
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
-from protein_design.utils import probe_gpus, read_hook_input
+from protein_design.utils import (
+    get_hook_invoked_runner,
+    hook_advisory_output,
+    probe_gpus,
+    read_hook_input,
+)
 
 
 # Tools that require a GPU in practice (per skills/ hardware notes):
@@ -81,40 +86,34 @@ def check_disk(min_free_gb: int = 1) -> tuple[bool, str]:
 
 def _is_gpu_required_invocation(data: dict[str, Any]) -> bool:
     """Detect whether the payload invokes a GPU-required runner script."""
-    try:
-        payload_text = json.dumps(data)
-    except (TypeError, ValueError):
-        return False
-    return any(name in payload_text for name in GPU_REQUIRED_TOOLS)
+    return get_hook_invoked_runner(data) in GPU_REQUIRED_TOOLS
 
 
 def main() -> int:
     """Main entry point."""
-    # Read the PreToolUse payload to learn which tool is being invoked;
-    # the low-memory block only applies to GPU-required tools.
-    gpu_required = False
     try:
         data = read_hook_input()
-        if isinstance(data, dict):
-            gpu_required = _is_gpu_required_invocation(data)
     except Exception:
-        # Fail open: a malformed payload must never block execution.
-        pass
+        # A malformed or unstructured payload must never block execution.
+        return 0
+    if not isinstance(data, dict) or get_hook_invoked_runner(data) is None:
+        return 0
 
-    gpu_ok, gpu_msg = check_gpu(gpu_required=gpu_required)
+    gpu_ok, gpu_msg = check_gpu(gpu_required=_is_gpu_required_invocation(data))
     disk_ok, disk_msg = check_disk()
 
     if not gpu_ok:
-        print(f"⚠️  GPU check failed: {gpu_msg}", file=sys.stderr)
+        print(f"GPU check failed: {gpu_msg}", file=sys.stderr)
         return 2
-    if "warning" in gpu_msg or "No NVIDIA GPU" in gpu_msg:
-        print(f"ℹ️  GPU check: {gpu_msg}", file=sys.stderr)
-
     if not disk_ok:
-        print(f"⚠️  Disk check failed: {disk_msg}", file=sys.stderr)
+        print(f"Disk check failed: {disk_msg}", file=sys.stderr)
         return 2
 
-    # Optional: warn about low GPU memory for AlphaFold3
+    messages = []
+    if "warning" in gpu_msg or "No NVIDIA GPU" in gpu_msg:
+        messages.append(f"GPU check: {gpu_msg}")
+
+    # Optional warning about low total GPU memory for AlphaFold3.
     try:
         result = subprocess.run(
             ["nvidia-smi", "--query-gpu=memory.total", "--format=csv,noheader,nounits"],
@@ -124,14 +123,16 @@ def main() -> int:
             check=True,
         )
         total_mb_str = result.stdout.strip().split("\n")[0].strip()
-        if not total_mb_str:
-            return 0
-        total_mb = float(total_mb_str)
-        if total_mb < 16000:
-            print(f"ℹ️  Low GPU memory detected ({int(total_mb)}MB). AlphaFold3 may be slow.", file=sys.stderr)
+        if total_mb_str and float(total_mb_str) < 16000:
+            messages.append(
+                f"Low GPU memory detected ({int(float(total_mb_str))}MB). AlphaFold3 may be slow."
+            )
     except Exception:
         pass
 
+    output = hook_advisory_output("\n".join(messages))
+    if output:
+        print(output)
     return 0
 
 

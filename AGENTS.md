@@ -18,7 +18,7 @@ The plugin uses a three-layer architecture with no server:
 | Layer | Purpose | Count | Location |
 |-------|---------|-------|----------|
 | **Skills** | Markdown knowledge consumed by the LLM | 76 | `skills/` |
-| **Hooks** | Automation scripts that fire on agent events | 22 | `protein_design/hooks/` |
+| **Hooks** | Cross-host automation registrations that fire on agent events | 20 | Host manifests |
 | **Scripts** | Standalone command-line execution | 19 | `scripts/` |
 
 The canonical five-stage design pipeline is:
@@ -53,7 +53,7 @@ protein-design-skills/
 │   ├── __init__.py              # Version string
 │   ├── utils.py                 # Shared helpers (FASTA, config, notifications, confidence parsing)
 │   ├── conda_utils.py           # Cross-conda tool execution helpers (env probing, command building)
-│   └── hooks/                   # Hook scripts (22 automation hooks + install-hooks.py)
+│   └── hooks/                   # Hook scripts (20 cross-host registrations + installer)
 ├── scripts/                     # 19 standalone CLI scripts
 ├── skills/                      # 76 skill directories, each containing SKILL.md
 ├── skills/SKILL_INDEX.md        # Index of all skills
@@ -61,7 +61,8 @@ protein-design-skills/
 ├── docs/                        # Bilingual documentation (en/zh)
 ├── docs/AGENTS.md               # Rules for maintaining docs/
 ├── examples/                    # Example pipeline YAML configs
-├── hooks/hooks.json             # Canonical hook definitions consumed by install-hooks.py
+├── hooks/hooks.json             # Claude Code hook definitions
+├── hooks/codex-hooks.json       # Codex CLI hook definitions
 ├── plugin.json                  # Root-level metadata
 ├── kimi.plugin.json             # Kimi Code manifest
 ├── .claude-plugin/plugin.json   # Claude Code manifest
@@ -74,14 +75,15 @@ protein-design-skills/
 
 ### `protein_design/hooks/`
 
-Hook scripts fire automatically after installation. They are grouped by agent event in `hooks/hooks.json`:
+Hook scripts fire automatically after installation. Claude definitions are grouped by agent event in `hooks/hooks.json`; Codex uses the equivalent host-specific `hooks/codex-hooks.json`.
 
 - **UserPromptSubmit**: onboarding, health checks, context injection, tool recommendations, parameter tuning, batch orchestration, progress query helper, cost estimation, parameter generation.
 - **PreToolUse**: alternative-tool recommender, execution adapter, GPU check.
 - **PostToolUse**: design-complete notify, design comparator, design report, error recovery, format converter, job monitor, pipeline orchestrator, quality gate.
-- **Notification**: progress reporter, background notify.
 
-`install-hooks.py` is the cross-agent installer. It reads `hooks/hooks.json` and registers hooks for Claude Code, Codex CLI, and/or Kimi Code.
+Only these three cross-host events are registered; progress and background helper scripts remain available for direct use but are not registered as unsupported Notification hooks.
+
+`install-hooks.py` is the cross-agent installer. It reads the host-specific sources (`hooks/hooks.json`, `hooks/codex-hooks.json`, or `kimi.plugin.json`) and registers hooks for Claude Code, Codex CLI, and/or Kimi Code.
 
 Key hooks and what they do:
 
@@ -91,7 +93,7 @@ Key hooks and what they do:
 | **session-health-check** | Protein prompts | Checks installed tools, suggests alternatives for missing ones |
 | **tool-recommender** | Design requests | Recommends scripts and parameters for your scenario |
 | **error-recovery** | Tool failures | Suggests fixes, alternative tools, and install commands |
-| **progress-reporter** | Long jobs | ETA estimation, file counting, progress updates |
+| **progress-reporter** | Direct helper (not registered) | On-demand ETA estimation, file counting, and progress updates |
 | **pipeline-orchestrator** | Stage completion | Auto-detects next step, suggests what to run |
 | **quality-gate** | Validation results | Pass/fail decisions with thresholds |
 | **design-report** | Filtering complete | Auto-generates summary with rankings |
@@ -272,11 +274,12 @@ This project supports multiple coding agents with agent-specific manifest files:
 |------|---------|---------|
 | `.claude-plugin/plugin.json` | Claude Code plugin manifest. Must contain only plugin metadata plus `skills` paths. Do **not** put `category`, `source`, or the default `hooks` path here; Claude auto-discovers `hooks/hooks.json`. | Claude Code |
 | `.claude-plugin/marketplace.json` | Claude marketplace registration. `category` and `source` belong here; `source` should be `"./"`. | `claude plugin marketplace add` |
-| `.codex-plugin/plugin.json` | Codex CLI plugin manifest. Can declare `hooks` pointing to `hooks/hooks.json`. | Codex CLI |
+| `.codex-plugin/plugin.json` | Codex CLI plugin manifest. Declares `hooks/codex-hooks.json`. | Codex CLI |
 | `plugin.json` | Root-level metadata | npm, GitHub, general tooling |
-| `kimi.plugin.json` | Kimi Code plugin manifest | Kimi Code |
+| `kimi.plugin.json` | Kimi Code plugin manifest and native hook source | Kimi Code |
 | `.agents/plugins/marketplace.json` | Multi-agent marketplace index | `.agents` plugin loader |
-| `hooks/hooks.json` | Canonical hook definitions. Uses `${CLAUDE_PLUGIN_ROOT}` for portable paths. | `install-hooks.py`, Claude Code auto-discovery, Codex manifest hooks |
+| `hooks/hooks.json` | Claude hook definitions using `${CLAUDE_PLUGIN_ROOT}`. | Claude Code auto-discovery, `install-hooks.py` |
+| `hooks/codex-hooks.json` | Codex hook definitions using `${PLUGIN_ROOT}` and supported Codex event matchers. | Codex manifest, `install-hooks.py` |
 
 ## Deployment / distribution
 

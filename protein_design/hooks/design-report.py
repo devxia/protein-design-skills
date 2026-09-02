@@ -8,17 +8,23 @@ import sys
 import os
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
-from protein_design.utils import get_config, parse_confidence_json, read_hook_input
+from protein_design.utils import (
+    discover_confidence_files, get_config, get_hook_invoked_runner,
+    get_hook_tool_input, hook_advisory_output, parse_confidence_json,
+    read_hook_input,
+)
 import traceback
 import json
-from typing import Any
+from typing import Any, Optional
 
 
-def _find_output_dir(data: dict[str, Any]) -> Path | None:
+def _find_output_dir(data: dict[str, Any]) -> Optional[Path]:
     """Infer output directory from hook payload or common defaults."""
     # Try payload fields
+    tool_input = get_hook_tool_input(data)
+    tool_input = tool_input if isinstance(tool_input, dict) else {}
     for key in ("output_dir", "results_dir", "output_prefix", "out_folder"):
-        val = data.get("tool_input", {}).get(key) or data.get(key)
+        val = tool_input.get(key) or data.get(key)
         if val:
             p = Path(str(val)).expanduser()
             if p.is_dir() or p.parent.is_dir():
@@ -67,25 +73,14 @@ def _count_files(root: Path, suffixes: tuple[str, ...]) -> int:
 def _collect_designs(root: Path) -> list[dict[str, Any]]:
     """Collect all validated designs sorted by pLDDT."""
     designs: list[dict[str, Any]] = []
-    seen: set[str] = set()
 
-    try:
-        conf_paths = list(root.rglob("confidence.json"))
-    except OSError:
-        conf_paths = []
-
-    for conf_path in conf_paths:
+    for conf_path in discover_confidence_files(root):
         try:
             metrics = parse_confidence_json(conf_path)
         except Exception:
             continue
         if metrics.get("plddt") is None:
             continue
-        key = str(conf_path.resolve())
-        if key in seen:
-            continue
-        seen.add(key)
-
         plddt = float(metrics["plddt"])
         iptm = metrics.get("iptm")
         ptm = metrics.get("ptm")
@@ -112,7 +107,7 @@ def _collect_designs(root: Path) -> list[dict[str, Any]]:
     return designs
 
 
-def _load_filtered_results(root: Path) -> dict[str, Any] | None:
+def _load_filtered_results(root: Path) -> Optional[dict[str, Any]]:
     """Load filtered_results.json produced by scripts/run_filtering.py."""
     path = root / "filtered_results.json"
     if not path.exists():
@@ -310,20 +305,12 @@ def main() -> int:
     if not isinstance(data, dict):
         return 0
 
-    # Activate after filtering or when explicitly requested
-    tool_name = str(data.get("tool", "")).lower()
-    tool_input = data.get("tool_input", {})
-    if isinstance(tool_input, dict):
-        tool_name_alt = str(tool_input.get("tool", "")).lower()
-    else:
-        tool_name_alt = ""
-
-    if "filter" not in tool_name and "filter" not in tool_name_alt:
+    if get_hook_invoked_runner(data) != "run_filtering":
         return 0
 
     report = _generate_report(data)
     if report:
-        print(report)
+        print(hook_advisory_output(report))
     return 0
 
 
